@@ -59,6 +59,30 @@ static const char *governance_xml =
     "  </domain_access_rules>"
     "</dds>";
 
+static const char *permissions_xml =
+    "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+    "<dds xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"https://www.omg.org/spec/DDS-SECURITY/20170901/omg_shared_ca_permissions.xsd\">"
+    "  <permissions>"
+    "    <grant name=\"default_permissions\">"
+    "      <subject_name>emailAddress=alice@cycloneddssecurity.adlinktech.com,CN=Alice Example,O=Example Organization,OU=Organizational Unit Name,L=Locality Name,ST=OV,C=NL</subject_name>"
+    "      <validity><not_before>2015-09-15T01:00:00</not_before><not_after>2115-09-15T01:00:00</not_after></validity>"
+    "      <allow_rule>"
+    "        <domains><id_range><min>0</min><max>230</max></id_range></domains>"
+    "        <publish>"
+    "          <topics><topic>*</topic></topics>"
+    "          <partitions><partition>*</partition></partitions>"
+    "        </publish>"
+    "        <subscribe>"
+    "          <topics><topic>*</topic></topics>"
+    "          <partitions><partition>*</partition></partitions>"
+    "        </subscribe>"
+    "      </allow_rule>"
+    "      <default>DENY</default>"
+    "    </grant>"
+    "  </permissions>"
+    "</dds>";
+
+
 const char * expand_lookup_vars(const char *name, void * data)
 {
   struct kvp *vars = (struct kvp *)data;
@@ -157,18 +181,26 @@ static char * smime_sign(char * ca_cert_path, char * ca_priv_key_path, const cha
   return output;
 }
 
-static char *get_signed_governance_data(const char *gov_xml)
+static char *get_signed_data(const char *data)
 {
   return smime_sign (
     COMMON_ETC_PATH("default_permissions_ca.pem"),
     COMMON_ETC_PATH("default_permissions_ca_key.pem"),
-    gov_xml);
+    data);
 }
 
 char * get_governance_config(struct kvp *config_vars)
 {
   char * config = ddsrt_expand_vars(governance_xml, &expand_lookup_vars, config_vars);
-  char * config_signed = get_signed_governance_data(config);
+  char * config_signed = get_signed_data(config);
+  ddsrt_free (config);
+  return config_signed;
+}
+
+char * get_permissions_config(struct kvp *config_vars)
+{
+  char * config = ddsrt_expand_vars(permissions_xml, &expand_lookup_vars, config_vars);
+  char * config_signed = get_signed_data(config);
   ddsrt_free (config);
   return config_signed;
 }

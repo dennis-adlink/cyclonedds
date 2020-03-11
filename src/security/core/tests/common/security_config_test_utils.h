@@ -26,5 +26,6 @@ const char * expand_lookup_vars_env (const char *name, void * data);
 int32_t expand_lookup_unmatched (const struct kvp * lookup_table);
 
 char * get_governance_config (struct kvp *config_vars);
+char * get_permissions_config(struct kvp *config_vars);
 
 #endif /* SECURITY_CORE_TEST_SECURITY_CONFIG_TEST_UTILS_H_ */

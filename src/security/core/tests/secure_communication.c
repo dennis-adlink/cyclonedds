@@ -187,8 +187,8 @@ static dds_entity_t create_pp (dds_domainid_t domain_id, const struct domain_sec
   CU_ASSERT_FATAL (pp > 0);
   struct dds_security_cryptography_impl * crypto_context = get_crypto_context (pp);
   CU_ASSERT_FATAL (crypto_context != NULL);
-  if (set_crypto_params)
-    set_crypto_params (crypto_context, domain_config);
+  assert (set_crypto_params);
+  set_crypto_params (crypto_context, domain_config);
   return pp;
 }
 
@@ -417,13 +417,14 @@ static void set_encryption_parameters_basic(struct dds_security_cryptography_imp
 static void set_encryption_parameters_secret(struct dds_security_cryptography_impl * crypto_context, const struct domain_sec_config *domain_config)
 {
   set_encrypted_secret (crypto_context, domain_config->payload_secret);
+  set_protection_kinds (crypto_context, domain_config->rtps_pk, domain_config->metadata_pk, domain_config->payload_pk);
 }
 
 static void test_discovery_liveliness_protection(DDS_Security_ProtectionKind discovery_pk, DDS_Security_ProtectionKind liveliness_pk)
 {
   struct domain_sec_config domain_config = { discovery_pk, liveliness_pk, PK_N, PK_N, BPK_N, NULL };
   /* FIXME: add more asserts in wrapper or test instead of just testing communication */
-  test_write_read (&domain_config, 1, 1, 1, 1, 1, 1, NULL);
+  test_write_read (&domain_config, 1, 1, 1, 1, 1, 1, &set_encryption_parameters_basic);
 }
 
 static void test_data_protection_kind(DDS_Security_ProtectionKind rtps_pk, DDS_Security_ProtectionKind metadata_pk, DDS_Security_BasicProtectionKind payload_pk)
@@ -435,13 +436,13 @@ static void test_data_protection_kind(DDS_Security_ProtectionKind rtps_pk, DDS_S
 static void test_multiple_readers(size_t n_dom, size_t n_pp, size_t n_rd, DDS_Security_ProtectionKind metadata_pk, DDS_Security_BasicProtectionKind payload_pk)
 {
   struct domain_sec_config domain_config = { PK_N, PK_N, PK_N, metadata_pk, payload_pk, NULL };
-  test_write_read (&domain_config, n_dom, n_pp, n_rd, 1, 1, 1, NULL);
+  test_write_read (&domain_config, n_dom, n_pp, n_rd, 1, 1, 1, &set_encryption_parameters_basic);
 }
 
 static void test_multiple_writers(size_t n_rd_dom, size_t n_rd, size_t n_wr_dom, size_t n_wr, DDS_Security_ProtectionKind metadata_pk)
 {
   struct domain_sec_config domain_config = { PK_N, PK_N, PK_N, metadata_pk, BPK_N, NULL };
-  test_write_read (&domain_config, n_rd_dom, 1, n_rd, n_wr_dom, 1, n_wr, NULL);
+  test_write_read (&domain_config, n_rd_dom, 1, n_rd, n_wr_dom, 1, n_wr, &set_encryption_parameters_basic);
 }
 
 static void test_payload_secret(DDS_Security_ProtectionKind rtps_pk, DDS_Security_ProtectionKind metadata_pk, DDS_Security_BasicProtectionKind payload_pk)

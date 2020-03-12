@@ -2280,6 +2280,7 @@ validate_handshake_reply_token(
 err_inv_signature:
 err_no_challenge:
 err_inv_dh:
+    EVP_PKEY_free(*pdhkey);
 err_no_signature:
 err_inv_hash_c2:
 err_inv_hash_c1:

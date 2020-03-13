@@ -210,7 +210,8 @@ void validate_handshake(dds_domainid_t domain_id, bool exp_localid_fail, const c
     {
       struct Handshake *hs = &handshakeList[n];
       printf("Result: hs %"PRId64", node type %s, final result %s\n", hs->handle, node_type_str[hs->node_type], validatation_result_str[hs->finalResult]);
-      printf("- err_msg: %s\n", hs->err_msg);
+      if (hs->err_msg && strlen (hs->err_msg))
+        printf("- err_msg: %s\n", hs->err_msg);
     }
     if (nhs)
       *nhs = numHandshake;

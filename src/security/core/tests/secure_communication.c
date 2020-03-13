@@ -230,7 +230,7 @@ static void test_init(const struct domain_sec_config * domain_config, size_t n_s
   print_config_vars(governance_vars);
   printf("\n");
 
-  char * gov_config_signed = get_governance_config (governance_vars);
+  char * gov_config_signed = get_governance_config (governance_vars, false);
 
   struct kvp config_vars[] = {
     { "GOVERNANCE_DATA", gov_config_signed, 1 },

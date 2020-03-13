@@ -20,10 +20,12 @@
 #include <openssl/x509.h>
 
 #include "dds/ddsrt/heap.h"
+#include "dds/ddsrt/string.h"
 #include "CUnit/Test.h"
 #include "cert_utils.h"
 
 #define MAX_EMAIL 255
+#define EMAIL_HOST "cycloneddssecurity.adlinktech.com"
 
 static X509 * get_x509(int not_valid_before, int not_valid_after, const char * cn, const char * email)
 {
@@ -82,44 +84,55 @@ static X509 * get_cert(const char * cert_str)
 char * generate_ca(const char *ca_name, const char * ca_priv_key_str, int not_valid_before, int not_valid_after)
 {
   EVP_PKEY *ca_priv_key = get_priv_key (ca_priv_key_str);
+
   char * email = malloc (MAX_EMAIL);
-  snprintf(email, MAX_EMAIL, "%s@cycloneddssecurity.adlinktech.com", ca_name);
+  snprintf(email, MAX_EMAIL, "%s@%s" , ca_name, EMAIL_HOST);
   X509 * ca_cert = get_x509 (not_valid_before, not_valid_after, ca_name, email);
+  ddsrt_free (email);
+
   X509_set_pubkey (ca_cert, ca_priv_key);
   X509_set_issuer_name (ca_cert, X509_get_subject_name (ca_cert)); /* self-signed */
   X509_sign (ca_cert, ca_priv_key, EVP_sha1 ());
   char * output = get_x509_data (ca_cert);
+
   EVP_PKEY_free (ca_priv_key);
   X509_free (ca_cert);
-  ddsrt_free (email);
+
   return output;
 }
 
-char * generate_identity(const char * ca_cert_str, const char * ca_priv_key_str, const char * name, const char * priv_key_str, int not_valid_before, int not_valid_after)
+char * generate_identity(const char * ca_cert_str, const char * ca_priv_key_str, const char * name, const char * priv_key_str, int not_valid_before, int not_valid_after, char ** subject)
 {
   X509 *ca_cert = get_cert (ca_cert_str);
-  EVP_PKEY *pkey = get_priv_key (priv_key_str);
-  EVP_PKEY *ca_pkey = X509_get_pubkey (ca_cert);
   EVP_PKEY *ca_key_pkey = get_priv_key (ca_priv_key_str);
+  EVP_PKEY *id_pkey = get_priv_key (priv_key_str);
+  EVP_PKEY *ca_cert_pkey = X509_get_pubkey (ca_cert);
   X509_REQ *csr =  X509_REQ_new ();
-  X509_REQ_set_pubkey (csr, pkey);
-  X509_REQ_sign (csr, pkey, EVP_sha256());
+  X509_REQ_set_pubkey (csr, id_pkey);
+  X509_REQ_sign (csr, id_pkey, EVP_sha256 ());
 
   char * email = malloc (MAX_EMAIL);
-  snprintf(email, MAX_EMAIL, "%s@cycloneddssecurity.adlinktech.com", name);
+  snprintf(email, MAX_EMAIL, "%s@%s" , name, EMAIL_HOST);
   X509 * cert = get_x509 (not_valid_before, not_valid_after, name, email);
   ddsrt_free (email);
 
   EVP_PKEY *csr_pkey = X509_REQ_get_pubkey (csr);
   X509_set_pubkey (cert, csr_pkey);
-  EVP_PKEY_copy_parameters (ca_pkey, ca_key_pkey);
-  X509_set_issuer_name(cert, X509_get_subject_name(ca_cert));
-  X509_sign(cert, ca_key_pkey, EVP_sha256());
+  X509_set_issuer_name (cert, X509_get_subject_name (ca_cert));
+  X509_sign (cert, ca_key_pkey, EVP_sha256 ());
   char * output = get_x509_data (cert);
 
+  if (subject)
+  {
+    X509_NAME *subj_name = X509_get_subject_name (cert);
+    char * subj_openssl = X509_NAME_oneline (subj_name, NULL, 0);
+    *subject = ddsrt_strdup (subj_openssl);
+    OPENSSL_free (subj_openssl);
+  }
+
   X509_REQ_free (csr);
-  EVP_PKEY_free (pkey);
-  EVP_PKEY_free (ca_pkey);
+  EVP_PKEY_free (id_pkey);
+  EVP_PKEY_free (ca_cert_pkey);
   EVP_PKEY_free (ca_key_pkey);
   EVP_PKEY_free (csr_pkey);
   X509_free (cert);

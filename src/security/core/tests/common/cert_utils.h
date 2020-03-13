@@ -15,6 +15,6 @@
 #include <stdlib.h>
 
 char * generate_ca(const char *ca_name, const char * ca_priv_key_str, int not_valid_before, int not_valid_after);
-char * generate_identity(const char * ca_cert_str, const char * ca_priv_key_str, const char * name, const char * priv_key_str, int not_valid_before, int not_valid_after);
+char * generate_identity(const char * ca_cert_str, const char * ca_priv_key_str, const char * name, const char * priv_key_str, int not_valid_before, int not_valid_after, char ** subject);
 
 #endif /* SECURITY_CORE_TEST_CERT_UTILS_H_ */

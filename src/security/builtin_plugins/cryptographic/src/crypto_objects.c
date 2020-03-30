@@ -473,6 +473,7 @@ participant_key_material * crypto_local_participant_lookup_keymat(local_particip
 void crypto_remote_participant_add_keymat(remote_participant_crypto *rmt_pp_crypto, participant_key_material *keymat)
 {
   ddsrt_mutex_lock(&rmt_pp_crypto->lock);
+  printf("add keymat %p kind %x\n", keymat, keymat && keymat->remote_key_material ? keymat->remote_key_material->transformation_kind : 0xffff);
   ddsrt_avl_cinsert(&rmt_pp_keymat_treedef, &rmt_pp_crypto->key_material_table, CRYPTO_OBJECT_KEEP(keymat));
   ddsrt_mutex_unlock(&rmt_pp_crypto->lock);
 }
@@ -497,6 +498,7 @@ participant_key_material * crypto_remote_participant_lookup_keymat(remote_partic
 
   ddsrt_mutex_lock(&rmt_pp_crypto->lock);
   keymat = CRYPTO_OBJECT_KEEP(ddsrt_avl_clookup(&rmt_pp_keymat_treedef, &rmt_pp_crypto->key_material_table, &loc_pp_handle));
+  printf("lookup keymat %p kind %x\n", keymat, keymat && keymat->remote_key_material ? keymat->remote_key_material->transformation_kind : 0xffff);
   ddsrt_mutex_unlock(&rmt_pp_crypto->lock);
 
   return keymat;

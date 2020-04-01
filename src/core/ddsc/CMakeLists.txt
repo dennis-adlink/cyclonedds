@@ -113,7 +113,7 @@ install(
   COMPONENT dev)
 
 # TODO: improve test inclusion.
-if((BUILD_TESTING) AND (BUILD_IDLC) AND ((NOT DEFINED MSVC_VERSION) OR (MSVC_VERSION GREATER "1800")))
-  add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/tests")
-endif()
+# if((BUILD_TESTING) AND (BUILD_IDLC) AND ((NOT DEFINED MSVC_VERSION) OR (MSVC_VERSION GREATER "1800")))
+#   add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/tests")
+# endif()
 

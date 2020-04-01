@@ -91,7 +91,7 @@ PREPEND(hdrs_private_ddsi "${CMAKE_CURRENT_LIST_DIR}/include/dds/ddsi"
     ddsi_security_util.h
     ddsi_security_omg.h
     ddsi_portmapping.h
-    ddsi_handshake.h    
+    ddsi_handshake.h
     ddsi_serdata.h
     ddsi_sertopic.h
     ddsi_serdata_default.h
@@ -177,6 +177,6 @@ install(
   COMPONENT dev)
 
 # TODO: improve test inclusion.
-if((BUILD_TESTING) AND ((NOT DEFINED MSVC_VERSION) OR (MSVC_VERSION GREATER "1800")))
-  add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/tests")
-endif()
+# if((BUILD_TESTING) AND ((NOT DEFINED MSVC_VERSION) OR (MSVC_VERSION GREATER "1800")))
+#   add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/tests")
+# endif()

@@ -260,9 +260,9 @@ if(${CMAKE_C_COMPILER_ID} STREQUAL "SunPro")
   target_link_libraries(ddsrt INTERFACE socket nsl)
 endif()
 
-if(BUILD_TESTING)
-  add_subdirectory(tests)
-endif()
+# if(BUILD_TESTING)
+#   add_subdirectory(tests)
+# endif()
 
 install(
   DIRECTORY

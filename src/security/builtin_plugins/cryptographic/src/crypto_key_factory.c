@@ -74,6 +74,7 @@ crypto_token_copy(
       memcpy(dst->master_receiver_specific_key, src->master_receiver_specific_key._buffer, key_bytes);
   }
   dst->transformation_kind = src_transform_kind;
+  printf("crypto_token_copy keymat %p to %p kind %x\n", src, dst, dst ? dst->transformation_kind : 0xffff);
 };
 
 /* Compute KeyMaterial_AES_GCM_GMAC as described in DDS Security spec v1.1 section 9.5.2.1.2 (table 67 and table 68) */

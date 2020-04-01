@@ -168,6 +168,7 @@ bool crypto_cipher_decrypt_data(
   }
 
   /* initialize the cipher and set to AES GCM */
+  printf("session->key_size %u\n", session->key_size);
   if (session->key_size == 128)
   {
     if (EVP_DecryptInit_ex(ctx, EVP_aes_128_gcm(), NULL, NULL, NULL) != 1)
@@ -186,7 +187,6 @@ bool crypto_cipher_decrypt_data(
   }
   else
   {
-    printf("session->key_size %u\n", session->key_size);
     assert(0);
     DDS_Security_Exception_set(ex, DDS_CRYPTO_PLUGIN_CONTEXT, DDS_SECURITY_ERR_CIPHER_ERROR, 0, "Internal key_size is not correct: %u", session->key_size);
     goto fail_decrypt;

@@ -271,6 +271,7 @@ master_key_material * crypto_master_key_material_new(DDS_Security_CryptoTransfor
   master_key_material *keymat = ddsrt_calloc (1, sizeof(*keymat));
   crypto_object_init((CryptoObject *)keymat, CRYPTO_OBJECT_KIND_KEY_MATERIAL, master_key_material__free);
   keymat->transformation_kind = transform_kind;
+  printf("crypto_master_key_material_new keymat %p kind %x\n", keymat, keymat ? keymat->transformation_kind : 0xffff);
   if (CRYPTO_TRANSFORM_HAS_KEYS(transform_kind))
   {
     uint32_t key_bytes = CRYPTO_KEY_SIZE_BYTES(keymat->transformation_kind);
@@ -305,6 +306,7 @@ void crypto_master_key_material_set(master_key_material *dst, const master_key_m
     dst->receiver_specific_key_id = 0;
   }
   dst->transformation_kind = src->transformation_kind;
+  printf("crypto_master_key_material_set keymat %p (from src %p) kind %x\n", dst, src, dst ? dst->transformation_kind : 0xffff);
 }
 
 static bool generate_session_key(session_key_material *session, DDS_Security_SecurityException *ex)
@@ -473,7 +475,7 @@ participant_key_material * crypto_local_participant_lookup_keymat(local_particip
 void crypto_remote_participant_add_keymat(remote_participant_crypto *rmt_pp_crypto, participant_key_material *keymat)
 {
   ddsrt_mutex_lock(&rmt_pp_crypto->lock);
-  printf("add keymat %p kind %x\n", keymat, keymat && keymat->remote_key_material ? keymat->remote_key_material->transformation_kind : 0xffff);
+  printf("crypto_remote_participant_add_keymat keymat %p kind %x\n", keymat ? keymat->remote_key_material : NULL, keymat && keymat->remote_key_material ? keymat->remote_key_material->transformation_kind : 0xffff);
   ddsrt_avl_cinsert(&rmt_pp_keymat_treedef, &rmt_pp_crypto->key_material_table, CRYPTO_OBJECT_KEEP(keymat));
   ddsrt_mutex_unlock(&rmt_pp_crypto->lock);
 }
@@ -498,7 +500,7 @@ participant_key_material * crypto_remote_participant_lookup_keymat(remote_partic
 
   ddsrt_mutex_lock(&rmt_pp_crypto->lock);
   keymat = CRYPTO_OBJECT_KEEP(ddsrt_avl_clookup(&rmt_pp_keymat_treedef, &rmt_pp_crypto->key_material_table, &loc_pp_handle));
-  printf("lookup keymat %p kind %x\n", keymat, keymat && keymat->remote_key_material ? keymat->remote_key_material->transformation_kind : 0xffff);
+  printf("crypto_remote_participant_lookup_keymat keymat %p kind %x\n", keymat ? keymat->remote_key_material : NULL, keymat && keymat->remote_key_material ? keymat->remote_key_material->transformation_kind : 0xffff);
   ddsrt_mutex_unlock(&rmt_pp_crypto->lock);
 
   return keymat;

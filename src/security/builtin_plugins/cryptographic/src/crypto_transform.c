@@ -1886,6 +1886,7 @@ decode_rtps_message(dds_security_crypto_transform *instance,
   }
 
   /* calculate the session key */
+  printf("decode_rtps_message kind %d\n", pp_key_material->remote_key_material->transformation_kind);
   decoded_body = DDS_Security_OctetSeq_allocbuf(contents._length);
   if (!initialize_remote_session_info(&remote_session, &header, pp_key_material->remote_key_material->master_salt,
         pp_key_material->remote_key_material->master_sender_key, pp_key_material->remote_key_material->transformation_kind, ex))

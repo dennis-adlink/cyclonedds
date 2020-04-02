@@ -516,12 +516,9 @@ static void test_payload_secret(DDS_Security_ProtectionKind rtps_pk, DDS_Securit
 
 CU_Test(ddssec_secure_communication, protection_kinds, .timeout = 120)
 {
-  // DDS_Security_ProtectionKind rtps_pk[] = { PK_N, PK_S, PK_E };
-  // DDS_Security_ProtectionKind metadata_pk[] = { PK_N, PK_S, PK_E };
-  // DDS_Security_BasicProtectionKind payload_pk[] = { BPK_N, BPK_S, BPK_E };
-  DDS_Security_ProtectionKind rtps_pk[] = { PK_E };
-  DDS_Security_ProtectionKind metadata_pk[] = { PK_N };
-  DDS_Security_BasicProtectionKind payload_pk[] = { BPK_N };
+  DDS_Security_ProtectionKind rtps_pk[] = { PK_N, PK_S, PK_E };
+  DDS_Security_ProtectionKind metadata_pk[] = { PK_N, PK_S, PK_E };
+  DDS_Security_BasicProtectionKind payload_pk[] = { BPK_N, BPK_S, BPK_E };
   for (size_t rtps = 0; rtps < sizeof (rtps_pk) / sizeof (rtps_pk[0]); rtps++)
   {
     for (size_t metadata = 0; metadata < sizeof (metadata_pk) / sizeof (metadata_pk[0]); metadata++)

@@ -67,9 +67,9 @@ install(
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT lib
 )
 
-# if(BUILD_IDLC)
-#   add_subdirectory(xtests)
-# endif()
+if(BUILD_IDLC)
+  add_subdirectory(xtests)
+endif()
 
 if(BUILD_DOCS)
   set(DOXYGEN_GENERATE_HTML NO)

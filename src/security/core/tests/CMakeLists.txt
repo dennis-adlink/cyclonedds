@@ -62,9 +62,9 @@ function(add_wrapper libname linklibs)
 endfunction()
 
 set(security_core_test_sources
-    # "fsm.c"
-    # "timed_cb.c"
-    # "security_utils.c"
+    "fsm.c"
+    "timed_cb.c"
+    "security_utils.c"
 )
 
 if(ENABLE_SSL)
@@ -76,11 +76,11 @@ if(ENABLE_SSL)
     "common/security_config_test_utils.c"
     "common/test_utils.c"
     "common/cert_utils.c"
-    # "authentication.c"
-    # "access_control.c"
-    # "config.c"
-    # "handshake.c"
-    # "plugin_loading.c"
+    "authentication.c"
+    "access_control.c"
+    "config.c"
+    "handshake.c"
+    "plugin_loading.c"
     "secure_communication.c"
   )
 endif()

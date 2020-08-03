@@ -85,7 +85,6 @@ bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const type_identifie
 void ddsi_tl_handle_request (struct ddsi_domaingv *gv, const ddsi_guid_prefix_t *guid_prefix, struct ddsi_serdata *sample_common);
 void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample_common);
 
-
 #if defined (__cplusplus)
 }
 #endif

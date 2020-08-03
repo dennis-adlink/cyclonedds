@@ -391,12 +391,19 @@ dds_return_t dds_domain_resolve_type (dds_entity_t entity, unsigned char *type_i
     rc = DDS_RETCODE_PRECONDITION_NOT_MET;
     goto failed;
   }
+  ddsrt_mutex_lock (&gv->tl_admin_lock);
   if (tlm->state == TL_META_RESOLVED)
-    *sertype = (struct ddsi_sertype *) tlm->sertype;
+  {
+    *sertype = ddsi_sertype_ref (tlm->sertype);
+    ddsrt_mutex_unlock (&gv->tl_admin_lock);
+  }
   else
   {
+    ddsrt_mutex_unlock (&gv->tl_admin_lock);
+    ddsrt_mutex_lock (&gv->tl_resolved_lock);
     if (!ddsi_tl_request_type (gv, &type_id))
     {
+      ddsrt_mutex_unlock (&gv->tl_resolved_lock);
       rc = DDS_RETCODE_PRECONDITION_NOT_MET;
       goto failed;
     }
@@ -404,7 +411,6 @@ dds_return_t dds_domain_resolve_type (dds_entity_t entity, unsigned char *type_i
     const dds_time_t tnow = dds_time ();
     const dds_time_t abstimeout = (DDS_INFINITY - timeout <= tnow) ? DDS_NEVER : (tnow + timeout);
     *sertype = NULL;
-    ddsrt_mutex_lock (&gv->tl_resolved_lock);
     while (*sertype == NULL && dds_time () < abstimeout)
     {
       if (ddsrt_cond_waituntil (&gv->tl_resolved_cond, &gv->tl_resolved_lock, abstimeout))

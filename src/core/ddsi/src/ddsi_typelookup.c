@@ -148,6 +148,7 @@ static void ddsi_tl_meta_unref_impl_locked (struct ddsi_domaingv *gv, struct tl_
   tlm_endpoint_remove (gv, tlm, proxy_ep_guid);
   if (--tlm->refc == 0)
   {
+    GVTRACE (" remove tl_meta");
     ddsrt_hh_remove (gv->tl_admin, tlm);
     ddsi_tl_meta_fini (tlm);
   }
@@ -416,7 +417,7 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
   struct ddsi_sertype_default *st = NULL;
   bool resolved = false;
 
-  GVTRACE ("handle-tl-reply wr "PGUIDFMT " seqnr %"PRIi64" ntypeids %"PRIu32, PGUID (reply->writer_guid), reply->sequence_number, reply->types.n);
+  GVTRACE ("handle-tl-reply wr "PGUIDFMT " seqnr %"PRIi64" ntypeids %"PRIu32" ", PGUID (reply->writer_guid), reply->sequence_number, reply->types.n);
   while (n < reply->types.n)
   {
     ddsrt_mutex_lock (&gv->tl_admin_lock);
@@ -441,10 +442,11 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
         ddsi_sertype_register_locked (&st->c);
         sertype_new = true;
       }
+      ddsi_sertype_unref_locked (&st->c); // unref because both init_from_ser and sertype_lookup/register refcounts the type
       ddsrt_mutex_unlock (&gv->sertypes_lock);
 
       tlm->state = TL_META_RESOLVED;
-      tlm->sertype = &st->c; // refcounted by sertype_register
+      tlm->sertype = &st->c; // refcounted by sertype_register/lookup
       if (sertype_new)
       {
         gpe_match_upd = ddsrt_realloc (gpe_match_upd, (n_match_upd + tlm_endpoints_count (tlm)) * sizeof (*gpe_match_upd));
@@ -456,10 +458,10 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
       }
       resolved = true;
     }
-    GVTRACE ("\n");
     ddsrt_mutex_unlock (&gv->tl_admin_lock);
     n++;
   }
+  GVTRACE ("\n");
 
   if (resolved)
   {

@@ -33,8 +33,7 @@
 
 #define DDS_DOMAINID_PUB 0
 #define DDS_DOMAINID_SUB 1
-#define DDS_CONFIG_NO_PORT_GAIN "${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}<Discovery><ExternalDomainId>0</ExternalDomainId></Discovery>"
-#define DDS_CONFIG_NO_PORT_GAIN_LOG "${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}<Tracing><OutputFile>cyclonedds_liveliness_tests.${CYCLONEDDS_DOMAIN_ID}.${CYCLONEDDS_PID}.log</OutputFile><Verbosity>finest</Verbosity></Tracing><Discovery><ExternalDomainId>0</ExternalDomainId></Discovery>"
+#define DDS_CONFIG "${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}<Discovery><ExternalDomainId>0</ExternalDomainId></Discovery>"
 
 static dds_entity_t g_domain1 = 0;
 static dds_entity_t g_participant1 = 0;
@@ -49,8 +48,8 @@ static void typelookup_init (void)
   /* Domains for pub and sub use a different domain id, but the portgain setting
          * in configuration is 0, so that both domains will map to the same port number.
          * This allows to create two domains in a single test process. */
-  char *conf1 = ddsrt_expand_envvars (DDS_CONFIG_NO_PORT_GAIN, DDS_DOMAINID_PUB);
-  char *conf2 = ddsrt_expand_envvars (DDS_CONFIG_NO_PORT_GAIN, DDS_DOMAINID_SUB);
+  char *conf1 = ddsrt_expand_envvars (DDS_CONFIG, DDS_DOMAINID_PUB);
+  char *conf2 = ddsrt_expand_envvars (DDS_CONFIG, DDS_DOMAINID_SUB);
   g_domain1 = dds_create_domain (DDS_DOMAINID_PUB, conf1);
   g_domain2 = dds_create_domain (DDS_DOMAINID_SUB, conf2);
   dds_free (conf1);
@@ -113,11 +112,13 @@ typedef struct endpoint_info {
   size_t type_identifier_sz;
 } endpoint_info_t;
 
-static endpoint_info_t * find_typeid_match (dds_entity_t reader, type_identifier_t *type_id, const char * match_topic)
+static endpoint_info_t * find_typeid_match (dds_entity_t participant, dds_entity_t topic, type_identifier_t *type_id, const char * match_topic)
 {
   endpoint_info_t *result = NULL;
   dds_time_t t_start = dds_time ();
   dds_duration_t timeout = DDS_SECS (5);
+  dds_entity_t reader = dds_create_reader (participant, topic, NULL, NULL);
+  CU_ASSERT_FATAL (reader > 0);
   do
   {
     void *ptrs[100] = { 0 };
@@ -231,32 +232,23 @@ CU_Test(ddsc_typelookup, basic, .init = typelookup_init, .fini = typelookup_fini
   dds_entity_t topic_rd = dds_create_topic (g_participant1, &Space_Type3_desc, topic_name_rd, NULL, NULL);
   CU_ASSERT_FATAL(topic_rd > 0);
 
-  dds_qos_t *qos = dds_create_qos ();
-  dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, DDS_SECS (10));
-  dds_qset_history (qos, DDS_HISTORY_KEEP_ALL, 0);
-  CU_ASSERT_FATAL (qos != NULL);
-
   /* create a writer and reader on domain 1 */
+  dds_qos_t *qos = dds_create_qos ();
+  CU_ASSERT_FATAL (qos != NULL);
   dds_entity_t writer = dds_create_writer (g_participant1, topic_wr, qos, NULL);
   CU_ASSERT_FATAL (writer > 0);
   dds_entity_t reader = dds_create_reader (g_participant1, topic_rd, qos, NULL);
   CU_ASSERT_FATAL (reader > 0);
+  dds_delete_qos (qos);
   type_identifier_t *wr_type_id = get_type_identifier(writer);
   type_identifier_t *rd_type_id = get_type_identifier(reader);
 
-  /* create readers for DCPSPublication and DCPSSubscription in domain 2 */
-  dds_entity_t pub_reader = dds_create_reader (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, NULL, NULL);
-  CU_ASSERT_FATAL (pub_reader > 0);
-  dds_entity_t sub_reader = dds_create_reader (g_participant2, DDS_BUILTIN_TOPIC_DCPSSUBSCRIPTION, NULL, NULL);
-  CU_ASSERT_FATAL (pub_reader > 0);
-
   /* check that reader and writer (with correct type id) are discovered in domain 2 */
-  endpoint_info_t *writer_ep = find_typeid_match (pub_reader, wr_type_id, topic_name_wr);
-  endpoint_info_t *reader_ep = find_typeid_match (sub_reader, rd_type_id, topic_name_rd);
+  endpoint_info_t *writer_ep = find_typeid_match (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, wr_type_id, topic_name_wr);
+  endpoint_info_t *reader_ep = find_typeid_match (g_participant2, DDS_BUILTIN_TOPIC_DCPSSUBSCRIPTION, rd_type_id, topic_name_rd);
 
   endpoint_info_free (writer_ep);
   endpoint_info_free (reader_ep);
-  dds_delete_qos (qos);
   dds_free (wr_type_id);
   dds_free (rd_type_id);
 }
@@ -288,12 +280,10 @@ CU_Test(ddsc_typelookup, api_resolve, .init = typelookup_init, .fini = typelooku
   type_identifier_t *type_id = get_type_identifier(writer);
 
   /* wait for DCPSPublication to be received */
-  dds_entity_t pub_reader = dds_create_reader (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, NULL, NULL);
-  CU_ASSERT_FATAL (pub_reader > 0);
-  endpoint_info_t *writer_ep = find_typeid_match (pub_reader, type_id, name);
+  endpoint_info_t *writer_ep = find_typeid_match (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, type_id, name);
 
   /* check if type can be resolved */
-  ret = dds_domain_resolve_type (g_participant2, type_id->hash, sizeof (type_id->hash), DDS_SECS (3), &sertype);
+  ret = dds_domain_resolve_type (g_participant2, type_id->hash, sizeof (type_id->hash), DDS_SECS (15), &sertype);
   CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
   CU_ASSERT_FATAL (sertype != NULL);
 
@@ -338,13 +328,11 @@ CU_Test(ddsc_typelookup, api_resolve_invalid, .init = typelookup_init, .fini = t
   type_identifier_t *type_id = get_type_identifier(writer);
 
   /* wait for DCPSPublication to be received */
-  dds_entity_t pub_reader = dds_create_reader (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, qos, NULL);
-  CU_ASSERT_FATAL (pub_reader > 0);
-  endpoint_info_t *writer_ep = find_typeid_match (pub_reader, type_id, name);
+  endpoint_info_t *writer_ep = find_typeid_match (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, type_id, name);
 
   /* confirm that invalid type id cannot be resolved */
   type_id->hash[0]++;
-  ret = dds_domain_resolve_type (g_participant2, type_id->hash, sizeof (type_id->hash), DDS_SECS (3), &sertype);
+  ret = dds_domain_resolve_type (g_participant2, type_id->hash, sizeof (type_id->hash), DDS_SECS (15), &sertype);
   CU_ASSERT_NOT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
 
   dds_delete_qos (qos);

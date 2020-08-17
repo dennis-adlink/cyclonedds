@@ -387,13 +387,14 @@ dds_return_t dds_domain_resolve_type (dds_entity_t entity, unsigned char *type_i
 
   struct ddsi_domaingv *gv = &e->m_domain->gv;
   memcpy (&type_id.hash, type_identifier, sizeof (type_id));
-  struct tl_meta *tlm = ddsi_tl_meta_lookup (gv, &type_id);
+  ddsrt_mutex_lock (&gv->tl_admin_lock);
+  struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, &type_id);
   if (tlm == NULL)
   {
+    ddsrt_mutex_unlock (&gv->tl_admin_lock);
     rc = DDS_RETCODE_PRECONDITION_NOT_MET;
     goto failed;
   }
-  ddsrt_mutex_lock (&gv->tl_admin_lock);
   if (tlm->state == TL_META_RESOLVED)
   {
     *sertype = ddsi_sertype_ref (tlm->sertype);
@@ -402,10 +403,8 @@ dds_return_t dds_domain_resolve_type (dds_entity_t entity, unsigned char *type_i
   else
   {
     ddsrt_mutex_unlock (&gv->tl_admin_lock);
-    ddsrt_mutex_lock (&gv->tl_resolved_lock);
     if (!ddsi_tl_request_type (gv, &type_id))
     {
-      ddsrt_mutex_unlock (&gv->tl_resolved_lock);
       rc = DDS_RETCODE_PRECONDITION_NOT_MET;
       goto failed;
     }
@@ -413,17 +412,16 @@ dds_return_t dds_domain_resolve_type (dds_entity_t entity, unsigned char *type_i
     const dds_time_t tnow = dds_time ();
     const dds_time_t abstimeout = (DDS_INFINITY - timeout <= tnow) ? DDS_NEVER : (tnow + timeout);
     *sertype = NULL;
+    ddsrt_mutex_lock (&gv->tl_admin_lock);
     while (*sertype == NULL && dds_time () < abstimeout)
     {
-      if (ddsrt_cond_waituntil (&gv->tl_resolved_cond, &gv->tl_resolved_lock, abstimeout))
+      if (ddsrt_cond_waituntil (&gv->tl_resolved_cond, &gv->tl_admin_lock, abstimeout))
       {
-        ddsrt_mutex_lock (&gv->tl_admin_lock);
         if (tlm->state == TL_META_RESOLVED)
           *sertype = ddsi_sertype_ref (tlm->sertype);
-        ddsrt_mutex_unlock (&gv->tl_admin_lock);
       }
     }
-    ddsrt_mutex_unlock (&gv->tl_resolved_lock);
+    ddsrt_mutex_unlock (&gv->tl_admin_lock);
     if (*sertype == NULL)
     {
       rc = DDS_RETCODE_TIMEOUT;

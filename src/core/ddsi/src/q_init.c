@@ -1238,7 +1238,6 @@ int rtps_init (struct ddsi_domaingv *gv)
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsrt_mutex_init (&gv->tl_admin_lock);
-  ddsrt_mutex_init (&gv->tl_resolved_lock);
   ddsrt_cond_init (&gv->tl_resolved_cond);
   gv->tl_admin = ddsrt_hh_new (1, ddsi_tl_meta_hash_wrap, ddsi_tl_meta_equal_wrap);
 #endif
@@ -1601,7 +1600,6 @@ err_unicast_sockets:
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsrt_hh_free (gv->tl_admin);
   ddsrt_mutex_destroy (&gv->tl_admin_lock);
-  ddsrt_mutex_destroy (&gv->tl_resolved_lock);
   ddsrt_cond_destroy (&gv->tl_resolved_cond);
 #endif
 #ifdef DDSI_INCLUDE_SECURITY

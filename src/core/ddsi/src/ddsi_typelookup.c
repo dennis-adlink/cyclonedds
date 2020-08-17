@@ -215,14 +215,11 @@ void ddsi_tl_meta_ref (struct ddsi_domaingv *gv, const type_identifier_t *type_i
     memcpy (&tlm->dst_prefix, dst, sizeof (*dst));
   tlm->refc++;
   GVTRACE (" state %d refc %u", tlm->state, tlm->refc);
-  ddsrt_mutex_unlock (&gv->tl_admin_lock);
 
   if (resolved)
-  {
-    ddsrt_mutex_lock (&gv->tl_resolved_lock);
     ddsrt_cond_broadcast (&gv->tl_resolved_cond);
-    ddsrt_mutex_unlock (&gv->tl_resolved_lock);
-  }
+
+  ddsrt_mutex_unlock (&gv->tl_admin_lock);
 
   if (type_id == NULL)
     ddsrt_free (tid);
@@ -417,10 +414,10 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
   struct ddsi_sertype_default *st = NULL;
   bool resolved = false;
 
+  ddsrt_mutex_lock (&gv->tl_admin_lock);
   GVTRACE ("handle-tl-reply wr "PGUIDFMT " seqnr %"PRIi64" ntypeids %"PRIu32" ", PGUID (reply->writer_guid), reply->sequence_number, reply->types.n);
   while (n < reply->types.n)
   {
-    ddsrt_mutex_lock (&gv->tl_admin_lock);
     type_identifier_type_object_pair_t r = reply->types.types[n];
     struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, &r.type_identifier);
     if (tlm != NULL && tlm->state == TL_META_REQUESTED && !tlm_endpoints_empty (tlm))
@@ -458,17 +455,12 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
       }
       resolved = true;
     }
-    ddsrt_mutex_unlock (&gv->tl_admin_lock);
     n++;
   }
   GVTRACE ("\n");
-
   if (resolved)
-  {
-    ddsrt_mutex_lock (&gv->tl_resolved_lock);
     ddsrt_cond_broadcast (&gv->tl_resolved_cond);
-    ddsrt_mutex_unlock (&gv->tl_resolved_lock);
-  }
+  ddsrt_mutex_unlock (&gv->tl_admin_lock);
 
   if (gpe_match_upd != NULL)
   {

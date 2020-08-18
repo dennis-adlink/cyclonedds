@@ -1721,7 +1721,7 @@ struct piddesc_index {
 
 static const struct piddesc *piddesc_omg_index[DEFAULT_OMG_PIDS_ARRAY_SIZE + SECURITY_OMG_PIDS_ARRAY_SIZE];
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-static const struct piddesc *piddesc_eclipse_index[26];
+static const struct piddesc *piddesc_eclipse_index[27];
 #else
 static const struct piddesc *piddesc_eclipse_index[19];
 #endif

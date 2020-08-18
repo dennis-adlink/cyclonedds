@@ -136,41 +136,33 @@ static void sertype_default_free_samples (const struct ddsi_sertype *sertype_com
 
 const enum pserop ddsi_sertype_default_desc_ops[] = { Xux3, XQ, Xu, XSTOP, XQ, Xu, XSTOP, XSTOP };
 
-static bool sertype_default_serialize (const struct ddsi_sertype *stc, size_t *dst_sz, unsigned char **dst_buf)
+static void sertype_default_serialized_size (const struct ddsi_sertype *stc, size_t *dst_offset)
 {
-  assert (dst_sz);
-  assert (dst_buf);
   const struct ddsi_sertype_default *st = (const struct ddsi_sertype_default *) stc;
-  size_t sz = ddsi_sertype_serialize_size (stc);
-  plist_ser_generic_size_embeddable (&sz, &st->type, 0, ddsi_sertype_default_desc_ops);
-  *dst_buf = ddsrt_malloc (sz);
-  *dst_sz = 0;
-  if (!ddsi_sertype_serialize (stc, dst_sz, *dst_buf))
-    return false;
-  return (plist_ser_generic_embeddable ((char *) *dst_buf, dst_sz, &st->type, 0, ddsi_sertype_default_desc_ops, false) >= 0);
+  plist_ser_generic_size_embeddable (dst_offset, &st->type, 0, ddsi_sertype_default_desc_ops);
 }
 
-static bool sertype_default_deserialize (struct ddsi_domaingv *gv, struct ddsi_sertype *stc, size_t src_sz, const unsigned char *src_data)
+static bool sertype_default_serialize (const struct ddsi_sertype *stc, size_t *dst_offset, unsigned char *dst_buf)
+{
+  const struct ddsi_sertype_default *st = (const struct ddsi_sertype_default *) stc;
+  return (plist_ser_generic_embeddable ((char *) dst_buf, dst_offset, &st->type, 0, ddsi_sertype_default_desc_ops, false) >= 0);
+}
+
+static bool sertype_default_deserialize (struct ddsi_domaingv *gv, struct ddsi_sertype *stc, size_t src_sz, const unsigned char *src_data, size_t *src_offset)
 {
   struct ddsi_sertype_default *st = (struct ddsi_sertype_default *) stc;
-  size_t srcoff = 0;
-  if (!ddsi_sertype_deserialize (&st->c, src_sz, src_data, &srcoff))
-    return false;
   st->native_encoding_identifier = (DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN ? CDR_LE : CDR_BE);
   st->serpool = gv->serpool;
   st->c.serdata_ops = st->c.typekind_no_key ? &ddsi_serdata_ops_cdr_nokey : &ddsi_serdata_ops_cdr;
-  if (plist_deser_generic_srcoff (&st->type, src_data, src_sz, &srcoff, false, ddsi_sertype_default_desc_ops) < 0)
+  if (plist_deser_generic_srcoff (&st->type, src_data, src_sz, src_offset, DDSRT_ENDIAN != DDSRT_LITTLE_ENDIAN, ddsi_sertype_default_desc_ops) < 0)
     return false;
-  if (!(st->type.flagset & DDS_TOPIC_NO_OPTIMIZE))
-    st->opt_size = dds_stream_check_optimize (&st->type);
-  else
-    st->opt_size = 0;
+  st->opt_size = (st->type.flagset & DDS_TOPIC_NO_OPTIMIZE) ? 0 : dds_stream_check_optimize (&st->type);
   return true;
 }
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 static bool sertype_default_assignable_from (const struct ddsi_sertype *type_a, const struct ddsi_sertype *type_b)
 {
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   struct ddsi_sertype_default *a = (struct ddsi_sertype_default *) type_a;
   struct ddsi_sertype_default *b = (struct ddsi_sertype_default *) type_b;
 
@@ -185,8 +177,12 @@ static bool sertype_default_assignable_from (const struct ddsi_sertype *type_a, 
   ddsrt_free (typeid_a);
   ddsrt_free (typeid_b);
   return assignable;
-}
+#else
+  DDSRT_UNUSED_ARG (type_a);
+  DDSRT_UNUSED_ARG (type_b);
+  return false;
 #endif
+}
 
 const struct ddsi_sertype_ops ddsi_sertype_ops_default = {
   .equal = sertype_default_equal,
@@ -196,9 +192,8 @@ const struct ddsi_sertype_ops ddsi_sertype_ops_default = {
   .zero_samples = sertype_default_zero_samples,
   .realloc_samples = sertype_default_realloc_samples,
   .free_samples = sertype_default_free_samples,
+  .serialized_size = sertype_default_serialized_size,
   .serialize = sertype_default_serialize,
-  .deserialize = sertype_default_deserialize
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  , .assignable_from = sertype_default_assignable_from
-#endif
+  .deserialize = sertype_default_deserialize,
+  .assignable_from = sertype_default_assignable_from
 };

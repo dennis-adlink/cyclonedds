@@ -391,9 +391,7 @@ typedef union Submessage {
 #define PID_ORIGINAL_WRITER_INFO                0x61u
 #define PID_ENDPOINT_GUID                       0x5au /* !SPEC <=> ADLINK_ENDPOINT_GUID */
 #define PID_TYPE_CONSISTENCY_ENFORCEMENT        0x74u
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 #define PID_TYPE_INFORMATION                    0x75u
-#endif
 
 /* Security related PID values. */
 #define PID_IDENTITY_TOKEN                      0x1001u
@@ -460,7 +458,7 @@ typedef union Submessage {
 #define PID_ADLINK_LAN_CERT_NAME                (PID_VENDORSPECIFIC_FLAG | 0x18u)
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-#define PID_CYCLONE_TYPE_INFORMATION            (PID_VENDORSPECIFIC_FLAG | 0x19u)
+#define PID_CYCLONE_TYPE_INFORMATION            (PID_VENDORSPECIFIC_FLAG | 0x1au)
 #endif
 
 /* Names of the built-in topics */

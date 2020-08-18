@@ -155,32 +155,6 @@ static void sertype_builtin_free_samples (const struct ddsi_sertype *sertype_com
   }
 }
 
-static bool sertype_builtin_serialize (const struct ddsi_sertype *stc, size_t *sz, unsigned char **buf)
-{
-  (void) stc;
-  (void) sz;
-  (void) buf;
-  return false;
-}
-
-static bool sertype_builtin_deserialize (struct ddsi_domaingv *gv, struct ddsi_sertype *stc, size_t sz, const unsigned char *data)
-{
-  (void) gv;
-  (void) stc;
-  (void) sz;
-  (void) data;
-  return false;
-}
-
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-static bool sertype_builtin_assignable_from (const struct ddsi_sertype *type_a, const struct ddsi_sertype *type_b)
-{
-  (void) type_a;
-  (void) type_b;
-  return true;
-}
-#endif
-
 const struct ddsi_sertype_ops ddsi_sertype_ops_builtintopic = {
   .equal = sertype_builtin_equal,
   .hash = sertype_builtin_hash,
@@ -189,9 +163,8 @@ const struct ddsi_sertype_ops ddsi_sertype_ops_builtintopic = {
   .zero_samples = sertype_builtin_zero_samples,
   .realloc_samples = sertype_builtin_realloc_samples,
   .free_samples = sertype_builtin_free_samples,
-  .serialize = sertype_builtin_serialize,
-  .deserialize = sertype_builtin_deserialize
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  , .assignable_from = sertype_builtin_assignable_from
-#endif
+  .serialized_size = NULL,
+  .serialize = NULL,
+  .deserialize = NULL,
+  .assignable_from = NULL
 };

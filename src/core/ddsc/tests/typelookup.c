@@ -80,8 +80,8 @@ static type_identifier_t *get_type_identifier(dds_entity_t entity)
 {
   struct dds_entity *e;
   type_identifier_t *tid = NULL;
-  CU_ASSERT_EQUAL_FATAL(dds_entity_pin(entity, &e), 0);
-  thread_state_awake(lookup_thread_state(), &e->m_domain->gv);
+  CU_ASSERT_EQUAL_FATAL (dds_entity_pin (entity, &e), 0);
+  thread_state_awake (lookup_thread_state (), &e->m_domain->gv);
   struct entity_common *ec = entidx_lookup_guid_untyped (e->m_domain->gv.entity_index, &e->m_guid);
   if (ec->kind == EK_PROXY_READER || ec->kind == EK_PROXY_WRITER)
   {
@@ -93,8 +93,8 @@ static type_identifier_t *get_type_identifier(dds_entity_t entity)
     struct generic_endpoint *ge = (struct generic_endpoint *)ec;
     tid = ddsi_typeid_dup (&ge->c.type_id);
   }
-  thread_state_asleep(lookup_thread_state());
-  dds_entity_unpin(e);
+  thread_state_asleep (lookup_thread_state ());
+  dds_entity_unpin (e);
   return tid;
 }
 
@@ -159,7 +159,7 @@ static endpoint_info_t * find_typeid_match (dds_entity_t participant, dds_entity
     else
       dds_sleepfor (DDS_MSECS (20));
   }
-  while (result == NULL && dds_time() - t_start <= timeout);
+  while (result == NULL && dds_time () - t_start <= timeout);
   CU_ASSERT_FATAL (result != NULL);
 
   return result;
@@ -177,34 +177,34 @@ static void sync_reader_writer(dds_entity_t participant_rd, dds_entity_t reader,
 {
   dds_attach_t triggered;
   dds_return_t ret;
-  dds_entity_t waitset_rd = dds_create_waitset(participant_rd);
-  CU_ASSERT_FATAL(waitset_rd > 0);
-  dds_entity_t waitset_wr = dds_create_waitset(participant_wr);
-  CU_ASSERT_FATAL(waitset_wr > 0);
+  dds_entity_t waitset_rd = dds_create_waitset (participant_rd);
+  CU_ASSERT_FATAL (waitset_rd > 0);
+  dds_entity_t waitset_wr = dds_create_waitset (participant_wr);
+  CU_ASSERT_FATAL (waitset_wr > 0);
 
   /* Sync reader to writer. */
-  ret = dds_set_status_mask(reader, DDS_SUBSCRIPTION_MATCHED_STATUS);
-  CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
-  ret = dds_waitset_attach(waitset_rd, reader, reader);
-  CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
-  ret = dds_waitset_wait(waitset_rd, &triggered, 1, DDS_SECS(1));
-  CU_ASSERT_EQUAL_FATAL(ret, 1);
-  CU_ASSERT_EQUAL_FATAL(reader, (dds_entity_t)(intptr_t)triggered);
-  ret = dds_waitset_detach(waitset_rd, reader);
-  CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
-  dds_delete(waitset_rd);
+  ret = dds_set_status_mask (reader, DDS_SUBSCRIPTION_MATCHED_STATUS);
+  CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
+  ret = dds_waitset_attach (waitset_rd, reader, reader);
+  CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
+  ret = dds_waitset_wait (waitset_rd, &triggered, 1, DDS_SECS (1));
+  CU_ASSERT_EQUAL_FATAL (ret, 1);
+  CU_ASSERT_EQUAL_FATAL (reader, (dds_entity_t)(intptr_t) triggered);
+  ret = dds_waitset_detach (waitset_rd, reader);
+  CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
+  dds_delete (waitset_rd);
 
   /* Sync writer to reader. */
-  ret = dds_set_status_mask(writer, DDS_PUBLICATION_MATCHED_STATUS);
-  CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
-  ret = dds_waitset_attach(waitset_wr, writer, writer);
-  CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
-  ret = dds_waitset_wait(waitset_wr, &triggered, 1, DDS_SECS(1));
-  CU_ASSERT_EQUAL_FATAL(ret, 1);
-  CU_ASSERT_EQUAL_FATAL(writer, (dds_entity_t)(intptr_t)triggered);
-  ret = dds_waitset_detach(waitset_wr, writer);
-  CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
-  dds_delete(waitset_wr);
+  ret = dds_set_status_mask (writer, DDS_PUBLICATION_MATCHED_STATUS);
+  CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
+  ret = dds_waitset_attach (waitset_wr, writer, writer);
+  CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
+  ret = dds_waitset_wait (waitset_wr, &triggered, 1, DDS_SECS (1));
+  CU_ASSERT_EQUAL_FATAL (ret, 1);
+  CU_ASSERT_EQUAL_FATAL (writer, (dds_entity_t)(intptr_t) triggered);
+  ret = dds_waitset_detach (waitset_wr, writer);
+  CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
+  dds_delete (waitset_wr);
 }
 
 static bool reader_wait_for_data (dds_entity_t pp, dds_entity_t rd, dds_duration_t dur)
@@ -216,7 +216,7 @@ static bool reader_wait_for_data (dds_entity_t pp, dds_entity_t rd, dds_duration
   CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
   ret = dds_waitset_wait (ws, &triggered, 1, dur);
   if (ret > 0)
-    CU_ASSERT_EQUAL_FATAL (rd, (dds_entity_t)(intptr_t)triggered);
+    CU_ASSERT_EQUAL_FATAL (rd, (dds_entity_t)(intptr_t) triggered);
   dds_delete (ws);
   return ret > 0;
 }
@@ -225,12 +225,12 @@ CU_Test(ddsc_typelookup, basic, .init = typelookup_init, .fini = typelookup_fini
 {
   char topic_name_wr[100], topic_name_rd[100];
 
-  create_unique_topic_name("ddsc_typelookup", topic_name_wr, sizeof (topic_name_wr));
+  create_unique_topic_name ("ddsc_typelookup", topic_name_wr, sizeof (topic_name_wr));
   dds_entity_t topic_wr = dds_create_topic (g_participant1, &Space_Type1_desc, topic_name_wr, NULL, NULL);
-  CU_ASSERT_FATAL(topic_wr > 0);
-  create_unique_topic_name("ddsc_typelookup", topic_name_rd, sizeof (topic_name_rd));
+  CU_ASSERT_FATAL (topic_wr > 0);
+  create_unique_topic_name ("ddsc_typelookup", topic_name_rd, sizeof (topic_name_rd));
   dds_entity_t topic_rd = dds_create_topic (g_participant1, &Space_Type3_desc, topic_name_rd, NULL, NULL);
-  CU_ASSERT_FATAL(topic_rd > 0);
+  CU_ASSERT_FATAL (topic_rd > 0);
 
   /* create a writer and reader on domain 1 */
   dds_qos_t *qos = dds_create_qos ();
@@ -240,8 +240,8 @@ CU_Test(ddsc_typelookup, basic, .init = typelookup_init, .fini = typelookup_fini
   dds_entity_t reader = dds_create_reader (g_participant1, topic_rd, qos, NULL);
   CU_ASSERT_FATAL (reader > 0);
   dds_delete_qos (qos);
-  type_identifier_t *wr_type_id = get_type_identifier(writer);
-  type_identifier_t *rd_type_id = get_type_identifier(reader);
+  type_identifier_t *wr_type_id = get_type_identifier (writer);
+  type_identifier_t *rd_type_id = get_type_identifier (reader);
 
   /* check that reader and writer (with correct type id) are discovered in domain 2 */
   endpoint_info_t *writer_ep = find_typeid_match (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, wr_type_id, topic_name_wr);
@@ -265,7 +265,7 @@ CU_Test(ddsc_typelookup, api_resolve, .init = typelookup_init, .fini = typelooku
   Space_Type1 rd_sample;
   samples[0] = &rd_sample;
 
-  create_unique_topic_name("ddsc_typelookup", name, sizeof name);
+  create_unique_topic_name ("ddsc_typelookup", name, sizeof name);
   dds_entity_t topic = dds_create_topic (g_participant1, &Space_Type1_desc, name, NULL, NULL);
   CU_ASSERT_FATAL(topic > 0);
 
@@ -277,7 +277,7 @@ CU_Test(ddsc_typelookup, api_resolve, .init = typelookup_init, .fini = typelooku
   /* create a writer and reader on domain 1 */
   dds_entity_t writer = dds_create_writer (g_participant1, topic, qos, NULL);
   CU_ASSERT_FATAL (writer > 0);
-  type_identifier_t *type_id = get_type_identifier(writer);
+  type_identifier_t *type_id = get_type_identifier (writer);
 
   /* wait for DCPSPublication to be received */
   endpoint_info_t *writer_ep = find_typeid_match (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, type_id, name);
@@ -292,10 +292,10 @@ CU_Test(ddsc_typelookup, api_resolve, .init = typelookup_init, .fini = typelooku
   CU_ASSERT_FATAL (pp2_topic > 0);
   dds_entity_t reader = dds_create_reader (g_participant2, pp2_topic, qos, NULL);
   CU_ASSERT_FATAL (reader > 0);
-  sync_reader_writer(g_participant2, reader, g_participant1, writer);
+  sync_reader_writer (g_participant2, reader, g_participant1, writer);
 
   /* write and take a sample */
-  ret = dds_set_status_mask(reader, DDS_DATA_AVAILABLE_STATUS);
+  ret = dds_set_status_mask (reader, DDS_DATA_AVAILABLE_STATUS);
   CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
   ret = dds_write (writer, &sample);
   CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
@@ -314,9 +314,9 @@ CU_Test(ddsc_typelookup, api_resolve_invalid, .init = typelookup_init, .fini = t
   struct ddsi_sertype *sertype;
   dds_return_t ret;
 
-  create_unique_topic_name("ddsc_typelookup", name, sizeof name);
+  create_unique_topic_name ("ddsc_typelookup", name, sizeof name);
   dds_entity_t topic = dds_create_topic (g_participant1, &Space_Type1_desc, name, NULL, NULL);
-  CU_ASSERT_FATAL(topic > 0);
+  CU_ASSERT_FATAL (topic > 0);
 
   dds_qos_t *qos = dds_create_qos ();
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, DDS_SECS (10));
@@ -325,7 +325,7 @@ CU_Test(ddsc_typelookup, api_resolve_invalid, .init = typelookup_init, .fini = t
 
   dds_entity_t writer = dds_create_writer (g_participant1, topic, qos, NULL);
   CU_ASSERT_FATAL (writer > 0);
-  type_identifier_t *type_id = get_type_identifier(writer);
+  type_identifier_t *type_id = get_type_identifier (writer);
 
   /* wait for DCPSPublication to be received */
   endpoint_info_t *writer_ep = find_typeid_match (g_participant2, DDS_BUILTIN_TOPIC_DCPSPUBLICATION, type_id, name);

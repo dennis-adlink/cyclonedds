@@ -81,6 +81,8 @@ static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const type_identifi
   if (typeid != NULL)
   {
     ddsrt_mutex_lock (&gv->tl_admin_lock);
+    // no refcounting for returned tlm object, but its lifetime is
+    // at least that of the endpoint that refers to it
     *tlm = ddsi_tl_meta_lookup_locked (gv, typeid);
     assert (*tlm != NULL);
     if ((*tlm)->state != TL_META_RESOLVED)

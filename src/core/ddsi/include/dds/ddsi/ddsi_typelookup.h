@@ -64,7 +64,6 @@ struct tl_meta {
   type_identifier_t type_id;            /* type identifier for this record */
   const struct ddsi_sertype *sertype;   /* sertype associated with the type identifier, NULL if type is unresolved */
   enum tl_meta_state state;             /* state of this record */
-  ddsi_guid_prefix_t dst_prefix;        /* destination prefix of the message the type_id was received in, used to find an appropriate typelookup_request_writer */
   seqno_t request_seqno;                /* sequence number of the last type lookup request message */
   struct tl_meta_endpoints proxy_endpoints;    /* administration for proxy endpoints that are using this type */
   uint32_t refc;                        /* refcount for this record */
@@ -77,13 +76,31 @@ extern size_t typelookup_service_reply_nops;
 
 int ddsi_tl_meta_equal (const struct tl_meta *a, const struct tl_meta *b);
 uint32_t ddsi_tl_meta_hash (const struct tl_meta *tl_meta);
-void ddsi_tl_meta_ref (struct ddsi_domaingv *gv, const type_identifier_t *type_id, const struct ddsi_sertype *type, const ddsi_guid_t *proxy_ep_guid, const ddsi_guid_prefix_t *dst);
+void ddsi_tl_meta_ref (struct ddsi_domaingv *gv, const type_identifier_t *type_id, const struct ddsi_sertype *type, const ddsi_guid_t *proxy_ep_guid);
+
+/**
+ * Returns the type lookup meta object for the provided type identifier.
+ * The caller of this functions needs to have locked gv->tl_admin_lock
+ *
+ * @remark The returned object from this function is not refcounted,
+ *   its lifetime is at lease the lifetime of the (proxy) endpoints
+ *   that are referring to it.
+ */
 struct tl_meta * ddsi_tl_meta_lookup_locked (struct ddsi_domaingv *gv, const type_identifier_t *type_id);
+
+/**
+ * Returns the type lookup meta object for the provided type identifier
+ *
+ * @remark The returned object from this function is not refcounted,
+ *   its lifetime is at lease the lifetime of the (proxy) endpoints
+ *   that are referring to it.
+ */
 struct tl_meta * ddsi_tl_meta_lookup (struct ddsi_domaingv *gv, const type_identifier_t *type_id);
+
 void ddsi_tl_meta_unref (struct ddsi_domaingv *gv, const type_identifier_t *type_id, const struct ddsi_sertype *type, const ddsi_guid_t *proxy_ep_guid);
 void ddsi_tl_meta_proxy_endpoint_ref (struct ddsi_domaingv *gv, const struct ddsi_sertype *type);
 bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const type_identifier_t *type_id);
-void ddsi_tl_handle_request (struct ddsi_domaingv *gv, const ddsi_guid_prefix_t *guid_prefix, struct ddsi_serdata *sample_common);
+void ddsi_tl_handle_request (struct ddsi_domaingv *gv, struct ddsi_serdata *sample_common);
 void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample_common);
 
 #if defined (__cplusplus)

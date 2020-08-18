@@ -108,7 +108,7 @@ static void from_entity_wr (struct ddsi_serdata_builtintopic_endpoint *d, const 
   from_endpoint_qos (d, wr->xqos);
 }
 
-static void from_entity_pe (struct ddsi_serdata_builtintopic_endpoint *d, const struct proxy_endpoint_common *pec)
+static void from_proxy_endpoint_common (struct ddsi_serdata_builtintopic_endpoint *d, const struct proxy_endpoint_common *pec)
 {
   d->common.pphandle = pec->proxypp->e.iid;
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
@@ -150,11 +150,11 @@ static struct ddsi_serdata *ddsi_serdata_builtin_from_keyhash (const struct ddsi
         break;
       case EK_PROXY_READER:
         assert (tp->entity_kind == DSBT_READER);
-        from_entity_pe ((struct ddsi_serdata_builtintopic_endpoint *) d, &((const struct proxy_reader *) entity)->c);
+        from_proxy_endpoint_common ((struct ddsi_serdata_builtintopic_endpoint *) d, &((const struct proxy_reader *) entity)->c);
         break;
       case EK_PROXY_WRITER:
         assert (tp->entity_kind == DSBT_WRITER);
-        from_entity_pe ((struct ddsi_serdata_builtintopic_endpoint *) d, &((const struct proxy_writer *) entity)->c);
+        from_proxy_endpoint_common ((struct ddsi_serdata_builtintopic_endpoint *) d, &((const struct proxy_writer *) entity)->c);
         break;
     }
     ddsrt_mutex_unlock (&entity->qos_lock);
@@ -274,7 +274,6 @@ static bool to_sample_endpoint (const struct ddsi_serdata_builtintopic_endpoint 
 static bool serdata_builtin_untyped_to_sample (const struct ddsi_sertype *type, const struct ddsi_serdata *serdata_common, void *sample, void **bufptr, void *buflim)
 {
   const struct ddsi_serdata_builtintopic *d = (const struct ddsi_serdata_builtintopic *)serdata_common;
-  struct ddsi_serdata_builtintopic_endpoint *dep;
   const struct ddsi_sertype_builtintopic *tp = (const struct ddsi_sertype_builtintopic *)type;
   if (bufptr) abort(); else { (void)buflim; } /* FIXME: haven't implemented that bit yet! */
   /* FIXME: completing builtin topic support along these lines requires subscribers, publishers and topics to also become DDSI entities - which is probably a good thing anyway */
@@ -284,8 +283,7 @@ static bool serdata_builtin_untyped_to_sample (const struct ddsi_sertype *type, 
       return to_sample_pp (d, sample);
     case DSBT_READER:
     case DSBT_WRITER:
-      dep = (struct ddsi_serdata_builtintopic_endpoint *)d;
-      return to_sample_endpoint (dep, sample);
+      return to_sample_endpoint ((struct ddsi_serdata_builtintopic_endpoint *)d, sample);
   }
   assert (0);
   return false;

@@ -96,34 +96,6 @@ static void sertype_plist_free_samples (const struct ddsi_sertype *sertype_commo
   }
 }
 
-static bool sertype_plist_serialize (const struct ddsi_sertype *stc, size_t *dst_sz, unsigned char **dst_buf)
-{
-  (void) stc;
-  (void) dst_sz;
-  (void) dst_buf;
-  return false;
-}
-
-static bool sertype_plist_deserialize (struct ddsi_domaingv *gv, struct ddsi_sertype *stc, size_t src_sz, const unsigned char *src_data)
-{
-  (void) gv;
-  (void) stc;
-  (void) src_sz;
-  (void) src_data;
-  return false;
-}
-
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-
-static bool sertype_plist_assignable_from (const struct ddsi_sertype *type_a, const struct ddsi_sertype *type_b)
-{
-  (void) type_a;
-  (void) type_b;
-  return true;
-}
-
-#endif
-
 const struct ddsi_sertype_ops ddsi_sertype_ops_plist = {
   .equal = sertype_plist_equal,
   .hash = sertype_plist_hash,
@@ -132,9 +104,8 @@ const struct ddsi_sertype_ops ddsi_sertype_ops_plist = {
   .zero_samples = sertype_plist_zero_samples,
   .realloc_samples = sertype_plist_realloc_samples,
   .free_samples = sertype_plist_free_samples,
-  .serialize = sertype_plist_serialize,
-  .deserialize = sertype_plist_deserialize
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  , .assignable_from = sertype_plist_assignable_from
-#endif
+  .serialized_size = NULL,
+  .serialize = NULL,
+  .deserialize = NULL,
+  .assignable_from = NULL
 };

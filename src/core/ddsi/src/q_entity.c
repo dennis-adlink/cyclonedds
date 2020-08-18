@@ -3407,7 +3407,7 @@ static void endpoint_common_init (struct entity_common *e, struct endpoint_commo
   type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
   assert (type_id != NULL);
   memcpy (&c->type_id, type_id, sizeof (c->type_id));
-  ddsi_tl_meta_ref (pp->e.gv, type_id, type, NULL, &pp->e.guid.prefix);
+  ddsi_tl_meta_ref (pp->e.gv, type_id, type, NULL);
   ddsrt_free (type_id);
 #endif
 }
@@ -4008,7 +4008,7 @@ struct local_orphan_writer *new_local_orphan_writer (struct ddsi_domaingv *gv, d
   type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
   assert (type_id != NULL);
   memcpy (&wr->c.type_id, type_id, sizeof (wr->c.type_id));
-  ddsi_tl_meta_ref (gv, type_id, type, NULL, NULL);
+  ddsi_tl_meta_ref (gv, type_id, type, NULL);
   ddsrt_free (type_id);
 #endif
 
@@ -5523,8 +5523,8 @@ static int proxy_endpoint_common_init (struct entity_common *e, struct proxy_end
     memcpy (&c->type_id, &plist->type_information, sizeof (c->type_id));
   else
     memset (&c->type_id, 0, sizeof (c->type_id));
-#endif
   c->type = NULL;
+#endif
 
   if (plist->present & PP_GROUP_GUID)
     c->group_guid = plist->group_guid;
@@ -5550,8 +5550,10 @@ static int proxy_endpoint_common_init (struct entity_common *e, struct proxy_end
 static void proxy_endpoint_common_fini (struct entity_common *e, struct proxy_endpoint_common *c)
 {
   unref_proxy_participant (c->proxypp, c);
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   if (c->type != NULL)
     ddsi_sertype_unref ((struct ddsi_sertype *) c->type);
+#endif
   ddsi_xqos_fini (c->xqos);
   ddsrt_free (c->xqos);
   unref_addrset (c->as);

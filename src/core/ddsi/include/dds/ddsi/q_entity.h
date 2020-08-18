@@ -423,8 +423,8 @@ struct proxy_endpoint_common
   seqno_t seq; /* sequence number of most recent SEDP message */
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   type_identifier_t type_id; /* type identifier for for type used by this proxy endpoint */
-#endif
   const struct ddsi_sertype * type; /* sertype for data this endpoint reads/writes */
+#endif
 #ifdef DDSI_INCLUDE_SECURITY
   nn_security_info_t security_info;
 #endif

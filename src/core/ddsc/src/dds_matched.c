@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include "dds/ddsrt/heap.h"
+#include "dds/ddsrt/string.h"
 #include "dds/dds.h"
 #include "dds/version.h"
 #include "dds/ddsi/q_config.h"
@@ -150,8 +151,7 @@ static dds_builtintopic_endpoint_t *make_builtintopic_endpoint (
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ep->type_identifier_sz = sizeof (*type_id);
-  ep->type_identifier = ddsrt_malloc (ep->type_identifier_sz);
-  memcpy (ep->type_identifier, type_id, ep->type_identifier_sz);
+  ep->type_identifier = ddsrt_memdup (type_id, ep->type_identifier_sz);
 #endif
 
   return ep;

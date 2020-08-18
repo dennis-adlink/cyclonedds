@@ -1279,7 +1279,7 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
     GVLOGDISC (" NEW");
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     if (vendor_is_eclipse (vendorid) && datap->present & PP_CYCLONE_TYPE_INFORMATION)
-      ddsi_tl_meta_ref (gv, &datap->type_information, NULL, &datap->endpoint_guid, &rst->dst_guid_prefix);
+      ddsi_tl_meta_ref (gv, &datap->type_information, NULL, &datap->endpoint_guid);
 #endif
   }
 
@@ -1414,7 +1414,7 @@ static void handle_typelookup (const struct receiver_state *rst, ddsi_entityid_t
   {
     struct ddsi_domaingv * const gv = rst->gv;
     if (wr_entity_id.u == NN_ENTITYID_TL_SVC_BUILTIN_REQUEST_WRITER)
-      ddsi_tl_handle_request (gv, &rst->dst_guid_prefix, serdata);
+      ddsi_tl_handle_request (gv, serdata);
     else if (wr_entity_id.u == NN_ENTITYID_TL_SVC_BUILTIN_REPLY_WRITER)
       ddsi_tl_handle_reply (gv, serdata);
     else

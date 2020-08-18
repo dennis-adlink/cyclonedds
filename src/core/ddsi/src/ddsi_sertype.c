@@ -118,40 +118,38 @@ struct sertype_ser
 
 const enum pserop sertype_ser_ops[] = { XS, Xb, XSTOP };
 
-size_t ddsi_sertype_serialize_size (const struct ddsi_sertype *tp)
+bool ddsi_sertype_serialize (const struct ddsi_sertype *tp, size_t *dst_sz, unsigned char **dst_buf)
 {
   struct sertype_ser d = { tp->type_name, tp->typekind_no_key };
-  size_t sz = 0;
-  plist_ser_generic_size_embeddable (&sz, &d, 0, sertype_ser_ops);
-  return sz;
-}
+  size_t dst_pos = 0;
 
-bool ddsi_sertype_serialize (const struct ddsi_sertype *tp, size_t *dst_pos, unsigned char *dst_buf)
-{
-  assert (dst_pos);
-  assert (dst_buf);
-  struct sertype_ser d = { tp->type_name, tp->typekind_no_key };
-  return (plist_ser_generic_embeddable ((char *) dst_buf, dst_pos, &d, 0, sertype_ser_ops, false) >= 0);
-}
-
-bool ddsi_sertype_deserialize (struct ddsi_sertype *tp, size_t src_sz, const unsigned char *src_data, size_t *src_pos)
-{
-  assert (src_pos);
-  struct sertype_ser d;
-  size_t srcoff = 0;
-  if (plist_deser_generic_srcoff (&d, src_data, src_sz, &srcoff, false, sertype_ser_ops) < 0)
+  if (tp->ops->serialized_size == NULL || tp->ops->serialize == NULL)
     return false;
-  tp->type_name = ddsrt_strdup (d.type_name);
-  tp->typekind_no_key = d.typekind_no_key;
-  *src_pos = srcoff;
+  *dst_sz = 0;
+  plist_ser_generic_size_embeddable (dst_sz, &d, 0, sertype_ser_ops);
+  tp->ops->serialized_size (tp, dst_sz);
+  *dst_buf = ddsrt_malloc (*dst_sz);
+  if (plist_ser_generic_embeddable ((char *) *dst_buf, &dst_pos, &d, 0, sertype_ser_ops, false) < 0)
+    return false;
+  if (!tp->ops->serialize (tp, &dst_pos, *dst_buf))
+    return false;
+  assert (dst_pos == *dst_sz);
   return true;
 }
 
-bool ddsi_sertype_init_from_ser (struct ddsi_domaingv *gv, struct ddsi_sertype *tp, const struct ddsi_sertype_ops *sertype_ops, size_t sz, unsigned char *serdata)
+bool ddsi_sertype_deserialize (struct ddsi_domaingv *gv, struct ddsi_sertype *tp, const struct ddsi_sertype_ops *sertype_ops, size_t sz, unsigned char *serdata)
 {
+  struct sertype_ser d;
+  size_t srcoff = 0;
+  if (plist_deser_generic_srcoff (&d, serdata, sz, &srcoff, DDSRT_ENDIAN != DDSRT_LITTLE_ENDIAN, sertype_ser_ops) < 0)
+    return false;
   tp->refc = 1;
   tp->ops = sertype_ops;
-  if (!tp->ops->deserialize (gv, tp, sz, serdata))
+  if (tp->ops->deserialize == NULL)
+    return false;
+  tp->type_name = ddsrt_strdup (d.type_name);
+  tp->typekind_no_key = d.typekind_no_key;
+  if (!tp->ops->deserialize (gv, tp, sz, serdata, &srcoff))
     return false;
   tp->serdata_basehash = ddsi_sertype_compute_serdata_basehash (tp->serdata_ops);
   tp->gv = gv;
@@ -198,6 +196,4 @@ extern inline void ddsi_sertype_zero_sample (const struct ddsi_sertype *tp, void
 extern inline void ddsi_sertype_free_sample (const struct ddsi_sertype *tp, void *sample, dds_free_op_t op);
 extern inline void *ddsi_sertype_alloc_sample (const struct ddsi_sertype *tp);
 extern inline void ddsi_sertype_typeid_hash (const struct ddsi_sertype *tp, unsigned char *buf);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 extern inline bool ddsi_sertype_assignable_from (const struct ddsi_sertype *type_a, const struct ddsi_sertype *type_b);
-#endif

@@ -172,12 +172,7 @@ struct tl_meta * ddsi_tl_meta_lookup (struct ddsi_domaingv *gv, const type_ident
   return tlm;
 }
 
-static bool guid_prefix_empty (const ddsi_guid_prefix_t *prefix)
-{
-  return prefix->u[0] == 0 && prefix->u[1] == 0 && prefix->u[2] == 0;
-}
-
-void ddsi_tl_meta_ref (struct ddsi_domaingv *gv, const type_identifier_t *type_id, const struct ddsi_sertype *type, const ddsi_guid_t *proxy_ep_guid, const ddsi_guid_prefix_t *dst)
+void ddsi_tl_meta_ref (struct ddsi_domaingv *gv, const type_identifier_t *type_id, const struct ddsi_sertype *type, const ddsi_guid_t *proxy_ep_guid)
 {
   bool resolved = false;
   assert (type_id || type);
@@ -211,8 +206,6 @@ void ddsi_tl_meta_ref (struct ddsi_domaingv *gv, const type_identifier_t *type_i
     GVTRACE (" resolved");
     resolved = true;
   }
-  if (dst != NULL && guid_prefix_empty (&tlm->dst_prefix) && !guid_prefix_empty (dst))
-    memcpy (&tlm->dst_prefix, dst, sizeof (*dst));
   tlm->refc++;
   GVTRACE (" state %d refc %u", tlm->state, tlm->refc);
 
@@ -248,25 +241,16 @@ void ddsi_tl_meta_unref (struct ddsi_domaingv *gv, const type_identifier_t *type
     ddsrt_free (tid);
 }
 
-static struct writer *get_typelookup_writer (const struct ddsi_domaingv *gv, const ddsi_guid_prefix_t *guid_prefix, uint32_t wr_eid)
+static struct writer *get_typelookup_writer (const struct ddsi_domaingv *gv, uint32_t wr_eid)
 {
   struct participant *pp;
   struct writer *wr = NULL;
+  struct entidx_enum_participant est;
   thread_state_awake (lookup_thread_state (), gv);
-  if (guid_prefix_empty (guid_prefix))
-  {
-    struct entidx_enum_participant est;
-    entidx_enum_participant_init (&est, gv->entity_index);
-    while (wr == NULL && (pp = entidx_enum_participant_next (&est)) != NULL)
-      wr = get_builtin_writer (pp, wr_eid);
-    entidx_enum_participant_fini (&est);
-  }
-  else
-  {
-    ddsi_guid_t pp_guid = { .prefix = *guid_prefix, .entityid.u = NN_ENTITYID_PARTICIPANT };
-    pp = entidx_lookup_participant_guid (gv->entity_index, &pp_guid);
+  entidx_enum_participant_init (&est, gv->entity_index);
+  while (wr == NULL && (pp = entidx_enum_participant_next (&est)) != NULL)
     wr = get_builtin_writer (pp, wr_eid);
-  }
+  entidx_enum_participant_fini (&est);
   thread_state_asleep (lookup_thread_state ());
   return wr;
 }
@@ -285,10 +269,10 @@ bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const type_identifie
     return true;
   }
 
-  struct writer *wr = get_typelookup_writer (gv, &tlm->dst_prefix, NN_ENTITYID_TL_SVC_BUILTIN_REQUEST_WRITER);
+  struct writer *wr = get_typelookup_writer (gv, NN_ENTITYID_TL_SVC_BUILTIN_REQUEST_WRITER);
   if (wr == NULL)
   {
-    GVTRACE ("no pp found with tl request writer (prefix "PGUIDPREFIXFMT")", PGUIDPREFIX(tlm->dst_prefix));
+    GVTRACE ("no pp found with tl request writer");
     ddsrt_mutex_unlock (&gv->tl_admin_lock);
     return false;
   }
@@ -334,7 +318,7 @@ static void write_typelookup_reply (struct writer *wr, seqno_t seqno, type_ident
   ddsi_tkmap_instance_unref (gv->m_tkmap, tk);
 }
 
-void ddsi_tl_handle_request (struct ddsi_domaingv *gv, const ddsi_guid_prefix_t *guid_prefix, struct ddsi_serdata *sample_common)
+void ddsi_tl_handle_request (struct ddsi_domaingv *gv, struct ddsi_serdata *sample_common)
 {
   assert (!(sample_common->statusinfo & (NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER)));
   const struct ddsi_serdata_pserop *sample = (const struct ddsi_serdata_pserop *) sample_common;
@@ -354,7 +338,7 @@ void ddsi_tl_handle_request (struct ddsi_domaingv *gv, const ddsi_guid_prefix_t 
       types.n++;
       types.types = ddsrt_realloc (types.types, types.n * sizeof (*types.types));
       types.types[types.n - 1].type_identifier = tlm->type_id;
-      tlm->sertype->ops->serialize (tlm->sertype, &sz, &types.types[types.n - 1].type_object.value);
+      ddsi_sertype_serialize (tlm->sertype, &sz, &types.types[types.n - 1].type_object.value);
       assert (sz <= UINT32_MAX);
       types.types[types.n - 1].type_object.length = (uint32_t) sz;
       GVTRACE (" found");
@@ -362,7 +346,7 @@ void ddsi_tl_handle_request (struct ddsi_domaingv *gv, const ddsi_guid_prefix_t 
   }
   ddsrt_mutex_unlock (&gv->tl_admin_lock);
 
-  struct writer *wr = get_typelookup_writer (gv, guid_prefix, NN_ENTITYID_TL_SVC_BUILTIN_REPLY_WRITER);
+  struct writer *wr = get_typelookup_writer (gv, NN_ENTITYID_TL_SVC_BUILTIN_REPLY_WRITER);
   if (wr != NULL)
     write_typelookup_reply (wr, req->sequence_number, &types);
   else
@@ -425,7 +409,7 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
       bool sertype_new = false;
       GVTRACE (" type "PTYPEIDFMT, PTYPEID (r.type_identifier));
       st = ddsrt_malloc (sizeof (*st));
-      if (!ddsi_sertype_init_from_ser (gv, &st->c, &ddsi_sertype_ops_default, r.type_object.length, r.type_object.value))
+      if (!ddsi_sertype_deserialize (gv, &st->c, &ddsi_sertype_ops_default, r.type_object.length, r.type_object.value))
       {
         GVTRACE (" deser failed\n");
         ddsrt_free (st);

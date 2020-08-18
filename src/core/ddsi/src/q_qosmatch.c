@@ -81,13 +81,16 @@ static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const type_identifi
   if (typeid != NULL)
   {
     ddsrt_mutex_lock (&gv->tl_admin_lock);
-    // no refcounting for returned tlm object, but its lifetime is
-    // at least that of the endpoint that refers to it
+    /* no refcounting for returned tlm object, but its lifetime is
+       at least that of the endpoint that refers to it */
     *tlm = ddsi_tl_meta_lookup_locked (gv, typeid);
     assert (*tlm != NULL);
     if ((*tlm)->state != TL_META_RESOLVED)
     {
       GVTRACE ("typeid unresolved "PTYPEIDFMT"\n", PTYPEID(*typeid));
+      /* defer requesting unresolved type until after the endpoint qos lock
+         has been released, so just set a bool value indicating that a type
+         lookup is required */
       if (req_lookup != NULL)
         *req_lookup = true;
       ddsrt_mutex_unlock (&gv->tl_admin_lock);

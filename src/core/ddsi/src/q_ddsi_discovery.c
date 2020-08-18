@@ -1279,7 +1279,7 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
     GVLOGDISC (" NEW");
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     if (vendor_is_eclipse (vendorid) && datap->present & PP_CYCLONE_TYPE_INFORMATION)
-      ddsi_tl_meta_ref (gv, &datap->type_information, NULL, &datap->endpoint_guid);
+      ddsi_tl_meta_proxy_ref (gv, &datap->type_information, &datap->endpoint_guid);
 #endif
   }
 

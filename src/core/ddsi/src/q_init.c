@@ -1002,14 +1002,14 @@ static uint32_t ddsi_sertype_hash_wrap (const void *tp)
 }
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-static int ddsi_tl_meta_equal_wrap (const void *a, const void *b)
+static int tl_meta_equal_wrap (const void *tlm_a, const void *tlm_b)
 {
-  return ddsi_tl_meta_equal (a, b);
+  return ddsi_typeid_equal (&((struct tl_meta *) tlm_a)->type_id, &((struct tl_meta *) tlm_b)->type_id);
 }
 
-static uint32_t ddsi_tl_meta_hash_wrap (const void *tp)
+static uint32_t tl_meta_hash_wrap (const void *tlm)
 {
-  return ddsi_tl_meta_hash (tp);
+  return ddsi_typeid_hash (&((struct tl_meta *) tlm)->type_id);
 }
 #endif
 
@@ -1239,7 +1239,7 @@ int rtps_init (struct ddsi_domaingv *gv)
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsrt_mutex_init (&gv->tl_admin_lock);
   ddsrt_cond_init (&gv->tl_resolved_cond);
-  gv->tl_admin = ddsrt_hh_new (1, ddsi_tl_meta_hash_wrap, ddsi_tl_meta_equal_wrap);
+  gv->tl_admin = ddsrt_hh_new (1, tl_meta_hash_wrap, tl_meta_equal_wrap);
 #endif
   make_special_types (gv);
 

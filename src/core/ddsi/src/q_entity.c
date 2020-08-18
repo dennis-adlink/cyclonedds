@@ -3407,7 +3407,7 @@ static void endpoint_common_init (struct entity_common *e, struct endpoint_commo
   type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
   assert (type_id != NULL);
   memcpy (&c->type_id, type_id, sizeof (c->type_id));
-  ddsi_tl_meta_ref (pp->e.gv, type_id, type, NULL);
+  ddsi_tl_meta_local_ref (pp->e.gv, type_id, type);
   ddsrt_free (type_id);
 #endif
 }
@@ -3424,7 +3424,7 @@ static void endpoint_common_fini (struct entity_common *e, struct endpoint_commo
     assert (is_local_orphan_endpoint (e));
   }
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  ddsi_tl_meta_unref (e->gv, &c->type_id, NULL, &e->guid);
+  ddsi_tl_meta_local_unref (e->gv, &c->type_id, NULL);
 #endif
   entity_common_fini (e);
 }
@@ -4008,7 +4008,7 @@ struct local_orphan_writer *new_local_orphan_writer (struct ddsi_domaingv *gv, d
   type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
   assert (type_id != NULL);
   memcpy (&wr->c.type_id, type_id, sizeof (wr->c.type_id));
-  ddsi_tl_meta_ref (gv, type_id, type, NULL);
+  ddsi_tl_meta_local_ref (gv, type_id, type);
   ddsrt_free (type_id);
 #endif
 
@@ -5851,7 +5851,7 @@ int delete_proxy_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *guid,
     GVLOGDISC ("proxy_writer_set_notalive failed for "PGUIDFMT"\n", PGUID(*guid));
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   if (!ddsi_typeid_none (&pwr->c.type_id))
-    ddsi_tl_meta_unref (gv, &pwr->c.type_id, NULL, guid);
+    ddsi_tl_meta_proxy_unref (gv, &pwr->c.type_id, guid);
 #endif
   gcreq_proxy_writer (pwr);
   return DDS_RETCODE_OK;
@@ -6080,7 +6080,7 @@ int delete_proxy_reader (struct ddsi_domaingv *gv, const struct ddsi_guid *guid,
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   if (!ddsi_typeid_none (&prd->c.type_id))
-    ddsi_tl_meta_unref (gv, &prd->c.type_id, NULL, guid);
+    ddsi_tl_meta_proxy_unref (gv, &prd->c.type_id, guid);
 #endif
 
   gcreq_proxy_reader (prd);

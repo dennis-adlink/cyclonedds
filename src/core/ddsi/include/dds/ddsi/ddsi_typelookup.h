@@ -121,13 +121,45 @@ struct tl_meta * ddsi_tl_meta_lookup (struct ddsi_domaingv *gv, const type_ident
 
 /**
  * For all proxy endpoints registered with the type lookup meta object that is
- * associated with the provided type, this function references the type with
- * these endpoints.
+ * associated with the provided type, this function references the sertype
+ * for these endpoints.
  */
 void ddsi_tl_meta_register_with_proxy_endpoints (struct ddsi_domaingv *gv, const struct ddsi_sertype *type);
+
+/**
+ * Send a type lookup request message in order to request type information for the
+ * provided type identifier.
+ */
 bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const type_identifier_t *type_id);
+
+/**
+ * Handle an incoming type lookup request message. For all types requested
+ * that are known in this node, the serialized sertype is send in a type
+ * lookup reply message. In case none of the requested types is known,
+ * an empty reply message will be sent.
+ */
 void ddsi_tl_handle_request (struct ddsi_domaingv *gv, struct ddsi_serdata *sample_common);
+
+/**
+ * Handle an incoming type lookup reply message. The sertypes from this
+ * reply are registered in the local type administation and referenced
+ * from the corresponding proxy endpoints.
+ */
 void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample_common);
+
+/**
+ * Compares the provided type lookup meta objects.
+ *
+ * @returns true iff the meta objects are equal, i.e. they represent the same type
+ */
+bool ddsi_tl_meta_equal (const struct tl_meta *a, const struct tl_meta *b);
+
+/**
+ * Hashing function for type lookup meta objects.
+ *
+ * @returns a 32 bits hash value
+ */
+uint32_t ddsi_tl_meta_hash (const struct tl_meta *tl_meta);
 
 #if defined (__cplusplus)
 }

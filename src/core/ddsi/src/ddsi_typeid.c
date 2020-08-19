@@ -42,10 +42,3 @@ bool ddsi_typeid_none (const type_identifier_t *typeid)
   memset (&empty, 0, sizeof (*typeid));
   return memcmp (typeid, &empty, sizeof (*typeid)) == 0;
 }
-
-uint32_t ddsi_typeid_hash (const type_identifier_t *typeid)
-{
-  // As the type id is the key in the hash table and the type id currently only
-  // consists of a hash value, we'll use the first 32 bits of that hash for now
-  return (uint32_t) *typeid->hash;
-}

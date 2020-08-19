@@ -121,6 +121,18 @@ static const ddsi_guid_t *tlm_endpoints_iter_next (struct tlm_endpoints_iter *it
   return (iter->tlm->proxy_endpoints.count > ++iter->idx) ? &iter->tlm->proxy_endpoints.eps[iter->idx] : NULL;
 }
 
+bool ddsi_tl_meta_equal (const struct tl_meta *a, const struct tl_meta *b)
+{
+  return ddsi_typeid_equal (&a->type_id, &b->type_id);
+}
+
+uint32_t ddsi_tl_meta_hash (const struct tl_meta *tl_meta)
+{
+  // As the type id is the key in the hash table and the type id currently only
+  // consists of a hash value, we'll use the first 32 bits of that hash for now
+  return (uint32_t) *tl_meta->type_id.hash;
+}
+
 static void tlm_fini (struct tl_meta *tlm)
 {
   if (tlm->sertype != NULL)

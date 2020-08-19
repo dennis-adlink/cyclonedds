@@ -1004,12 +1004,12 @@ static uint32_t ddsi_sertype_hash_wrap (const void *tp)
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 static int tl_meta_equal_wrap (const void *tlm_a, const void *tlm_b)
 {
-  return ddsi_typeid_equal (&((struct tl_meta *) tlm_a)->type_id, &((struct tl_meta *) tlm_b)->type_id);
+  return ddsi_tl_meta_equal (tlm_a, tlm_b);
 }
 
 static uint32_t tl_meta_hash_wrap (const void *tlm)
 {
-  return ddsi_typeid_hash (&((struct tl_meta *) tlm)->type_id);
+  return ddsi_tl_meta_hash (tlm);
 }
 #endif
 

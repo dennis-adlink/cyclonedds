@@ -90,6 +90,15 @@ static void from_endpoint_qos (struct ddsi_serdata_builtintopic_endpoint *d, con
   assert (d->common.xqos.present & QP_TYPE_NAME);
 }
 
+static void from_entity_tp (struct ddsi_serdata_builtintopic_endpoint *d, const struct topic *tp)
+{
+  d->common.pphandle = tp->pp->e.iid;
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  d->type_id = tp->type_id;
+#endif
+  from_endpoint_qos (d, tp->xqos);
+}
+
 static void from_entity_rd (struct ddsi_serdata_builtintopic_endpoint *d, const struct reader *rd)
 {
   d->common.pphandle = rd->c.pp->e.iid;
@@ -106,6 +115,15 @@ static void from_entity_wr (struct ddsi_serdata_builtintopic_endpoint *d, const 
   d->type_id = wr->c.type_id;
 #endif
   from_endpoint_qos (d, wr->xqos);
+}
+
+static void from_entity_proxytp (struct ddsi_serdata_builtintopic_endpoint *d, const struct proxy_topic *ptp)
+{
+  d->common.pphandle = ptp->proxypp->e.iid;
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  d->type_id = ptp->type_id;
+#endif
+  from_endpoint_qos (d, ptp->xqos);
 }
 
 static void from_proxy_endpoint_common (struct ddsi_serdata_builtintopic_endpoint *d, const struct proxy_endpoint_common *pec)
@@ -136,6 +154,10 @@ static struct ddsi_serdata *ddsi_serdata_builtin_from_keyhash (const struct ddsi
         assert (tp->entity_kind == DSBT_PARTICIPANT);
         from_entity_pp (d, (const struct participant *) entity);
         break;
+      case EK_TOPIC:
+        assert (tp->entity_kind == DSBT_TOPIC);
+        from_entity_tp ((struct ddsi_serdata_builtintopic_endpoint *) d, (const struct topic *) entity);
+        break;
       case EK_READER:
         assert (tp->entity_kind == DSBT_READER);
         from_entity_rd ((struct ddsi_serdata_builtintopic_endpoint *) d, (const struct reader *) entity);
@@ -147,6 +169,10 @@ static struct ddsi_serdata *ddsi_serdata_builtin_from_keyhash (const struct ddsi
       case EK_PROXY_PARTICIPANT:
         assert (tp->entity_kind == DSBT_PARTICIPANT);
         from_entity_proxypp (d, (const struct proxy_participant *) entity);
+        break;
+      case EK_PROXY_TOPIC:
+        assert (tp->entity_kind == DSBT_TOPIC);
+        from_entity_proxytp ((struct ddsi_serdata_builtintopic_endpoint *) d, (const struct proxy_topic *) entity);
         break;
       case EK_PROXY_READER:
         assert (tp->entity_kind == DSBT_READER);
@@ -186,6 +212,7 @@ static struct ddsi_serdata *ddsi_serdata_builtin_from_sample (const struct ddsi_
       x.extguid = s->key;
       break;
     }
+    case DSBT_TOPIC:
     case DSBT_READER:
     case DSBT_WRITER: {
       const dds_builtintopic_endpoint_t *s = sample;
@@ -281,6 +308,7 @@ static bool serdata_builtin_untyped_to_sample (const struct ddsi_sertype *type, 
   {
     case DSBT_PARTICIPANT:
       return to_sample_pp (d, sample);
+    case DSBT_TOPIC:
     case DSBT_READER:
     case DSBT_WRITER:
       return to_sample_endpoint ((struct ddsi_serdata_builtintopic_endpoint *)d, sample);

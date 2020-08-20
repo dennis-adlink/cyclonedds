@@ -61,7 +61,9 @@ enum entity_kind {
   EK_WRITER,
   EK_PROXY_WRITER,
   EK_READER,
-  EK_PROXY_READER
+  EK_PROXY_READER,
+  EK_TOPIC,
+  EK_PROXY_TOPIC
 };
 
 /* Liveliness changed is more complicated than just add/remove. Encode the event
@@ -240,6 +242,18 @@ struct participant
 #endif
 };
 
+struct topic {
+  struct entity_common e;
+  struct participant *pp;
+  char *name;
+  char *type_name;
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  type_identifier_t type_id;
+#endif
+  const struct ddsi_sertype * type;
+  struct dds_qos *xqos;
+};
+
 struct endpoint_common {
   struct participant *pp;
   ddsi_guid_t group_guid;
@@ -396,6 +410,20 @@ struct proxy_participant
 #endif
 };
 
+struct proxy_topic
+{
+  struct entity_common e;
+  struct proxy_participant *proxypp; /* counted backref to proxy participant */
+  char *name;
+  char *type_name;
+  struct dds_qos *xqos; /* proxy endpoint QoS lives here; FIXME: local ones should have it moved to common as well */
+  nn_vendorid_t vendor; /* cached from proxypp->vendor */
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  type_identifier_t type_id; /* type identifier for for type used by this proxy endpoint */
+  const struct ddsi_sertype * type; /* sertype for data this endpoint reads/writes */
+#endif
+};
+
 /* Representing proxy subscriber & publishers as "groups": until DDSI2
    gets a reason to care about these other than for the generation of
    CM topics, there's little value in distinguishing between the two.
@@ -500,6 +528,7 @@ ddsi_entityid_t to_entityid (unsigned u);
 int is_builtin_entityid (ddsi_entityid_t id, nn_vendorid_t vendorid);
 int is_builtin_endpoint (ddsi_entityid_t id, nn_vendorid_t vendorid);
 bool is_local_orphan_endpoint (const struct entity_common *e);
+int is_topic_entityid (ddsi_entityid_t id);
 int is_writer_entityid (ddsi_entityid_t id);
 int is_reader_entityid (ddsi_entityid_t id);
 int is_keyed_endpoint_entityid (ddsi_entityid_t id);
@@ -650,6 +679,7 @@ DDS_EXPORT struct writer *get_builtin_writer (const struct participant *pp, unsi
    GUID "ppguid". May return NULL if participant unknown or
    writer/reader already known. */
 
+dds_return_t new_topic (struct topic **tp_out, struct ddsi_guid *tpguid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos);
 dds_return_t new_writer (struct writer **wr_out, struct ddsi_guid *wrguid, const struct ddsi_guid *group_guid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct whc * whc, status_cb_t status_cb, void *status_cb_arg);
 dds_return_t new_reader (struct reader **rd_out, struct ddsi_guid *rdguid, const struct ddsi_guid *group_guid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, struct ddsi_rhc * rhc, status_cb_t status_cb, void *status_cb_arg);
 

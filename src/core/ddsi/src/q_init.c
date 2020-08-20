@@ -836,6 +836,7 @@ static void free_special_types (struct ddsi_domaingv *gv)
   ddsi_sertype_unref (gv->spdp_type);
   ddsi_sertype_unref (gv->sedp_reader_type);
   ddsi_sertype_unref (gv->sedp_writer_type);
+  ddsi_sertype_unref (gv->sedp_topic_type);
 }
 
 static void make_special_types (struct ddsi_domaingv *gv)
@@ -843,6 +844,7 @@ static void make_special_types (struct ddsi_domaingv *gv)
   gv->spdp_type = make_special_type_plist (gv, "ParticipantBuiltinTopicData", PID_PARTICIPANT_GUID);
   gv->sedp_reader_type = make_special_type_plist (gv, "SubscriptionBuiltinTopicData", PID_ENDPOINT_GUID);
   gv->sedp_writer_type = make_special_type_plist (gv, "PublicationBuiltinTopicData", PID_ENDPOINT_GUID);
+  gv->sedp_topic_type = make_special_type_plist (gv, "TopicBuiltinTopicData", PID_ENDPOINT_GUID);
   gv->pmd_type = make_special_type_pserop (gv, "ParticipantMessageData", sizeof (ParticipantMessageData_t), participant_message_data_nops, participant_message_data_ops, participant_message_data_nops_key, participant_message_data_ops_key);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   gv->tl_svc_request_type = make_special_type_pserop (gv, "TypeLookup_Request", sizeof (type_lookup_request_t), typelookup_service_request_nops, typelookup_service_request_ops, 0, NULL);
@@ -861,6 +863,7 @@ static void make_special_types (struct ddsi_domaingv *gv)
   ddsi_sertype_register_locked (gv->spdp_type);
   ddsi_sertype_register_locked (gv->sedp_reader_type);
   ddsi_sertype_register_locked (gv->sedp_writer_type);
+  ddsi_sertype_register_locked (gv->sedp_topic_type);
   ddsi_sertype_register_locked (gv->pmd_type);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsi_sertype_register_locked (gv->tl_svc_request_type);

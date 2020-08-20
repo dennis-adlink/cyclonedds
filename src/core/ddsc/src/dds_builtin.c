@@ -67,6 +67,10 @@ dds_entity_t dds__get_builtin_topic (dds_entity_t entity, dds_entity_t topic)
       topic_name = DDS_BUILTIN_TOPIC_PARTICIPANT_NAME;
       sertype = e->m_domain->builtin_participant_type;
       break;
+    case DDS_BUILTIN_TOPIC_DCPSTOPIC:
+      topic_name = DDS_BUILTIN_TOPIC_TOPIC_NAME;
+      sertype = e->m_domain->builtin_topic_type;
+      break;
     case DDS_BUILTIN_TOPIC_DCPSPUBLICATION:
       topic_name = DDS_BUILTIN_TOPIC_PUBLICATION_NAME;
       sertype = e->m_domain->builtin_writer_type;
@@ -116,6 +120,9 @@ bool dds__validate_builtin_reader_qos (const dds_domain *dom, dds_entity_t topic
     {
       case DDS_BUILTIN_TOPIC_DCPSPARTICIPANT:
         bwr = dom->builtintopic_writer_participant;
+        break;
+      case DDS_BUILTIN_TOPIC_DCPSTOPIC:
+        bwr = dom->builtintopic_writer_topics;
         break;
       case DDS_BUILTIN_TOPIC_DCPSPUBLICATION:
         bwr = dom->builtintopic_writer_publications;
@@ -215,6 +222,10 @@ struct ddsi_serdata *dds__builtin_make_sample (const struct entity_common *e, dd
     case EK_PROXY_PARTICIPANT:
       type = dom->builtin_participant_type;
       break;
+    case EK_TOPIC:
+    case EK_PROXY_TOPIC:
+      type = dom->builtin_topic_type;
+      break;
     case EK_WRITER:
     case EK_PROXY_WRITER:
       type = dom->builtin_writer_type;
@@ -247,6 +258,10 @@ static void dds__builtin_write (const struct entity_common *e, ddsrt_wctime_t ti
       case EK_PROXY_PARTICIPANT:
         bwr = dom->builtintopic_writer_participant;
         break;
+      case EK_TOPIC:
+      case EK_PROXY_TOPIC:
+        bwr = dom->builtintopic_writer_topics;
+        break;
       case EK_WRITER:
       case EK_PROXY_WRITER:
         bwr = dom->builtintopic_writer_publications;
@@ -263,6 +278,7 @@ static void dds__builtin_write (const struct entity_common *e, ddsrt_wctime_t ti
 static void unref_builtin_types (struct dds_domain *dom)
 {
   ddsi_sertype_unref (dom->builtin_participant_type);
+  ddsi_sertype_unref (dom->builtin_topic_type);
   ddsi_sertype_unref (dom->builtin_reader_type);
   ddsi_sertype_unref (dom->builtin_writer_type);
 }
@@ -279,11 +295,13 @@ void dds__builtin_init (struct dds_domain *dom)
   dom->gv.builtin_topic_interface = &dom->btif;
 
   dom->builtin_participant_type = new_sertype_builtintopic (&dom->gv, DSBT_PARTICIPANT, "org::eclipse::cyclonedds::builtin::DCPSParticipant");
+  dom->builtin_topic_type = new_sertype_builtintopic (&dom->gv, DSBT_TOPIC, "org::eclipse::cyclonedds::builtin::DCPSTopic");
   dom->builtin_reader_type = new_sertype_builtintopic (&dom->gv, DSBT_READER, "org::eclipse::cyclonedds::builtin::DCPSSubscription");
   dom->builtin_writer_type = new_sertype_builtintopic (&dom->gv, DSBT_WRITER, "org::eclipse::cyclonedds::builtin::DCPSPublication");
 
   ddsrt_mutex_lock (&dom->gv.sertypes_lock);
   ddsi_sertype_register_locked (dom->builtin_participant_type);
+  ddsi_sertype_register_locked (dom->builtin_topic_type);
   ddsi_sertype_register_locked (dom->builtin_reader_type);
   ddsi_sertype_register_locked (dom->builtin_writer_type);
   ddsrt_mutex_unlock (&dom->gv.sertypes_lock);
@@ -291,6 +309,7 @@ void dds__builtin_init (struct dds_domain *dom)
   thread_state_awake (lookup_thread_state (), &dom->gv);
   const struct entity_index *gh = dom->gv.entity_index;
   dom->builtintopic_writer_participant = new_local_orphan_writer (&dom->gv, to_entityid (NN_ENTITYID_SPDP_BUILTIN_PARTICIPANT_WRITER), DDS_BUILTIN_TOPIC_PARTICIPANT_NAME, dom->builtin_participant_type, qos, builtintopic_whc_new (DSBT_PARTICIPANT, gh));
+  dom->builtintopic_writer_topics = new_local_orphan_writer (&dom->gv, to_entityid (NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER), DDS_BUILTIN_TOPIC_TOPIC_NAME, dom->builtin_topic_type, qos, builtintopic_whc_new (DSBT_TOPIC, gh));
   dom->builtintopic_writer_publications = new_local_orphan_writer (&dom->gv, to_entityid (NN_ENTITYID_SEDP_BUILTIN_PUBLICATIONS_WRITER), DDS_BUILTIN_TOPIC_PUBLICATION_NAME, dom->builtin_writer_type, qos, builtintopic_whc_new (DSBT_WRITER, gh));
   dom->builtintopic_writer_subscriptions = new_local_orphan_writer (&dom->gv, to_entityid (NN_ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_WRITER), DDS_BUILTIN_TOPIC_SUBSCRIPTION_NAME, dom->builtin_reader_type, qos, builtintopic_whc_new (DSBT_READER, gh));
   thread_state_asleep (lookup_thread_state ());
@@ -308,6 +327,7 @@ void dds__builtin_fini (struct dds_domain *dom)
   /* No more sources for builtin topic samples */
   thread_state_awake (lookup_thread_state (), &dom->gv);
   delete_local_orphan_writer (dom->builtintopic_writer_participant);
+  delete_local_orphan_writer (dom->builtintopic_writer_topics);
   delete_local_orphan_writer (dom->builtintopic_writer_publications);
   delete_local_orphan_writer (dom->builtintopic_writer_subscriptions);
   thread_state_asleep (lookup_thread_state ());

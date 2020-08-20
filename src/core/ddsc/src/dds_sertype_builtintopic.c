@@ -88,6 +88,7 @@ static size_t get_size (enum ddsi_sertype_builtintopic_entity_kind entity_kind)
   {
     case DSBT_PARTICIPANT:
       return sizeof (dds_builtintopic_participant_t);
+    case DSBT_TOPIC:
     case DSBT_READER:
     case DSBT_WRITER:
       return sizeof (dds_builtintopic_endpoint_t);
@@ -136,6 +137,7 @@ static void sertype_builtin_free_samples (const struct ddsi_sertype *sertype_com
         case DSBT_PARTICIPANT:
           f = free_pp;
           break;
+        case DSBT_TOPIC:
         case DSBT_READER:
         case DSBT_WRITER:
           f = free_endpoint;

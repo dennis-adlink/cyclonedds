@@ -87,6 +87,22 @@ static int all_entities_compare (const void *va, const void *vb)
     case EK_PROXY_PARTICIPANT:
       break;
 
+    case EK_TOPIC: {
+      const struct topic *tpa = va;
+      const struct topic *tpb = vb;
+      tp_a = tpa->name;
+      tp_b = tpb->name;
+      break;
+    }
+
+    case EK_PROXY_TOPIC: {
+      const struct proxy_topic *tpa = va;
+      const struct proxy_topic *tpb = vb;
+      tp_a = tpa->name;
+      tp_b = tpb->name;
+      break;
+    }
+
     case EK_WRITER: {
       const struct writer *wra = va;
       const struct writer *wrb = vb;
@@ -140,6 +156,10 @@ static void match_endpoint_range (enum entity_kind kind, const char *tp, struct 
     case EK_PARTICIPANT:
     case EK_PROXY_PARTICIPANT:
       break;
+    case EK_TOPIC:
+      min->entity.tp.xqos = &min->xqos;
+      max->entity.tp.xqos = &max->xqos;
+      break;
     case EK_WRITER:
       min->entity.wr.xqos = &min->xqos;
       max->entity.wr.xqos = &max->xqos;
@@ -147,6 +167,10 @@ static void match_endpoint_range (enum entity_kind kind, const char *tp, struct 
     case EK_READER:
       min->entity.rd.xqos = &min->xqos;
       max->entity.rd.xqos = &max->xqos;
+      break;
+    case EK_PROXY_TOPIC:
+      min->entity.ptp.xqos = &min->xqos;
+      max->entity.ptp.xqos = &max->xqos;
       break;
     case EK_PROXY_WRITER:
     case EK_PROXY_READER:
@@ -171,11 +195,18 @@ static void match_entity_kind_min (enum entity_kind kind, struct match_entities_
     case EK_PARTICIPANT:
     case EK_PROXY_PARTICIPANT:
       break;
+    case EK_TOPIC:
+      min->entity.tp.xqos = &min->xqos;
+      break;
     case EK_WRITER:
       min->entity.wr.xqos = &min->xqos;
       break;
     case EK_READER:
       min->entity.rd.xqos = &min->xqos;
+      break;
+    case EK_PROXY_TOPIC:
+      min->entity.ptp.vendor = NN_VENDORID_ECLIPSE;
+      min->entity.ptp.xqos = &min->xqos;
       break;
     case EK_PROXY_WRITER:
     case EK_PROXY_READER:
@@ -311,6 +342,16 @@ void entidx_insert_proxy_reader_guid (struct entity_index *ei, struct proxy_read
   entity_index_insert (ei, &prd->e);
 }
 
+void entidx_insert_topic_guid (struct entity_index *ei, struct topic *tp)
+{
+  entity_index_insert (ei, &tp->e);
+}
+
+void entidx_insert_proxy_topic_guid (struct entity_index *ei, struct proxy_topic *ptp)
+{
+  entity_index_insert (ei, &ptp->e);
+}
+
 void entidx_remove_participant_guid (struct entity_index *ei, struct participant *pp)
 {
   entity_index_remove (ei, &pp->e);
@@ -341,6 +382,16 @@ void entidx_remove_proxy_reader_guid (struct entity_index *ei, struct proxy_read
   entity_index_remove (ei, &prd->e);
 }
 
+void entidx_remove_topic_guid (struct entity_index *ei, struct topic *tp)
+{
+  entity_index_remove (ei, &tp->e);
+}
+
+void entidx_remove_proxy_topic_guid (struct entity_index *ei, struct proxy_topic *ptp)
+{
+  entity_index_remove (ei, &ptp->e);
+}
+
 struct participant *entidx_lookup_participant_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
 {
   DDSRT_STATIC_ASSERT (offsetof (struct participant, e) == 0);
@@ -369,6 +420,13 @@ struct reader *entidx_lookup_reader_guid (const struct entity_index *ei, const s
   return entidx_lookup_guid_int (ei, guid, EK_READER);
 }
 
+struct topic *entidx_lookup_topic_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
+{
+  DDSRT_STATIC_ASSERT (offsetof (struct topic, e) == 0);
+  assert (is_topic_entityid (guid->entityid));
+  return entidx_lookup_guid_int (ei, guid, EK_TOPIC);
+}
+
 struct proxy_writer *entidx_lookup_proxy_writer_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
 {
   DDSRT_STATIC_ASSERT (offsetof (struct proxy_writer, e) == 0);
@@ -381,6 +439,13 @@ struct proxy_reader *entidx_lookup_proxy_reader_guid (const struct entity_index 
   DDSRT_STATIC_ASSERT (offsetof (struct proxy_reader, e) == 0);
   assert (is_reader_entityid (guid->entityid));
   return entidx_lookup_guid_int (ei, guid, EK_PROXY_READER);
+}
+
+struct proxy_topic *entidx_lookup_proxy_topic_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
+{
+  DDSRT_STATIC_ASSERT (offsetof (struct proxy_topic, e) == 0);
+  assert (is_topic_entityid (guid->entityid));
+  return entidx_lookup_guid_int (ei, guid, EK_PROXY_TOPIC);
 }
 
 /* Enumeration */

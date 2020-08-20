@@ -875,9 +875,9 @@ static void add_locator_to_ps (const nn_locator_t *loc, void *varg)
  ***
  *****************************************************************************/
 
-static int sedp_write_endpoint
+static int sedp_write_endpoint_or_topic
 (
-   struct writer *wr, int alive, const ddsi_guid_t *epguid,
+   struct writer *wr, int alive, const ddsi_guid_t *guid,
    const struct entity_common *common, const struct endpoint_common *epcommon,
    const dds_qos_t *xqos, struct addrset *as, nn_security_info_t *security
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
@@ -886,13 +886,22 @@ static int sedp_write_endpoint
 )
 {
   struct ddsi_domaingv * const gv = wr->e.gv;
-  const dds_qos_t *defqos = is_writer_entityid (epguid->entityid) ? &gv->default_xqos_wr : &gv->default_xqos_rd;
+  const dds_qos_t *defqos = NULL;
+  if (is_writer_entityid (guid->entityid))
+    defqos = &gv->default_xqos_wr;
+  else if (is_reader_entityid (guid->entityid))
+    defqos = &gv->default_xqos_rd;
+  else if (is_topic_entityid (guid->entityid))
+    defqos = &gv->default_xqos_tp;
+  else
+    assert (false);
+
   uint64_t qosdiff;
   ddsi_plist_t ps;
 
   ddsi_plist_init_empty (&ps);
   ps.present |= PP_ENDPOINT_GUID;
-  ps.endpoint_guid = *epguid;
+  ps.endpoint_guid = *guid;
 
   if (common && *common->name != 0)
   {
@@ -921,34 +930,38 @@ static int sedp_write_endpoint
   else
   {
     assert (xqos != NULL);
-    assert (epcommon != NULL);
     ps.present |= PP_PROTOCOL_VERSION | PP_VENDORID;
     ps.protocol_version.major = RTPS_MAJOR;
     ps.protocol_version.minor = RTPS_MINOR;
     ps.vendorid = NN_VENDORID_ECLIPSE;
 
-    if (epcommon->group_guid.entityid.u != 0)
+    if (!is_topic_entityid (guid->entityid))
     {
-      ps.present |= PP_GROUP_GUID;
-      ps.group_guid = epcommon->group_guid;
-    }
+      assert (epcommon != NULL);
 
-#ifdef DDSI_INCLUDE_SSM
-    /* A bit of a hack -- the easy alternative would be to make it yet
-     another parameter.  We only set "reader favours SSM" if we
-     really do: no point in telling the world that everything is at
-     the default. */
-    if (!is_writer_entityid (epguid->entityid))
-    {
-      const struct reader *rd = entidx_lookup_reader_guid (gv->entity_index, epguid);
-      assert (rd);
-      if (rd->favours_ssm)
+      if (epcommon->group_guid.entityid.u != 0)
       {
-        ps.present |= PP_READER_FAVOURS_SSM;
-        ps.reader_favours_ssm.state = 1u;
+        ps.present |= PP_GROUP_GUID;
+        ps.group_guid = epcommon->group_guid;
       }
+
+  #ifdef DDSI_INCLUDE_SSM
+      /* A bit of a hack -- the easy alternative would be to make it yet
+      another parameter.  We only set "reader favours SSM" if we
+      really do: no point in telling the world that everything is at
+      the default. */
+      if (is_reader_entityid (guid->entityid))
+      {
+        const struct reader *rd = entidx_lookup_reader_guid (gv->entity_index, guid);
+        assert (rd);
+        if (rd->favours_ssm)
+        {
+          ps.present |= PP_READER_FAVOURS_SSM;
+          ps.reader_favours_ssm.state = 1u;
+        }
+      }
+  #endif
     }
-#endif
 
     qosdiff = ddsi_xqos_delta (xqos, defqos, ~(uint64_t)0);
     if (gv->config.explicitly_publish_qos_set_to_default)
@@ -981,6 +994,26 @@ static struct writer *get_sedp_writer (const struct participant *pp, unsigned en
   return sedp_wr;
 }
 
+int sedp_write_topic (struct topic *tp)
+{
+  if ((!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE)) && (!tp->e.onlylocal))
+  {
+    unsigned entityid = determine_topic_writer (tp);
+    struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
+    nn_security_info_t *security = NULL;
+    struct addrset *as = NULL;
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+    type_identifier_t *type_id = ddsi_typeid_from_sertype (tp->type);
+    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &tp->e.guid, &tp->e, NULL, tp->xqos, as, security, type_id);
+    ddsrt_free (type_id);
+#else
+    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &tp->e.guid, &tp->e, NULL, tp->xqos, as, security);
+#endif
+    return res;
+  }
+  return 0;
+}
+
 int sedp_write_writer (struct writer *wr)
 {
   if ((!is_builtin_entityid(wr->e.guid.entityid, NN_VENDORID_ECLIPSE)) && (!wr->e.onlylocal))
@@ -1002,10 +1035,10 @@ int sedp_write_writer (struct writer *wr)
 #endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     type_identifier_t *type_id = ddsi_typeid_from_sertype (wr->type);
-    int res = sedp_write_endpoint (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security, type_id);
+    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security, type_id);
     ddsrt_free (type_id);
 #else
-    int res = sedp_write_endpoint (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security);
+    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security);
 #endif
     return res;
   }
@@ -1033,10 +1066,10 @@ int sedp_write_reader (struct reader *rd)
 #endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     type_identifier_t *type_id = ddsi_typeid_from_sertype (rd->type);
-    int res = sedp_write_endpoint (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, type_id);
+    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, type_id);
     ddsrt_free (type_id);
 #else
-    int res = sedp_write_endpoint (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security);
+    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security);
 #endif
     return res;
   }
@@ -1050,9 +1083,9 @@ int sedp_dispose_unregister_writer (struct writer *wr)
     unsigned entityid = determine_publication_writer(wr);
     struct writer *sedp_wr = get_sedp_writer (wr->c.pp, entityid);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    return sedp_write_endpoint (sedp_wr, 0, &wr->e.guid, NULL, NULL, NULL, NULL, NULL, NULL);
+    return sedp_write_endpoint_or_topic (sedp_wr, 0, &wr->e.guid, NULL, NULL, NULL, NULL, NULL, NULL);
 #else
-    return sedp_write_endpoint (sedp_wr, 0, &wr->e.guid, NULL, NULL, NULL, NULL, NULL);
+    return sedp_write_endpoint_or_topic (sedp_wr, 0, &wr->e.guid, NULL, NULL, NULL, NULL, NULL);
 #endif
   }
   return 0;
@@ -1065,9 +1098,9 @@ int sedp_dispose_unregister_reader (struct reader *rd)
     unsigned entityid = determine_subscription_writer(rd);
     struct writer *sedp_wr = get_sedp_writer (rd->c.pp, entityid);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    return sedp_write_endpoint (sedp_wr, 0, &rd->e.guid, NULL, NULL, NULL, NULL, NULL, NULL);
+    return sedp_write_endpoint_or_topic (sedp_wr, 0, &rd->e.guid, NULL, NULL, NULL, NULL, NULL, NULL);
 #else
-    return sedp_write_endpoint (sedp_wr, 0, &rd->e.guid, NULL, NULL, NULL, NULL, NULL);
+    return sedp_write_endpoint_or_topic (sedp_wr, 0, &rd->e.guid, NULL, NULL, NULL, NULL, NULL);
 #endif
   }
   return 0;
@@ -1523,6 +1556,9 @@ int builtins_dqueue_handler (const struct nn_rsample_info *sampleinfo, const str
     case NN_ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_WRITER:
       type = gv->sedp_reader_type;
       break;
+    case NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER:
+      type = gv->sedp_topic_type;
+      break;
     case NN_ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER:
       type = gv->pmd_type;
       break;
@@ -1621,6 +1657,7 @@ int builtins_dqueue_handler (const struct nn_rsample_info *sampleinfo, const str
       break;
     case NN_ENTITYID_SEDP_BUILTIN_PUBLICATIONS_WRITER:
     case NN_ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_WRITER:
+    case NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER:
     case NN_ENTITYID_SEDP_BUILTIN_PUBLICATIONS_SECURE_WRITER:
     case NN_ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_SECURE_WRITER:
       handle_SEDP (sampleinfo->rst, sampleinfo->seq, d);

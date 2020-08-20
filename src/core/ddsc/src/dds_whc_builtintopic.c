@@ -88,6 +88,7 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
     case BIS_INIT_LOCAL:
       switch (whc->entity_kind) {
         case DSBT_PARTICIPANT: kind = EK_PARTICIPANT; break;
+        case DSBT_TOPIC:       kind = EK_TOPIC; break;
         case DSBT_WRITER:      kind = EK_WRITER; break;
         case DSBT_READER:      kind = EK_READER; break;
       }
@@ -111,6 +112,7 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
     case BIS_INIT_PROXY:
       switch (whc->entity_kind) {
         case DSBT_PARTICIPANT: kind = EK_PROXY_PARTICIPANT; break;
+        case DSBT_TOPIC:       kind = EK_PROXY_TOPIC; break;
         case DSBT_WRITER:      kind = EK_PROXY_WRITER; break;
         case DSBT_READER:      kind = EK_PROXY_READER; break;
       }

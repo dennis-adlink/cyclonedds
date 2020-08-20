@@ -219,12 +219,14 @@ typedef struct dds_domain {
   struct cfgst *cfgst;
 
   struct ddsi_sertype *builtin_participant_type;
+  struct ddsi_sertype *builtin_topic_type;
   struct ddsi_sertype *builtin_reader_type;
   struct ddsi_sertype *builtin_writer_type;
 
   struct local_orphan_writer *builtintopic_writer_participant;
   struct local_orphan_writer *builtintopic_writer_publications;
   struct local_orphan_writer *builtintopic_writer_subscriptions;
+  struct local_orphan_writer *builtintopic_writer_topics;
 
   struct ddsi_builtin_topic_interface btif;
   struct ddsi_domaingv gv;
@@ -252,6 +254,7 @@ typedef struct dds_ktopic {
   dds_qos_t *qos;
   char *name; /* [constant] */
   char *type_name; /* [constant] */
+  struct topic *m_tp; /* DDSI topic */
 } dds_ktopic;
 
 typedef struct dds_participant {

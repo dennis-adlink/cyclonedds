@@ -25,8 +25,10 @@ struct ddsi_domaingv;
 
 struct match_entities_range_key {
   union {
+    struct topic tp;
     struct writer wr;
     struct reader rd;
+    struct proxy_topic ptp;
     struct proxy_writer pwr;
     struct proxy_reader prd;
     struct entity_common e;
@@ -72,6 +74,8 @@ void entidx_insert_writer_guid (struct entity_index *ei, struct writer *wr) ddsr
 void entidx_insert_reader_guid (struct entity_index *ei, struct reader *rd) ddsrt_nonnull_all;
 void entidx_insert_proxy_writer_guid (struct entity_index *ei, struct proxy_writer *pwr) ddsrt_nonnull_all;
 void entidx_insert_proxy_reader_guid (struct entity_index *ei, struct proxy_reader *prd) ddsrt_nonnull_all;
+void entidx_insert_topic_guid (struct entity_index *ei, struct topic *tp) ddsrt_nonnull_all;
+void entidx_insert_proxy_topic_guid (struct entity_index *ei, struct proxy_topic *ptp) ddsrt_nonnull_all;
 
 void entidx_remove_participant_guid (struct entity_index *ei, struct participant *pp) ddsrt_nonnull_all;
 void entidx_remove_proxy_participant_guid (struct entity_index *ei, struct proxy_participant *proxypp) ddsrt_nonnull_all;
@@ -79,12 +83,16 @@ void entidx_remove_writer_guid (struct entity_index *ei, struct writer *wr) ddsr
 void entidx_remove_reader_guid (struct entity_index *ei, struct reader *rd) ddsrt_nonnull_all;
 void entidx_remove_proxy_writer_guid (struct entity_index *ei, struct proxy_writer *pwr) ddsrt_nonnull_all;
 void entidx_remove_proxy_reader_guid (struct entity_index *ei, struct proxy_reader *prd) ddsrt_nonnull_all;
+void entidx_remove_topic_guid (struct entity_index *ei, struct topic *tp) ddsrt_nonnull_all;
+void entidx_remove_proxy_topic_guid (struct entity_index *ei, struct proxy_topic *ptp) ddsrt_nonnull_all;
 
 DDS_EXPORT void *entidx_lookup_guid_untyped (const struct entity_index *ei, const struct ddsi_guid *guid) ddsrt_nonnull_all;
 DDS_EXPORT void *entidx_lookup_guid (const struct entity_index *ei, const struct ddsi_guid *guid, enum entity_kind kind) ddsrt_nonnull_all;
 
 DDS_EXPORT struct participant *entidx_lookup_participant_guid (const struct entity_index *ei, const struct ddsi_guid *guid) ddsrt_nonnull_all;
 DDS_EXPORT struct proxy_participant *entidx_lookup_proxy_participant_guid (const struct entity_index *ei, const struct ddsi_guid *guid) ddsrt_nonnull_all;
+DDS_EXPORT struct topic *entidx_lookup_topic_guid (const struct entity_index *ei, const struct ddsi_guid *guid);
+DDS_EXPORT struct proxy_topic *entidx_lookup_proxy_topic_guid (const struct entity_index *ei, const struct ddsi_guid *guid);
 DDS_EXPORT struct writer *entidx_lookup_writer_guid (const struct entity_index *ei, const struct ddsi_guid *guid) ddsrt_nonnull_all;
 DDS_EXPORT struct reader *entidx_lookup_reader_guid (const struct entity_index *ei, const struct ddsi_guid *guid) ddsrt_nonnull_all;
 DDS_EXPORT struct proxy_writer *entidx_lookup_proxy_writer_guid (const struct entity_index *ei, const struct ddsi_guid *guid) ddsrt_nonnull_all;

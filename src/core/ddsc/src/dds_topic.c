@@ -336,6 +336,11 @@ dds_entity_t dds_create_topic_impl (dds_entity_t participant, const char * name,
     ktp->name = ddsrt_strdup (name);
     /* have to copy these because the ktopic can outlast any specific sertype */
     ktp->type_name = ddsrt_strdup ((*sertype)->type_name);
+
+    // FIXME!
+    // rc = new_topic (&ktp->m_tp, &tp->m_guid, pp, ktp->name, ktp->stype, qos);
+    // assert (rc == DDS_RETCODE_OK); /* FIXME: can be out-of-resources at the very least */
+
     ddsrt_avl_insert (&participant_ktopics_treedef, &pp->m_ktopics, ktp);
     GVTRACE ("create_and_lock_ktopic: ktp %p\n", (void *) ktp);
   }

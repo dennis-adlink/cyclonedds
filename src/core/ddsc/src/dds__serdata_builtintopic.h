@@ -23,6 +23,7 @@ extern "C" {
 
 enum ddsi_sertype_builtintopic_entity_kind {
   DSBT_PARTICIPANT,
+  DSBT_TOPIC,
   DSBT_READER,
   DSBT_WRITER
 };

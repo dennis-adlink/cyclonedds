@@ -1712,6 +1712,13 @@ unsigned determine_publication_writer (const struct writer *wr)
     return NN_ENTITYID_SEDP_BUILTIN_PUBLICATIONS_WRITER;
 }
 
+unsigned determine_topic_writer (const struct topic *tp)
+{
+  // FIXME
+  DDSRT_UNUSED_ARG (tp);
+  return NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER;
+}
+
 static int64_t check_remote_participant_permissions(uint32_t domain_id, struct participant *pp, struct proxy_participant *proxypp, int64_t remote_identity_handle)
 {
   struct dds_security_context *sc = q_omg_security_get_secure_context(pp);

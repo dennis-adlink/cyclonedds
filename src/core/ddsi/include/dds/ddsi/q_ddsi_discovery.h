@@ -38,6 +38,7 @@ int spdp_dispose_unregister (struct participant *pp);
 int sedp_write_topic (struct topic *tp);
 int sedp_write_writer (struct writer *wr);
 int sedp_write_reader (struct reader *rd);
+int sedp_dispose_unregister_topic (struct topic *tp);
 int sedp_dispose_unregister_writer (struct writer *wr);
 int sedp_dispose_unregister_reader (struct reader *rd);
 

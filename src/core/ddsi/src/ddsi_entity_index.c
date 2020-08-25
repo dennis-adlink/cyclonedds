@@ -90,16 +90,20 @@ static int all_entities_compare (const void *va, const void *vb)
     case EK_TOPIC: {
       const struct topic *tpa = va;
       const struct topic *tpb = vb;
-      tp_a = tpa->name;
-      tp_b = tpb->name;
+      assert ((tpa->xqos->present & QP_TOPIC_NAME) && tpa->xqos->topic_name);
+      assert ((tpb->xqos->present & QP_TOPIC_NAME) && tpb->xqos->topic_name);
+      tp_a = tpa->xqos->topic_name;
+      tp_b = tpb->xqos->topic_name;
       break;
     }
 
     case EK_PROXY_TOPIC: {
       const struct proxy_topic *tpa = va;
       const struct proxy_topic *tpb = vb;
-      tp_a = tpa->name;
-      tp_b = tpb->name;
+      assert ((tpa->xqos->present & QP_TOPIC_NAME) && tpa->xqos->topic_name);
+      assert ((tpb->xqos->present & QP_TOPIC_NAME) && tpb->xqos->topic_name);
+      tp_a = tpa->xqos->topic_name;
+      tp_b = tpb->xqos->topic_name;
       break;
     }
 

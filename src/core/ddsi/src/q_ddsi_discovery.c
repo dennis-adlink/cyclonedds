@@ -1076,6 +1076,21 @@ int sedp_write_reader (struct reader *rd)
   return 0;
 }
 
+int sedp_dispose_unregister_topic (struct topic *tp)
+{
+  if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE))
+  {
+    unsigned entityid = determine_topic_writer (tp);
+    struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+    return sedp_write_endpoint_or_topic (sedp_wr, 0, &tp->e.guid, NULL, NULL, NULL, NULL, NULL, NULL);
+#else
+    return sedp_write_endpoint_or_topic (sedp_wr, 0, &tp->e.guid, NULL, NULL, NULL, NULL, NULL);
+#endif
+  }
+  return 0;
+}
+
 int sedp_dispose_unregister_writer (struct writer *wr)
 {
   if ((!is_builtin_entityid(wr->e.guid.entityid, NN_VENDORID_ECLIPSE)) && (!wr->e.onlylocal))

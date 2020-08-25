@@ -153,21 +153,43 @@ static dds_return_t dds_topic_delete (dds_entity *e)
   assert (dds_entity_kind (e->m_parent) == DDS_KIND_PARTICIPANT);
   dds_participant * const pp = (dds_participant *) e->m_parent;
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  ddsi_tl_meta_local_unref (&pp->m_entity.m_domain->gv, NULL, tp->m_stype);
+  ddsi_tl_meta_local_unref (&e->m_domain->gv, NULL, tp->m_stype);
 #endif
   ddsrt_free (tp->m_name);
-  ddsi_sertype_unref (tp->m_stype);
 
   ddsrt_mutex_lock (&pp->m_entity.m_mutex);
+
+  // unref
+  struct ktopic_type_guid templ;
+  type_identifier_t *tid = ddsi_typeid_from_sertype (tp->m_stype);
+  memset (&templ, 0, sizeof (templ));
+  templ.type_id = tid;
+  struct ktopic_type_guid *m = ddsrt_hh_lookup (ktp->topic_guid_map, &templ);
+  assert (m != NULL);
+  ddsrt_free (tid);
+  if (--m->refc == 0)
+  {
+    ddsrt_hh_remove (ktp->topic_guid_map, m);
+    thread_state_awake (lookup_thread_state (), &e->m_domain->gv);
+    (void) delete_topic (&e->m_domain->gv, &m->guid);
+    thread_state_asleep (lookup_thread_state ());
+    ddsrt_free ((type_identifier_t *) m->type_id);
+    ddsrt_free (m);
+  }
+
+  // unref ktopic and delete if last ref
   if (--ktp->refc == 0)
   {
     ddsrt_avl_delete (&participant_ktopics_treedef, &pp->m_ktopics, ktp);
     dds_delete_qos (ktp->qos);
     ddsrt_free (ktp->name);
     ddsrt_free (ktp->type_name);
+    ddsrt_hh_free (ktp->topic_guid_map);
     dds_free (ktp);
   }
+
   ddsrt_mutex_unlock (&pp->m_entity.m_mutex);
+  ddsi_sertype_unref (tp->m_stype);
   return DDS_RETCODE_OK;
 }
 
@@ -264,6 +286,19 @@ static dds_entity_t create_topic_pp_locked (struct dds_participant *pp, struct d
   return hdl;
 }
 
+static int ktopic_type_guid_equal (const void *ktp_guid_a, const void *ktp_guid_b)
+{
+  struct ktopic_type_guid *a = (struct ktopic_type_guid *) ktp_guid_a;
+  struct ktopic_type_guid *b = (struct ktopic_type_guid *) ktp_guid_b;
+  return ddsi_typeid_equal (a->type_id, b->type_id);
+}
+
+static uint32_t ktopic_type_guid_hash (const void *ktp_guid)
+{
+  struct ktopic_type_guid *x = (struct ktopic_type_guid *)ktp_guid;
+  return (uint32_t) x->type_id;
+}
+
 dds_entity_t dds_create_topic_impl (dds_entity_t participant, const char * name, struct ddsi_sertype **sertype, const dds_qos_t *qos, const dds_listener_t *listener, const ddsi_plist_t *sedp_plist)
 {
   dds_return_t rc;
@@ -336,10 +371,7 @@ dds_entity_t dds_create_topic_impl (dds_entity_t participant, const char * name,
     ktp->name = ddsrt_strdup (name);
     /* have to copy these because the ktopic can outlast any specific sertype */
     ktp->type_name = ddsrt_strdup ((*sertype)->type_name);
-
-    // FIXME!
-    // rc = new_topic (&ktp->m_tp, &tp->m_guid, pp, ktp->name, ktp->stype, qos);
-    // assert (rc == DDS_RETCODE_OK); /* FIXME: can be out-of-resources at the very least */
+    ktp->topic_guid_map = ddsrt_hh_new (1, ktopic_type_guid_hash, ktopic_type_guid_equal);
 
     ddsrt_avl_insert (&participant_ktopics_treedef, &pp->m_ktopics, ktp);
     GVTRACE ("create_and_lock_ktopic: ktp %p\n", (void *) ktp);
@@ -369,6 +401,34 @@ dds_entity_t dds_create_topic_impl (dds_entity_t participant, const char * name,
   hdl = create_topic_pp_locked (pp, ktp, (sertype_registered->ops == &ddsi_sertype_ops_builtintopic), name, sertype_registered, listener, sedp_plist);
   ddsi_sertype_unref (*sertype);
   *sertype = sertype_registered;
+
+  /* register ktopic-sertype meta-data entry */
+  struct ktopic_type_guid templ, *m;
+  type_identifier_t *tid = ddsi_typeid_from_sertype (sertype_registered);
+  memset (&templ, 0, sizeof (templ));
+  templ.type_id = tid;
+  if ((m = ddsrt_hh_lookup (ktp->topic_guid_map, &templ)) == NULL)
+  {
+    /* register new */
+    thread_state_awake (lookup_thread_state (), gv);
+    const struct ddsi_guid * ppguid = dds_entity_participant_guid (&pp->m_entity);
+    struct participant * pp_ddsi = entidx_lookup_participant_guid (gv->entity_index, ppguid);
+
+    m = ddsrt_malloc (sizeof (*m));
+    m->type_id = tid;
+    m->refc = 1;
+    rc = new_topic (&m->tp, &m->guid, pp_ddsi, ktp->name, sertype_registered, ktp->qos);
+    assert (rc == DDS_RETCODE_OK); /* FIXME: can be out-of-resources at the very least */
+    ddsrt_hh_add (ktp->topic_guid_map, m);
+    thread_state_asleep (lookup_thread_state ());
+  }
+  else
+  {
+    /* refc existing */
+    m->refc++;
+    ddsrt_free (tid);
+  }
+
   ddsrt_mutex_unlock (&pp->m_entity.m_mutex);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsi_tl_meta_local_ref (gv, NULL, sertype_registered);
@@ -502,6 +562,15 @@ dds_entity_t dds_find_topic (dds_entity_t participant, const char *name)
     struct ddsi_sertype * const sertype = ddsi_sertype_ref (tp->m_stype);
     struct dds_ktopic * const ktp = tp->m_ktopic;
     ktp->refc++;
+
+    struct ktopic_type_guid templ;
+    type_identifier_t *tid = ddsi_typeid_from_sertype (sertype);
+    memset (&templ, 0, sizeof (templ));
+    templ.type_id = tid;
+    struct ktopic_type_guid *m = ddsrt_hh_lookup (ktp->topic_guid_map, &templ);
+    assert (m != NULL);
+    m->refc++;
+    ddsrt_free (tid);
     dds_entity_unpin (x);
 
     dds_entity_t hdl = create_topic_pp_locked (pp, ktp, false, name, sertype, NULL, NULL);

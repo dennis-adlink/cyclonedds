@@ -118,6 +118,7 @@ static void downgrade_to_nonsecure(struct proxy_participant *proxypp);
 #endif
 
 static int gcreq_participant (struct participant *pp);
+static int gcreq_topic (struct topic *tp);
 static int gcreq_writer (struct writer *wr);
 static int gcreq_reader (struct reader *rd);
 static int gcreq_proxy_participant (struct proxy_participant *proxypp);
@@ -153,7 +154,7 @@ int is_topic_entityid (ddsi_entityid_t id)
 {
   switch (id.u & NN_ENTITYID_KIND_MASK)
   {
-    case NN_ENTITYID_KIND_CYCLONE_TOPIC | NN_ENTITYID_SOURCE_VENDOR:
+    case NN_ENTITYID_KIND_CYCLONE_TOPIC:
       return 1;
     default:
       return 0;
@@ -3144,9 +3145,9 @@ static const char *entity_topic_name (const struct entity_common *e)
     case EK_PROXY_READER:
       return ((const struct generic_proxy_endpoint *) e)->c.xqos->topic_name;
     case EK_TOPIC:
-      return ((const struct topic *) e)->name;
+      return ((const struct topic *) e)->xqos->topic_name;
     case EK_PROXY_TOPIC:
-      return ((const struct proxy_topic *) e)->name;
+      return ((const struct proxy_topic *) e)->xqos->topic_name;
     case EK_PARTICIPANT:
     case EK_PROXY_PARTICIPANT:
       assert (0);
@@ -4696,7 +4697,7 @@ static dds_return_t new_topic_guid
   struct topic *tp;
   struct ddsi_domaingv *gv = pp->e.gv;
 
-  assert (!is_topic_entityid (guid->entityid));
+  assert (is_topic_entityid (guid->entityid));
   assert (entidx_lookup_topic_guid (gv->entity_index, guid) == NULL);
   assert (memcmp (&guid->prefix, &pp->e.guid.prefix, sizeof (guid->prefix)) == 0);
 
@@ -4743,6 +4744,37 @@ dds_return_t new_topic
     return rc;
   return new_topic_guid (tp_out, tpguid, pp, topic_name, type, xqos);
 }
+
+static void gc_delete_topic (struct gcreq *gcreq)
+{
+  struct topic *tp = gcreq->arg;
+  ELOGDISC (tp, "gc_delete_topic(%p, "PGUIDFMT")\n", (void *) gcreq, PGUID (tp->e.guid));
+  gcreq_free (gcreq);
+  if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE))
+    sedp_dispose_unregister_topic (tp);
+  ddsi_sertype_unref ((struct ddsi_sertype *) tp->type);
+  entity_common_fini (&tp->e);
+  ddsi_xqos_fini (tp->xqos);
+  ddsrt_free (tp->xqos);
+  ddsrt_free (tp);
+}
+
+dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid)
+{
+  struct topic *tp;
+  assert (is_topic_entityid (guid->entityid));
+  if ((tp = entidx_lookup_topic_guid (gv->entity_index, guid)) == NULL)
+  {
+    GVLOGDISC ("delete_topic(guid "PGUIDFMT") - unknown guid\n", PGUID (*guid));
+    return DDS_RETCODE_BAD_PARAMETER;
+  }
+  GVLOGDISC ("delete_topic(guid "PGUIDFMT") ...\n", PGUID (*guid));
+  builtintopic_write (gv->builtin_topic_interface, &tp->e, ddsrt_time_wallclock(), false);
+  entidx_remove_topic_guid (gv->entity_index, tp);
+  gcreq_topic (tp);
+  return 0;
+}
+
 
 /* PROXY-PARTICIPANT ------------------------------------------------ */
 static void proxy_participant_replace_minl (struct proxy_participant *proxypp, bool manbypp, struct lease *lnew)
@@ -6194,6 +6226,14 @@ static int gcreq_participant (struct participant *pp)
 {
   struct gcreq *gcreq = gcreq_new (pp->e.gv->gcreq_queue, gc_delete_participant);
   gcreq->arg = pp;
+  gcreq_enqueue (gcreq);
+  return 0;
+}
+
+static int gcreq_topic (struct topic *tp)
+{
+  struct gcreq *gcreq = gcreq_new (tp->e.gv->gcreq_queue, gc_delete_topic);
+  gcreq->arg = tp;
   gcreq_enqueue (gcreq);
   return 0;
 }

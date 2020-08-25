@@ -240,6 +240,13 @@ typedef struct dds_publisher {
   struct dds_entity m_entity;
 } dds_publisher;
 
+struct ktopic_type_guid {
+  const type_identifier_t *type_id;
+  uint32_t refc;
+  ddsi_guid_t guid;
+  struct topic *tp;
+};
+
 typedef struct dds_ktopic {
   /* name -> <type_name, QoS> mapping for topics, part of the participant
      and protected by the participant's lock (including the actual QoS
@@ -254,7 +261,7 @@ typedef struct dds_ktopic {
   dds_qos_t *qos;
   char *name; /* [constant] */
   char *type_name; /* [constant] */
-  struct topic *m_tp; /* DDSI topic */
+  struct ddsrt_hh *topic_guid_map;
 } dds_ktopic;
 
 typedef struct dds_participant {

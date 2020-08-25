@@ -245,8 +245,6 @@ struct participant
 struct topic {
   struct entity_common e;
   struct participant *pp;
-  char *name;
-  char *type_name;
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   type_identifier_t type_id;
 #endif
@@ -414,8 +412,6 @@ struct proxy_topic
 {
   struct entity_common e;
   struct proxy_participant *proxypp; /* counted backref to proxy participant */
-  char *name;
-  char *type_name;
   struct dds_qos *xqos; /* proxy endpoint QoS lives here; FIXME: local ones should have it moved to common as well */
   nn_vendorid_t vendor; /* cached from proxypp->vendor */
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
@@ -694,6 +690,8 @@ int writer_must_have_hb_scheduled (const struct writer *wr, const struct whc_sta
 void writer_set_retransmitting (struct writer *wr);
 void writer_clear_retransmitting (struct writer *wr);
 dds_return_t writer_wait_for_acks (struct writer *wr, const ddsi_guid_t *rdguid, dds_time_t abstimeout);
+
+dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
 
 dds_return_t unblock_throttled_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
 dds_return_t delete_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);

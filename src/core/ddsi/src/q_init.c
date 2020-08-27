@@ -1807,12 +1807,14 @@ void rtps_stop (struct ddsi_domaingv *gv)
   {
     struct entidx_enum_writer est_wr;
     struct entidx_enum_reader est_rd;
-    struct entidx_enum_topic est_tp;
     struct entidx_enum_participant est_pp;
     struct participant *pp;
-    struct topic *tp;
     struct writer *wr;
     struct reader *rd;
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+    struct entidx_enum_topic est_tp;
+    struct topic *tp;
+#endif
     /* Delete readers, writers and participants, relying on
        delete_participant to schedule the deletion of the built-in
        rwriters to get all SEDP and SPDP dispose+unregister messages
@@ -1835,6 +1837,7 @@ void rtps_stop (struct ddsi_domaingv *gv)
     }
     entidx_enum_reader_fini (&est_rd);
     thread_state_awake_to_awake_no_nest (ts1);
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     entidx_enum_topic_init (&est_tp, gv->entity_index);
     while ((tp = entidx_enum_topic_next (&est_tp)) != NULL)
     {
@@ -1842,6 +1845,7 @@ void rtps_stop (struct ddsi_domaingv *gv)
     }
     entidx_enum_topic_fini (&est_tp);
     thread_state_awake_to_awake_no_nest (ts1);
+#endif
     entidx_enum_participant_init (&est_pp, gv->entity_index);
     while ((pp = entidx_enum_participant_next (&est_pp)) != NULL)
     {

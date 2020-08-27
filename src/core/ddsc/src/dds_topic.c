@@ -296,7 +296,7 @@ static int ktopic_type_guid_equal (const void *ktp_guid_a, const void *ktp_guid_
 static uint32_t ktopic_type_guid_hash (const void *ktp_guid)
 {
   struct ktopic_type_guid *x = (struct ktopic_type_guid *)ktp_guid;
-  return (uint32_t) x->type_id;
+  return (uint32_t) *x->type_id->hash;
 }
 
 dds_entity_t dds_create_topic_impl (dds_entity_t participant, const char * name, struct ddsi_sertype **sertype, const dds_qos_t *qos, const dds_listener_t *listener, const ddsi_plist_t *sedp_plist)

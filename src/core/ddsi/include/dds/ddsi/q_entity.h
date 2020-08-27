@@ -393,6 +393,7 @@ struct proxy_participant
   struct addrset *as_default; /* default address set to use for user data traffic */
   struct addrset *as_meta; /* default address set to use for discovery traffic */
   struct proxy_endpoint_common *endpoints; /* all proxy endpoints can be reached from here */
+  struct proxy_topic *topics;
   ddsrt_avl_tree_t groups; /* table of all groups (publisher, subscriber), see struct proxy_group */
   seqno_t seq; /* sequence number of most recent SPDP message */
   unsigned implicitly_created : 1; /* participants are implicitly created for Cloud/Fog discovered endpoints */
@@ -412,7 +413,10 @@ struct proxy_topic
 {
   struct entity_common e;
   struct proxy_participant *proxypp; /* counted backref to proxy participant */
+  struct proxy_topic *next_tp; /* next \ proxy topic belonging to this proxy participant */
+  struct proxy_topic *prev_tp; /* prev / -- this is in arbitrary ordering */
   struct dds_qos *xqos; /* proxy endpoint QoS lives here; FIXME: local ones should have it moved to common as well */
+  seqno_t seq; /* sequence number of most recent SEDP message */
   nn_vendorid_t vendor; /* cached from proxypp->vendor */
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   type_identifier_t type_id; /* type identifier for for type used by this proxy endpoint */
@@ -739,6 +743,10 @@ int update_proxy_participant_plist (struct proxy_participant *proxypp, seqno_t s
 void proxy_participant_reassign_lease (struct proxy_participant *proxypp, struct lease *newlease);
 
 void purge_proxy_participants (struct ddsi_domaingv *gv, const nn_locator_t *loc, bool delete_from_as_disc);
+
+int new_proxy_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *ppguid, const struct ddsi_guid *guid, const ddsi_plist_t *plist, ddsrt_wctime_t timestamp, seqno_t seq);
+void update_proxy_topic (struct proxy_topic *ptp, seqno_t seq, const struct dds_qos *xqos, ddsrt_wctime_t timestamp);
+int delete_proxy_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid, ddsrt_wctime_t timestamp);
 
 
 /* To create a new proxy writer or reader; the proxy participant is

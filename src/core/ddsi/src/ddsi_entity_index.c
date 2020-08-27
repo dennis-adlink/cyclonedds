@@ -523,6 +523,16 @@ void entidx_enum_proxy_reader_init (struct entidx_enum_proxy_reader *st, const s
   entidx_enum_init (&st->st, ei, EK_PROXY_READER);
 }
 
+void entidx_enum_topic_init (struct entidx_enum_topic *st, const struct entity_index *ei)
+{
+  entidx_enum_init (&st->st, ei, EK_TOPIC);
+}
+
+void entidx_enum_proxy_topic_init (struct entidx_enum_proxy_topic *st, const struct entity_index *ei)
+{
+  entidx_enum_init (&st->st, ei, EK_PROXY_TOPIC);
+}
+
 void entidx_enum_participant_init (struct entidx_enum_participant *st, const struct entity_index *ei)
 {
   entidx_enum_init (&st->st, ei, EK_PARTICIPANT);
@@ -584,6 +594,18 @@ struct proxy_reader *entidx_enum_proxy_reader_next (struct entidx_enum_proxy_rea
   return entidx_enum_next (&st->st);
 }
 
+struct topic *entidx_enum_topic_next (struct entidx_enum_topic *st)
+{
+  DDSRT_STATIC_ASSERT (offsetof (struct topic, e) == 0);
+  return entidx_enum_next (&st->st);
+}
+
+struct proxy_topic *entidx_enum_proxy_topic_next (struct entidx_enum_proxy_topic *st)
+{
+  DDSRT_STATIC_ASSERT (offsetof (struct proxy_topic, e) == 0);
+  return entidx_enum_next (&st->st);
+}
+
 struct participant *entidx_enum_participant_next (struct entidx_enum_participant *st)
 {
   DDSRT_STATIC_ASSERT (offsetof (struct participant, e) == 0);
@@ -618,6 +640,16 @@ void entidx_enum_proxy_writer_fini (struct entidx_enum_proxy_writer *st)
 }
 
 void entidx_enum_proxy_reader_fini (struct entidx_enum_proxy_reader *st)
+{
+  entidx_enum_fini (&st->st);
+}
+
+void entidx_enum_topic_fini (struct entidx_enum_topic *st)
+{
+  entidx_enum_fini (&st->st);
+}
+
+void entidx_enum_proxy_topic_fini (struct entidx_enum_proxy_topic *st)
 {
   entidx_enum_fini (&st->st);
 }

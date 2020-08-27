@@ -396,12 +396,24 @@ static void tlm_register_with_proxy_endpoints_locked (struct ddsi_domaingv *gv, 
     struct entity_common *ec;
     if ((ec = entidx_lookup_guid_untyped (gv->entity_index, ep)) != NULL)
     {
-      assert (ec->kind == EK_PROXY_READER || ec->kind == EK_PROXY_WRITER);
-      struct generic_proxy_endpoint *gpe = (struct generic_proxy_endpoint *) ec;
-      ddsrt_mutex_lock (&gpe->e.lock);
-      if (gpe->c.type == NULL)
-        gpe->c.type = ddsi_sertype_ref (tlm->sertype);
-      ddsrt_mutex_unlock (&gpe->e.lock);
+      if (ec->kind == EK_PROXY_READER || ec->kind == EK_PROXY_WRITER)
+      {
+        struct generic_proxy_endpoint *gpe = (struct generic_proxy_endpoint *) ec;
+        ddsrt_mutex_lock (&gpe->e.lock);
+        if (gpe->c.type == NULL)
+          gpe->c.type = ddsi_sertype_ref (tlm->sertype);
+        ddsrt_mutex_unlock (&gpe->e.lock);
+      }
+      else if (ec->kind == EK_PROXY_TOPIC)
+      {
+        struct proxy_topic *ptp = (struct proxy_topic *) ec;
+        ddsrt_mutex_lock (&ptp->e.lock);
+        if (ptp->type == NULL)
+          ptp->type = ddsi_sertype_ref (tlm->sertype);
+        ddsrt_mutex_unlock (&ptp->e.lock);
+      }
+      else
+        assert (false);
     }
   }
   thread_state_asleep (lookup_thread_state ());
@@ -463,7 +475,12 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
         gpe_match_upd = ddsrt_realloc (gpe_match_upd, (n_match_upd + tlm_endpoints_count (tlm)) * sizeof (*gpe_match_upd));
         tlm_endpoints_iter_t it;
         for (const ddsi_guid_t *ep = tlm_endpoints_iter_first (tlm, &it); ep != NULL; ep = tlm_endpoints_iter_next (&it))
-          gpe_match_upd[n_match_upd++] = (struct generic_proxy_endpoint *) entidx_lookup_guid_untyped (gv->entity_index, ep);
+        {
+          struct entity_common *ec = entidx_lookup_guid_untyped (gv->entity_index, ep);
+          assert (ec != NULL);
+          if (ec->kind == EK_PROXY_READER || ec->kind == EK_PROXY_WRITER)
+            gpe_match_upd[n_match_upd++] = (struct generic_proxy_endpoint *) ec;
+        }
 
         tlm_register_with_proxy_endpoints_locked (gv, tlm);
       }

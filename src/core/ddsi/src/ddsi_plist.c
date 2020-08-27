@@ -1522,6 +1522,7 @@ static dds_return_t dvx_endpoint_guid (void * __restrict dst, const struct dd * 
     case NN_ENTITYID_KIND_WRITER_NO_KEY:
     case NN_ENTITYID_KIND_READER_NO_KEY:
     case NN_ENTITYID_KIND_READER_WITH_KEY:
+    case NN_ENTITYID_KIND_CYCLONE_TOPIC:
       return 0;
     default:
       return (protocol_version_is_newer (dd->protocol_version) ? 0 : DDS_RETCODE_BAD_PARAMETER);

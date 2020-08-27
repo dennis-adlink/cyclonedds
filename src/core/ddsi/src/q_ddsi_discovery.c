@@ -996,7 +996,7 @@ static struct writer *get_sedp_writer (const struct participant *pp, unsigned en
 
 int sedp_write_topic (struct topic *tp)
 {
-  if ((!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE)) && (!tp->e.onlylocal))
+  if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE) && !tp->e.onlylocal)
   {
     unsigned entityid = determine_topic_writer (tp);
     struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
@@ -1220,11 +1220,12 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
   struct proxy_participant *pp;
   struct proxy_writer * pwr = NULL;
   struct proxy_reader * prd = NULL;
+  struct proxy_topic *ptp = NULL;
   ddsi_guid_t ppguid;
   dds_qos_t *xqos;
   int reliable;
   struct addrset *as;
-  int is_writer;
+  int is_writer, is_reader;
 #ifdef DDSI_INCLUDE_SSM
   int ssm;
 #endif
@@ -1259,9 +1260,12 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
 
   xqos = &datap->qos;
   is_writer = is_writer_entityid (datap->endpoint_guid.entityid);
-  if (!is_writer)
+  is_reader = is_reader_entityid (datap->endpoint_guid.entityid);
+  if (is_reader)
     ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_rd, ~(uint64_t)0);
-  else if (vendor_is_eclipse_or_adlink(vendorid))
+  else if (is_topic_entityid (datap->endpoint_guid.entityid))
+    ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_tp, ~(uint64_t)0);
+  else if (is_writer && vendor_is_eclipse_or_adlink(vendorid))
     ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_wr, ~(uint64_t)0);
   else
     ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_wr_nad, ~(uint64_t)0);
@@ -1277,7 +1281,7 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
   GVLOGDISC (" %s %s %s: %s%s.%s/%s",
              reliable ? "reliable" : "best-effort",
              durability_to_string (xqos->durability.kind),
-             is_writer ? "writer" : "reader",
+             is_writer ? "writer" : (is_reader ? "reader" : "topic"),
              ((!(xqos->present & QP_PARTITION) || xqos->partition.n == 0 || *xqos->partition.strs[0] == '\0')
               ? "(default)" : xqos->partition.strs[0]),
              ((xqos->present & QP_PARTITION) && xqos->partition.n > 1) ? "+" : "",
@@ -1299,14 +1303,12 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
   }
 
   if (is_writer)
-  {
     pwr = entidx_lookup_proxy_writer_guid (gv->entity_index, &datap->endpoint_guid);
-  }
-  else
-  {
+  else if (is_reader)
     prd = entidx_lookup_proxy_reader_guid (gv->entity_index, &datap->endpoint_guid);
-  }
-  if (pwr || prd)
+  else
+    ptp = entidx_lookup_proxy_topic_guid (gv->entity_index, &datap->endpoint_guid);
+  if (pwr || prd || ptp)
   {
     /* Re-bind the proxy participant to the discovery service - and do this if it is currently
        bound to another DS instance, because that other DS instance may have already failed and
@@ -1361,7 +1363,7 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
   ssm = 0;
   if (is_writer)
     ssm = addrset_contains_ssm (gv, as);
-  else if (datap->present & PP_READER_FAVOURS_SSM)
+  else if (is_reader && (datap->present & PP_READER_FAVOURS_SSM))
     ssm = (datap->reader_favours_ssm.state != 0);
   GVLOGDISC (" ssm=%u", ssm);
 #endif
@@ -1378,9 +1380,7 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
     if (is_writer)
     {
       if (pwr)
-      {
         update_proxy_writer (pwr, seq, as, xqos, timestamp);
-      }
       else
       {
         /* not supposed to get here for built-in ones, so can determine the channel based on the transport priority */
@@ -1395,12 +1395,10 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
 #endif
       }
     }
-    else
+    else if (is_reader)
     {
       if (prd)
-      {
         update_proxy_reader (prd, seq, as, xqos, timestamp);
-      }
       else
       {
 #ifdef DDSI_INCLUDE_SSM
@@ -1409,6 +1407,13 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
         new_proxy_reader (gv, &ppguid, &datap->endpoint_guid, as, datap, timestamp, seq);
 #endif
       }
+    }
+    else /* topic */
+    {
+      if (ptp)
+        update_proxy_topic (ptp, seq, xqos, timestamp);
+      else
+        new_proxy_topic (gv, &ppguid, &datap->endpoint_guid, datap, timestamp, seq);
     }
   }
 
@@ -1428,8 +1433,10 @@ static void handle_SEDP_dead (const struct receiver_state *rst, ddsi_plist_t *da
   GVLOGDISC (" "PGUIDFMT, PGUID (datap->endpoint_guid));
   if (is_writer_entityid (datap->endpoint_guid.entityid))
     res = delete_proxy_writer (gv, &datap->endpoint_guid, timestamp, 0);
-  else
+  else if (is_reader_entityid (datap->endpoint_guid.entityid))
     res = delete_proxy_reader (gv, &datap->endpoint_guid, timestamp, 0);
+  else
+    res = delete_proxy_topic (gv, &datap->endpoint_guid, timestamp);
   GVLOGDISC (" %s\n", (res < 0) ? " unknown" : " delete");
 }
 

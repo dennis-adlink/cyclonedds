@@ -1807,8 +1807,10 @@ void rtps_stop (struct ddsi_domaingv *gv)
   {
     struct entidx_enum_writer est_wr;
     struct entidx_enum_reader est_rd;
+    struct entidx_enum_topic est_tp;
     struct entidx_enum_participant est_pp;
     struct participant *pp;
+    struct topic *tp;
     struct writer *wr;
     struct reader *rd;
     /* Delete readers, writers and participants, relying on
@@ -1832,6 +1834,13 @@ void rtps_stop (struct ddsi_domaingv *gv)
         delete_reader (gv, &rd->e.guid);
     }
     entidx_enum_reader_fini (&est_rd);
+    thread_state_awake_to_awake_no_nest (ts1);
+    entidx_enum_topic_init (&est_tp, gv->entity_index);
+    while ((tp = entidx_enum_topic_next (&est_tp)) != NULL)
+    {
+      delete_topic (gv, &tp->e.guid);
+    }
+    entidx_enum_topic_fini (&est_tp);
     thread_state_awake_to_awake_no_nest (ts1);
     entidx_enum_participant_init (&est_pp, gv->entity_index);
     while ((pp = entidx_enum_participant_next (&est_pp)) != NULL)

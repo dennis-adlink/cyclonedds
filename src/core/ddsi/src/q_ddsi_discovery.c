@@ -1267,8 +1267,10 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
     ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_tp, ~(uint64_t)0);
   else if (is_writer && vendor_is_eclipse_or_adlink(vendorid))
     ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_wr, ~(uint64_t)0);
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   else
     ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_wr_nad, ~(uint64_t)0);
+#endif
 
   /* After copy + merge, should have at least the ones present in the
      input.  Also verify reliability and durability are present,
@@ -1306,8 +1308,10 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
     pwr = entidx_lookup_proxy_writer_guid (gv->entity_index, &datap->endpoint_guid);
   else if (is_reader)
     prd = entidx_lookup_proxy_reader_guid (gv->entity_index, &datap->endpoint_guid);
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   else
     ptp = entidx_lookup_proxy_topic_guid (gv->entity_index, &datap->endpoint_guid);
+#endif
   if (pwr || prd || ptp)
   {
     /* Re-bind the proxy participant to the discovery service - and do this if it is currently
@@ -1408,6 +1412,7 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
 #endif
       }
     }
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     else /* topic */
     {
       if (ptp)
@@ -1415,6 +1420,7 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
       else
         new_proxy_topic (gv, &ppguid, &datap->endpoint_guid, datap, timestamp, seq);
     }
+#endif
   }
 
   unref_addrset (as);
@@ -1428,15 +1434,17 @@ err:
 static void handle_SEDP_dead (const struct receiver_state *rst, ddsi_plist_t *datap, ddsrt_wctime_t timestamp)
 {
   struct ddsi_domaingv * const gv = rst->gv;
-  int res;
+  int res = -1;
   assert (datap->present & PP_ENDPOINT_GUID);
   GVLOGDISC (" "PGUIDFMT, PGUID (datap->endpoint_guid));
   if (is_writer_entityid (datap->endpoint_guid.entityid))
     res = delete_proxy_writer (gv, &datap->endpoint_guid, timestamp, 0);
   else if (is_reader_entityid (datap->endpoint_guid.entityid))
     res = delete_proxy_reader (gv, &datap->endpoint_guid, timestamp, 0);
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   else
     res = delete_proxy_topic (gv, &datap->endpoint_guid, timestamp);
+#endif
   GVLOGDISC (" %s\n", (res < 0) ? " unknown" : " delete");
 }
 

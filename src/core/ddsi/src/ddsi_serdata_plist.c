@@ -79,22 +79,42 @@ static struct ddsi_serdata_plist *serdata_plist_new (const struct ddsi_sertype_p
 
 static struct ddsi_serdata *serdata_plist_fix (const struct ddsi_sertype_plist *tp, struct ddsi_serdata_plist *d)
 {
-  assert (tp->keyparam != PID_SENTINEL);
-  void *needlep;
-  size_t needlesz;
-  if (ddsi_plist_findparam_checking (d->data, d->pos, d->identifier, tp->keyparam, &needlep, &needlesz) != DDS_RETCODE_OK)
+  assert (tp->keyparam1 != PID_SENTINEL);
+  void *needlep, *needlep2;
+  size_t needlesz, needlesz2;
+  if (ddsi_plist_findparam_checking (d->data, d->pos, d->identifier, tp->keyparam1, &needlep, &needlesz) != DDS_RETCODE_OK)
   {
     ddsrt_free (d);
     return NULL;
   }
   assert (needlep);
-  if (needlesz != sizeof (d->keyhash))
+  if (tp->keyparam2 == PID_SENTINEL)
   {
-    ddsrt_free (d);
-    return NULL;
+    if (needlesz != sizeof (d->keyhash))
+    {
+      ddsrt_free (d);
+      return NULL;
+    }
+    memcpy (&d->keyhash, needlep, 16);
+    d->c.hash = ddsrt_mh3 (&d->keyhash, sizeof (d->keyhash), 0) ^ tp->c.serdata_basehash;
   }
-  memcpy (&d->keyhash, needlep, 16);
-  d->c.hash = ddsrt_mh3 (&d->keyhash, sizeof (d->keyhash), 0) ^ tp->c.serdata_basehash;
+  else
+  {
+    if (ddsi_plist_findparam_checking (d->data, d->pos, d->identifier, tp->keyparam2, &needlep2, &needlesz2) != DDS_RETCODE_OK)
+    {
+      ddsrt_free (d);
+      return NULL;
+    }
+
+    assert (needlesz <= UINT32_MAX);
+    assert (needlesz2 <= UINT32_MAX);
+    ddsrt_md5_state_t md5st;
+    ddsrt_md5_init (&md5st);
+    ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) needlep, (uint32_t) needlesz);
+    ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) needlep2, (uint32_t) needlesz2);
+    ddsrt_md5_finish (&md5st, (ddsrt_md5_byte_t *) &d->keyhash);
+    d->c.hash = ddsrt_mh3 (&d->keyhash, sizeof (d->keyhash), 0) ^ tp->c.serdata_basehash;
+  }
   return &d->c;
 }
 
@@ -145,11 +165,12 @@ static struct ddsi_serdata *serdata_plist_from_ser_iov (const struct ddsi_sertyp
 static struct ddsi_serdata *serdata_plist_from_keyhash (const struct ddsi_sertype *tpcmn, const ddsi_keyhash_t *keyhash)
 {
   const struct ddsi_sertype_plist *tp = (const struct ddsi_sertype_plist *) tpcmn;
+  assert (tp->keyparam2 == PID_SENTINEL);
   const struct { uint16_t identifier, options; nn_parameter_t par; ddsi_keyhash_t kh; nn_parameter_t sentinel; } in = {
     .identifier = PL_CDR_BE,
     .options = 0,
     .par = {
-      .parameterid = ddsrt_toBE2u (tp->keyparam),
+      .parameterid = ddsrt_toBE2u (tp->keyparam1),
       .length = ddsrt_toBE2u ((uint16_t) sizeof (*keyhash))
     },
     .kh = *keyhash,
@@ -229,8 +250,15 @@ static struct ddsi_serdata *serdata_plist_from_sample (const struct ddsi_sertype
 #ifndef NDEBUG
   void *needle;
   size_t needlesz;
-  assert (ddsi_plist_findparam_checking (blob + 4, sz, header.identifier, tp->keyparam, &needle, &needlesz) == DDS_RETCODE_OK);
-  assert (needle && needlesz == 16);
+  assert (ddsi_plist_findparam_checking (blob + 4, sz, header.identifier, tp->keyparam1, &needle, &needlesz) == DDS_RETCODE_OK);
+  assert (needle);
+  if (tp->keyparam2 == PID_SENTINEL)
+    assert (needlesz == 16);
+  else
+  {
+    assert (ddsi_plist_findparam_checking (blob + 4, sz, header.identifier, tp->keyparam2, &needle, &needlesz) == DDS_RETCODE_OK);
+    assert (needle);
+  }
 #endif
   ddsrt_iovec_t iov = { .iov_base = blob, .iov_len = (ddsrt_iov_len_t) sz };
   struct ddsi_serdata *d = serdata_plist_from_ser_iov (tpcmn, kind, 1, &iov, sz - 4);

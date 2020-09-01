@@ -226,26 +226,20 @@ CU_Test(ddsc_builtin_topics, read_participant_data, .init = setup, .fini = teard
   dds_return_loan(reader, samples, ret);
 }
 
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 CU_Test(ddsc_builtin_topics, read_topic_data, .init = setup, .fini = teardown)
 {
-#if 0 /* disabled pending CHAM-347 */
-  dds_entity_t reader;
-  dds_return_t ret;
-  DDS_TopicBuiltinTopicData *data;
-  void * samples[MAX_SAMPLES];
 
-  reader = dds_create_reader(g_participant, DDS_BUILTIN_TOPIC_DCPSTOPIC, NULL, NULL);
+  dds_entity_t reader = dds_create_reader(g_participant, DDS_BUILTIN_TOPIC_DCPSTOPIC, NULL, NULL);
   CU_ASSERT_FATAL(reader > 0);
-
-  samples[0] = NULL;
-  ret = dds_read(reader, samples, g_info, MAX_SAMPLES, MAX_SAMPLES);
-  CU_ASSERT_FATAL(ret > 0);
-
-  data = (DDS_TopicBuiltinTopicData *)samples;
-  CU_ASSERT_STRING_EQUAL_FATAL(data->name, "DCPSSubscription");
+  void * samples[MAX_SAMPLES] = { NULL };
+  dds_return_t ret = dds_read(reader, samples, g_info, MAX_SAMPLES, MAX_SAMPLES);
+  CU_ASSERT_EQUAL_FATAL(ret, 1);
+  dds_builtintopic_endpoint_t *data = samples[0];
+  CU_ASSERT_STRING_EQUAL_FATAL(data->topic_name, "RoundTrip");
   dds_return_loan(reader, samples, ret);
-#endif
 }
+#endif
 
 CU_Test(ddsc_builtin_topics, same_subscriber, .init = setup, .fini = teardown)
 {
@@ -258,10 +252,8 @@ CU_Test(ddsc_builtin_topics, same_subscriber, .init = setup, .fini = teardown)
   dds_entity_t participant_rdr;
   dds_entity_t participant_subscriber;
 
-#if 0
   dds_entity_t topic_rdr;
   dds_entity_t topic_subscriber;
-#endif
 
   subscription_rdr = dds_create_reader(g_participant, DDS_BUILTIN_TOPIC_DCPSSUBSCRIPTION, NULL, NULL);
   CU_ASSERT_FATAL(subscription_rdr > 0);
@@ -282,14 +274,12 @@ CU_Test(ddsc_builtin_topics, same_subscriber, .init = setup, .fini = teardown)
 
   CU_ASSERT_FATAL(publication_subscriber == participant_subscriber);
 
-#if 0
   topic_rdr = dds_create_reader(g_participant, DDS_BUILTIN_TOPIC_DCPSTOPIC, NULL, NULL);
   CU_ASSERT_FATAL(topic_rdr > 0);
   topic_subscriber = dds_get_parent(topic_rdr);
   CU_ASSERT_FATAL(topic_subscriber > 0);
 
   CU_ASSERT_FATAL(participant_subscriber == topic_subscriber);
-#endif
 }
 
 CU_Test(ddsc_builtin_topics, builtin_qos, .init = setup, .fini = teardown)

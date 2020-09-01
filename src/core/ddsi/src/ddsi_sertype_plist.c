@@ -28,7 +28,9 @@ static bool sertype_plist_equal (const struct ddsi_sertype *acmn, const struct d
   const struct ddsi_sertype_plist *b = (struct ddsi_sertype_plist *) bcmn;
   if (a->native_encoding_identifier != b->native_encoding_identifier)
     return false;
-  if (a->keyparam != b->keyparam)
+  if (a->keyparam1 != b->keyparam1)
+    return false;
+  if (a->keyparam2 != b->keyparam2)
     return false;
   return true;
 }
@@ -40,7 +42,8 @@ static void sertype_plist_typeid_hash (const struct ddsi_sertype *tpcmn, unsigne
   ddsrt_md5_state_t md5st;
   ddsrt_md5_init (&md5st);
   ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) &tp->native_encoding_identifier, sizeof (tp->native_encoding_identifier));
-  ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) &tp->keyparam, sizeof (tp->keyparam));
+  ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) &tp->keyparam1, sizeof (tp->keyparam1));
+  ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) &tp->keyparam2, sizeof (tp->keyparam2));
   ddsrt_md5_finish (&md5st, (ddsrt_md5_byte_t *) buf);
 }
 

@@ -308,9 +308,9 @@ void get_participant_builtin_topic_data (const struct participant *pp, ddsi_plis
 #endif
 }
 
-static int write_and_fini_plist (struct writer *wr, ddsi_plist_t *ps, bool alive)
+static int write_and_fini_plist (struct writer *wr, ddsi_plist_t *ps, bool alive, bool force_data)
 {
-  struct ddsi_serdata *serdata = ddsi_serdata_from_sample (wr->type, alive ? SDK_DATA : SDK_KEY, ps);
+  struct ddsi_serdata *serdata = ddsi_serdata_from_sample (wr->type, alive || force_data ? SDK_DATA : SDK_KEY, ps);
   ddsi_plist_fini (ps);
   serdata->statusinfo = alive ? 0 : (NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER);
   serdata->timestamp = ddsrt_time_wallclock ();
@@ -337,7 +337,7 @@ int spdp_write (struct participant *pp)
   }
 
   get_participant_builtin_topic_data (pp, &ps, &locs);
-  return write_and_fini_plist (wr, &ps, true);
+  return write_and_fini_plist (wr, &ps, true, false);
 }
 
 static int spdp_dispose_unregister_with_wr (struct participant *pp, unsigned entityid)
@@ -356,7 +356,7 @@ static int spdp_dispose_unregister_with_wr (struct participant *pp, unsigned ent
   ddsi_plist_init_empty (&ps);
   ps.present |= PP_PARTICIPANT_GUID;
   ps.participant_guid = pp->e.guid;
-  return write_and_fini_plist (wr, &ps, false);
+  return write_and_fini_plist (wr, &ps, false, false);
 }
 
 int spdp_dispose_unregister (struct participant *pp)
@@ -921,7 +921,7 @@ static int sedp_write_endpoint_or_topic
   assert(security == NULL);
 #endif
 
-  if (!alive)
+  if (!alive && !is_topic_entityid (guid->entityid))
   {
     assert (xqos == NULL);
     assert (epcommon == NULL);
@@ -976,6 +976,7 @@ static int sedp_write_endpoint_or_topic
     }
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+    assert (type_id != NULL);
     memcpy (&ps.type_information, type_id, sizeof (ps.type_information) );
     ps.present |= PP_CYCLONE_TYPE_INFORMATION;
 #endif
@@ -983,7 +984,7 @@ static int sedp_write_endpoint_or_topic
 
   if (xqos)
     ddsi_xqos_mergein_missing (&ps.qos, xqos, qosdiff);
-  return write_and_fini_plist (wr, &ps, alive);
+  return write_and_fini_plist (wr, &ps, alive, is_topic_entityid (guid->entityid));
 }
 
 static struct writer *get_sedp_writer (const struct participant *pp, unsigned entityid)
@@ -996,6 +997,7 @@ static struct writer *get_sedp_writer (const struct participant *pp, unsigned en
 
 int sedp_write_topic (struct topic *tp)
 {
+  int res = 0;
   if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE) && !tp->e.onlylocal)
   {
     unsigned entityid = determine_topic_writer (tp);
@@ -1004,18 +1006,18 @@ int sedp_write_topic (struct topic *tp)
     struct addrset *as = NULL;
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     type_identifier_t *type_id = ddsi_typeid_from_sertype (tp->type);
-    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &tp->e.guid, &tp->e, NULL, tp->xqos, as, security, type_id);
+    res = sedp_write_endpoint_or_topic (sedp_wr, 1, &tp->e.guid, &tp->e, NULL, tp->xqos, as, security, type_id);
     ddsrt_free (type_id);
 #else
-    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &tp->e.guid, &tp->e, NULL, tp->xqos, as, security);
+    res = sedp_write_endpoint_or_topic (sedp_wr, 1, &tp->e.guid, &tp->e, NULL, tp->xqos, as, security);
 #endif
-    return res;
   }
-  return 0;
+  return res;
 }
 
 int sedp_write_writer (struct writer *wr)
 {
+  int res = 0;
   if ((!is_builtin_entityid(wr->e.guid.entityid, NN_VENDORID_ECLIPSE)) && (!wr->e.onlylocal))
   {
     unsigned entityid = determine_publication_writer(wr);
@@ -1035,18 +1037,18 @@ int sedp_write_writer (struct writer *wr)
 #endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     type_identifier_t *type_id = ddsi_typeid_from_sertype (wr->type);
-    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security, type_id);
+    res = sedp_write_endpoint_or_topic (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security, type_id);
     ddsrt_free (type_id);
 #else
-    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security);
+    res = sedp_write_endpoint_or_topic (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security);
 #endif
-    return res;
   }
-  return 0;
+  return res;
 }
 
 int sedp_write_reader (struct reader *rd)
 {
+  int res = 0;
   if ((!is_builtin_entityid (rd->e.guid.entityid, NN_VENDORID_ECLIPSE)) && (!rd->e.onlylocal))
   {
     unsigned entityid = determine_subscription_writer(rd);
@@ -1066,29 +1068,31 @@ int sedp_write_reader (struct reader *rd)
 #endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     type_identifier_t *type_id = ddsi_typeid_from_sertype (rd->type);
-    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, type_id);
+    res = sedp_write_endpoint_or_topic (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, type_id);
     ddsrt_free (type_id);
 #else
-    int res = sedp_write_endpoint_or_topic (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security);
+    res = sedp_write_endpoint_or_topic (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security);
 #endif
-    return res;
   }
-  return 0;
+  return res;
 }
 
 int sedp_dispose_unregister_topic (struct topic *tp)
 {
+  int res = 0;
   if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE))
   {
     unsigned entityid = determine_topic_writer (tp);
     struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    return sedp_write_endpoint_or_topic (sedp_wr, 0, &tp->e.guid, NULL, NULL, NULL, NULL, NULL, NULL);
+    type_identifier_t *type_id = ddsi_typeid_from_sertype (tp->type);
+    res = sedp_write_endpoint_or_topic (sedp_wr, 0, &tp->e.guid, NULL, NULL, tp->xqos, NULL, NULL, type_id);
+    ddsrt_free (type_id);
 #else
-    return sedp_write_endpoint_or_topic (sedp_wr, 0, &tp->e.guid, NULL, NULL, NULL, NULL, NULL);
+    res = sedp_write_endpoint_or_topic (sedp_wr, 0, &tp->e.guid, NULL, NULL, tp->xqos, NULL, NULL);
 #endif
   }
-  return 0;
+  return res;
 }
 
 int sedp_dispose_unregister_writer (struct writer *wr)

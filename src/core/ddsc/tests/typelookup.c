@@ -124,11 +124,15 @@ static endpoint_info_t * find_typeid_match (dds_entity_t participant, dds_entity
     for (int i = 0; i < n && result == NULL; i++)
     {
       dds_builtintopic_endpoint_t *data = ptrs[i];
-      if (info[i].valid_data && data->type_identifier_sz > 0)
+      size_t type_identifier_sz;
+      unsigned char *type_identifier;
+      dds_return_t ret = dds_builtintopic_get_endpoint_typeid (data, &type_identifier, &type_identifier_sz);
+      CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
+      if (info[i].valid_data && type_identifier != NULL)
       {
         type_identifier_t t = { .hash = { 0 } };
-        CU_ASSERT_EQUAL_FATAL (data->type_identifier_sz, sizeof (type_identifier_t));
-        memcpy (&t, data->type_identifier, data->type_identifier_sz);
+        CU_ASSERT_EQUAL_FATAL (type_identifier_sz, sizeof (type_identifier_t));
+        memcpy (&t, type_identifier, type_identifier_sz);
         print_ep (&data->key);
         printf (" type: "PTYPEIDFMT, PTYPEID (t));
         if (ddsi_typeid_equal (&t, type_id) && !strcmp (data->topic_name, match_topic))
@@ -146,6 +150,7 @@ static endpoint_info_t * find_typeid_match (dds_entity_t participant, dds_entity
         print_ep (&data->key);
         printf (" no type\n");
       }
+      ddsrt_free (type_identifier);
     }
     if (n > 0)
     {

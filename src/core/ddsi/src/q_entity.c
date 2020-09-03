@@ -5519,8 +5519,11 @@ static int proxy_endpoint_common_init (struct entity_common *e, struct proxy_end
   c->vendor = proxypp->vendor;
   c->seq = seq;
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (vendor_is_eclipse (c->vendor) && plist->present & PP_CYCLONE_TYPE_INFORMATION)
-    memcpy (&c->type_id, &plist->type_information, sizeof (c->type_id));
+  if (vendor_is_eclipse (c->vendor) && plist->qos.present & QP_CYCLONE_TYPE_INFORMATION)
+  {
+    assert (plist->qos.type_information.length == sizeof (c->type_id));
+    memcpy (&c->type_id, plist->qos.type_information.value, sizeof (c->type_id));
+  }
   else
     memset (&c->type_id, 0, sizeof (c->type_id));
   c->type = NULL;

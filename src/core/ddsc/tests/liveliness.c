@@ -511,13 +511,7 @@ static void test_lease_duration_pwr(bool remote_reader)
   CU_ASSERT_FATAL(ep != NULL);
   assert(ep != NULL); /* for Clang's static analyzer */
   CU_ASSERT_EQUAL_FATAL(ep->qos->liveliness.lease_duration, DDS_MSECS(ldur));
-  dds_delete_qos(ep->qos);
-  dds_free(ep->topic_name);
-  dds_free(ep->type_name);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  dds_free(ep->type_identifier);
-#endif
-  dds_free(ep);
+  dds_builtintopic_free_endpoint (ep);
 
   /* cleanup */
   dds_delete_qos(wqos);

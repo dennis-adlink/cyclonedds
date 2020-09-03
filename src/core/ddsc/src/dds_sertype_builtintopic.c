@@ -74,9 +74,6 @@ static void free_endpoint (void *vsample)
   dds_builtintopic_endpoint_t *sample = vsample;
   dds_free (sample->topic_name);
   dds_free (sample->type_name);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  dds_free (sample->type_identifier);
-#endif
   dds_delete_qos (sample->qos);
   sample->topic_name = sample->type_name = NULL;
   sample->qos = NULL;
@@ -163,8 +160,8 @@ const struct ddsi_sertype_ops ddsi_sertype_ops_builtintopic = {
   .zero_samples = sertype_builtin_zero_samples,
   .realloc_samples = sertype_builtin_realloc_samples,
   .free_samples = sertype_builtin_free_samples,
-  .serialized_size = NULL,
-  .serialize = NULL,
-  .deserialize = NULL,
-  .assignable_from = NULL
+  .serialized_size = 0,
+  .serialize = 0,
+  .deserialize = 0,
+  .assignable_from = 0
 };

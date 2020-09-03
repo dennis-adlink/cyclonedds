@@ -258,6 +258,7 @@ typedef struct dds_type_consistency_enforcement_qospolicy {
 #define QP_CYCLONE_IGNORELOCAL               ((uint64_t)1 << 30)
 #define QP_PROPERTY_LIST                     ((uint64_t)1 << 31)
 #define QP_TYPE_CONSISTENCY_ENFORCEMENT      ((uint64_t)1 << 32)
+#define QP_CYCLONE_TYPE_INFORMATION          ((uint64_t)1 << 33)
 
 /* Partition QoS is not RxO according to the specification (DDS 1.2,
    section 7.1.3), but communication will not take place unless it
@@ -281,6 +282,9 @@ struct dds_qos {
   /*      Extras: */
   /* xx */char *topic_name;
   /* xx */char *type_name;
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  /* xx */ddsi_octetseq_t type_information;
+#endif
   /*      PublisherQos, SubscriberQos: */
   /*xxx */dds_presentation_qospolicy_t presentation;
   /*xxx */dds_partition_qospolicy_t partition;

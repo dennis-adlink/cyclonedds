@@ -145,13 +145,14 @@ static dds_builtintopic_endpoint_t *make_builtintopic_endpoint (
   tmp = nn_hton_guid (*ppguid);
   memcpy (&ep->participant_key, &tmp, sizeof (ep->participant_key));
   ep->qos = dds_create_qos ();
-  ddsi_xqos_mergein_missing (ep->qos, qos, ~(QP_TOPIC_NAME | QP_TYPE_NAME));
+  ddsi_xqos_mergein_missing (ep->qos, qos, ~(QP_TOPIC_NAME | QP_TYPE_NAME | QP_CYCLONE_TYPE_INFORMATION));
   ep->topic_name = dds_string_dup (qos->topic_name);
   ep->type_name = dds_string_dup (qos->type_name);
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  ep->type_identifier_sz = sizeof (*type_id);
-  ep->type_identifier = ddsrt_memdup (type_id, ep->type_identifier_sz);
+  ep->qos->present |= QP_CYCLONE_TYPE_INFORMATION;
+  ep->qos->type_information.length = (uint32_t) sizeof (*type_id);
+  ep->qos->type_information.value = ddsrt_memdup (&type_id->hash, ep->qos->type_information.length);
 #endif
 
   return ep;
@@ -266,14 +267,27 @@ dds_builtintopic_endpoint_t *dds_get_matched_publication_data (dds_entity_t read
   }
 }
 
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+dds_return_t dds_builtintopic_get_endpoint_typeid (dds_builtintopic_endpoint_t * builtintopic_endpoint, unsigned char **type_identifier, size_t *size)
+{
+  if (builtintopic_endpoint == NULL)
+    return DDS_RETCODE_BAD_PARAMETER;
+  *type_identifier = NULL;
+  *size = 0;
+  if ((builtintopic_endpoint->qos->present & QP_CYCLONE_TYPE_INFORMATION)
+    && (*size = builtintopic_endpoint->qos->type_information.length) > 0)
+  {
+    *type_identifier = ddsrt_memdup (builtintopic_endpoint->qos->type_information.value, *size);
+  }
+  return DDS_RETCODE_OK;
+}
+#endif
+
 void dds_builtintopic_free_endpoint (dds_builtintopic_endpoint_t * builtintopic_endpoint)
 {
   dds_delete_qos (builtintopic_endpoint->qos);
   ddsrt_free (builtintopic_endpoint->topic_name);
   ddsrt_free (builtintopic_endpoint->type_name);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  ddsrt_free (builtintopic_endpoint->type_identifier);
-#endif
   ddsrt_free (builtintopic_endpoint);
 }
 

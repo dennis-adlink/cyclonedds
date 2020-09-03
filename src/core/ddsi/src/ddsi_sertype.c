@@ -123,7 +123,7 @@ bool ddsi_sertype_serialize (const struct ddsi_sertype *tp, size_t *dst_sz, unsi
   struct sertype_ser d = { tp->type_name, tp->typekind_no_key };
   size_t dst_pos = 0;
 
-  if (tp->ops->serialized_size == NULL || tp->ops->serialize == NULL)
+  if (!tp->ops->serialized_size || !tp->ops->serialize)
     return false;
   *dst_sz = 0;
   plist_ser_generic_size_embeddable (dst_sz, &d, 0, sertype_ser_ops);
@@ -141,16 +141,19 @@ bool ddsi_sertype_deserialize (struct ddsi_domaingv *gv, struct ddsi_sertype *tp
 {
   struct sertype_ser d;
   size_t srcoff = 0;
+  if (!sertype_ops->deserialize)
+    return false;
   if (plist_deser_generic_srcoff (&d, serdata, sz, &srcoff, DDSRT_ENDIAN != DDSRT_LITTLE_ENDIAN, sertype_ser_ops) < 0)
     return false;
   tp->refc = 1;
   tp->ops = sertype_ops;
-  if (tp->ops->deserialize == NULL)
-    return false;
   tp->type_name = ddsrt_strdup (d.type_name);
   tp->typekind_no_key = d.typekind_no_key;
   if (!tp->ops->deserialize (gv, tp, sz, serdata, &srcoff))
+  {
+    ddsrt_free (tp->type_name);
     return false;
+  }
   tp->serdata_basehash = ddsi_sertype_compute_serdata_basehash (tp->serdata_ops);
   tp->gv = gv;
   tp->registered = false;
@@ -193,7 +196,7 @@ extern inline void ddsi_sertype_zero_samples (const struct ddsi_sertype *tp, voi
 extern inline void ddsi_sertype_realloc_samples (void **ptrs, const struct ddsi_sertype *tp, void *old, size_t oldcount, size_t count);
 extern inline void ddsi_sertype_free_samples (const struct ddsi_sertype *tp, void **ptrs, size_t count, dds_free_op_t op);
 extern inline void ddsi_sertype_zero_sample (const struct ddsi_sertype *tp, void *sample);
-extern inline void ddsi_sertype_free_sample (const struct ddsi_sertype *tp, void *sample, dds_free_op_t op);
 extern inline void *ddsi_sertype_alloc_sample (const struct ddsi_sertype *tp);
+extern inline void ddsi_sertype_free_sample (const struct ddsi_sertype *tp, void *sample, dds_free_op_t op);
 extern inline void ddsi_sertype_typeid_hash (const struct ddsi_sertype *tp, unsigned char *buf);
 extern inline bool ddsi_sertype_assignable_from (const struct ddsi_sertype *type_a, const struct ddsi_sertype *type_b);

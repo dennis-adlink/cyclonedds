@@ -1645,11 +1645,11 @@ static const struct piddesc piddesc_eclipse[] = {
   { PID_PAD, PDF_QOS, QP_CYCLONE_IGNORELOCAL, "CYCLONE_IGNORELOCAL",
     offsetof (struct ddsi_plist, qos.ignorelocal), membersize (struct ddsi_plist, qos.ignorelocal),
     { .desc = { XE2, XSTOP } }, 0 },
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  QP  (CYCLONE_TYPE_INFORMATION,         type_information, XO),
+#endif
   PP  (ADLINK_PARTICIPANT_VERSION_INFO,  adlink_participant_version_info, Xux5, XS),
   PP  (ADLINK_TYPE_DESCRIPTION,          type_description, XS),
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  PP  (CYCLONE_TYPE_INFORMATION,         type_information, XK),
-#endif
   { PID_SENTINEL, 0, 0, NULL, 0, 0, { .desc = { XSTOP } }, 0 }
 };
 
@@ -1749,8 +1749,13 @@ static const struct piddesc_index piddesc_vendor_index[] = {
 /* List of entries that require unalias, fini processing;
    initialized by ddsi_plist_init_tables; will assert when
    table too small or too large */
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+static const struct piddesc *piddesc_unalias[19 + SECURITY_PROC_ARRAY_SIZE];
+static const struct piddesc *piddesc_fini[19 + SECURITY_PROC_ARRAY_SIZE];
+#else
 static const struct piddesc *piddesc_unalias[18 + SECURITY_PROC_ARRAY_SIZE];
 static const struct piddesc *piddesc_fini[18 + SECURITY_PROC_ARRAY_SIZE];
+#endif
 static uint64_t plist_fini_mask, qos_fini_mask;
 static ddsrt_once_t table_init_control = DDSRT_ONCE_INIT;
 

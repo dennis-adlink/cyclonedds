@@ -264,8 +264,13 @@ static bool to_sample_endpoint (const struct ddsi_serdata_builtintopic_endpoint 
     sample->type_name = dds_string_dup_reuse (sample->type_name, dep->common.xqos.type_name);
     sample->qos = dds_qos_from_xqos_reuse (sample->qos, &dep->common.xqos);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    sample->type_identifier_sz = sizeof (dep->type_id);
-    sample->type_identifier = dds_mem_dup_reuse (sample->type_identifier, &dep->type_id, sample->type_identifier_sz);
+    if (!(sample->qos->present & QP_CYCLONE_TYPE_INFORMATION))
+    {
+      sample->qos->type_information.value = NULL;
+      sample->qos->present |= QP_CYCLONE_TYPE_INFORMATION;
+    }
+    sample->qos->type_information.length = (uint32_t) sizeof (dep->type_id);
+    sample->qos->type_information.value = dds_mem_dup_reuse (sample->qos->type_information.value, &dep->type_id, sample->qos->type_information.length);
 #endif
   }
   return true;

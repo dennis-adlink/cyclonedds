@@ -211,10 +211,6 @@ typedef struct dds_builtintopic_endpoint
   dds_instance_handle_t participant_instance_handle;
   char *topic_name;
   char *type_name;
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  unsigned char *type_identifier;
-  size_t type_identifier_sz;
-#endif
   dds_qos_t *qos;
 }
 dds_builtintopic_endpoint_t;
@@ -3445,6 +3441,23 @@ DDS_EXPORT dds_builtintopic_endpoint_t *
 dds_get_matched_publication_data (
   dds_entity_t reader,
   dds_instance_handle_t ih);
+
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+/**
+ * @brief Gets the type identifier from endpoint information that was
+ * retrieved by dds_get_matched_subscription_data or
+ * dds_get_matched_publication_data
+ *
+ * @param[in] builtintopic_endpoint  The builtintopic endpoint struct
+ * @param[out] type_identifier       Buffer that will be allocated for the type identifier. Needs to be freed by the caller of this function.
+ * @param[out] size                  Number of bytes in type_identifier buffer
+ */
+DDS_EXPORT dds_return_t
+dds_builtintopic_get_endpoint_typeid (
+  dds_builtintopic_endpoint_t * builtintopic_endpoint,
+  unsigned char **type_identifier,
+  size_t *size);
+#endif
 
 /**
  * @brief Free the endpoint information that was retrieved by

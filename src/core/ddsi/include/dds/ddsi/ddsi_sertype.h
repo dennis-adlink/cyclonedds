@@ -155,12 +155,22 @@ DDS_EXPORT inline void ddsi_sertype_free_sample (const struct ddsi_sertype *tp, 
   ddsi_sertype_free_samples (tp, &sample, 1, op);
 }
 DDS_EXPORT inline void ddsi_sertype_typeid_hash (const struct ddsi_sertype *tp, unsigned char *buf) {
-  if (tp->ops->typeid_hash != NULL)
-    tp->ops->typeid_hash (tp, buf);
+  if (!tp->ops->typeid_hash)
+    abort ();
+  tp->ops->typeid_hash (tp, buf);
 }
 DDS_EXPORT inline bool ddsi_sertype_assignable_from (const struct ddsi_sertype *type_a, const struct ddsi_sertype *type_b) {
-  if (type_a->ops->assignable_from == NULL)
+  /* If one of the types does not have a assignability check function
+     (e.g. because it is an older sertype implementation), consider
+     the types as assignable */
+  if (!type_a->ops->assignable_from || !type_b->ops->assignable_from)
     return true;
+  /* In case the types have a different assignable_from function,
+     we currently don't have a proper way to check type assignability,
+     so we'll consider the types as not-assignable */
+  if (type_a->ops->assignable_from != type_b->ops->assignable_from)
+    return false;
+
   return type_a->ops->assignable_from (type_a, type_b);
 }
 

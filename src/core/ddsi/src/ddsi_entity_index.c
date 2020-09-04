@@ -448,7 +448,6 @@ struct proxy_reader *entidx_lookup_proxy_reader_guid (const struct entity_index 
 struct proxy_topic *entidx_lookup_proxy_topic_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
 {
   DDSRT_STATIC_ASSERT (offsetof (struct proxy_topic, e) == 0);
-  assert (is_topic_entityid (guid->entityid));
   return entidx_lookup_guid_int (ei, guid, EK_PROXY_TOPIC);
 }
 

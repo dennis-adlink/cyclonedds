@@ -157,7 +157,7 @@ int is_topic_entityid (ddsi_entityid_t id)
 {
   switch (id.u & NN_ENTITYID_KIND_MASK)
   {
-    case NN_ENTITYID_KIND_CYCLONE_TOPIC:
+    case NN_ENTITYID_KIND_TOPIC:
       return 1;
     default:
       return 0;
@@ -210,9 +210,6 @@ int is_builtin_entityid (ddsi_entityid_t id, nn_vendorid_t vendorid)
   else if ((id.u & NN_ENTITYID_SOURCE_MASK) != NN_ENTITYID_SOURCE_VENDOR)
     return 0;
   else if (!vendor_is_eclipse_or_adlink (vendorid))
-    return 0;
-  else if ((id.u & NN_ENTITYID_SOURCE_MASK) == NN_ENTITYID_SOURCE_VENDOR &&
-           (id.u & NN_ENTITYID_KIND_MASK) == NN_ENTITYID_KIND_CYCLONE_TOPIC)
     return 0;
   else
   {
@@ -4692,27 +4689,27 @@ void update_reader_qos (struct reader *rd, const dds_qos_t *xqos)
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 
-static dds_return_t new_topic_guid
+dds_return_t new_topic
 (
   struct topic **tp_out,
-  const struct ddsi_guid *guid,
+  struct ddsi_guid *tpguid,
   struct participant *pp,
   const char *topic_name,
   const struct ddsi_sertype *type,
   const struct dds_qos *xqos
 )
 {
-  struct topic *tp;
+  dds_return_t rc;
   struct ddsi_domaingv *gv = pp->e.gv;
+  tpguid->prefix = pp->e.guid.prefix;
+  if ((rc = pp_allocate_entityid (&tpguid->entityid, NN_ENTITYID_KIND_TOPIC, pp)) < 0)
+    return rc;
+  assert (entidx_lookup_topic_guid (gv->entity_index, tpguid) == NULL);
 
-  assert (is_topic_entityid (guid->entityid));
-  assert (entidx_lookup_topic_guid (gv->entity_index, guid) == NULL);
-  assert (memcmp (&guid->prefix, &pp->e.guid.prefix, sizeof (guid->prefix)) == 0);
-
-  tp = ddsrt_malloc (sizeof (*tp));
+  struct topic *tp = ddsrt_malloc (sizeof (*tp));
   if (tp_out)
     *tp_out = tp;
-  entity_common_init (&tp->e, gv, guid, NULL, EK_TOPIC, ddsrt_time_wallclock (), NN_VENDORID_ECLIPSE, pp->e.onlylocal);
+  entity_common_init (&tp->e, gv, tpguid, NULL, EK_TOPIC, ddsrt_time_wallclock (), NN_VENDORID_ECLIPSE, pp->e.onlylocal);
   tp->pp = ref_participant (pp, &tp->e.guid);
 
   /* Copy QoS, merging in defaults */
@@ -4736,23 +4733,6 @@ static dds_return_t new_topic_guid
   ddsrt_mutex_unlock (&tp->e.lock);
   sedp_write_topic (tp);
   return 0;
-}
-
-dds_return_t new_topic
-(
-  struct topic **tp_out,
-  struct ddsi_guid *tpguid,
-  struct participant *pp,
-  const char *topic_name,
-  const struct ddsi_sertype *type,
-  const struct dds_qos *xqos
-)
-{
-  dds_return_t rc;
-  tpguid->prefix = pp->e.guid.prefix;
-  if ((rc = pp_allocate_entityid (&tpguid->entityid, NN_ENTITYID_KIND_CYCLONE_TOPIC | NN_ENTITYID_SOURCE_VENDOR, pp)) < 0)
-    return rc;
-  return new_topic_guid (tp_out, tpguid, pp, topic_name, type, xqos);
 }
 
 static void gc_delete_topic (struct gcreq *gcreq)
@@ -5690,7 +5670,6 @@ int new_proxy_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *ppguid, c
   struct proxy_participant *proxypp;
   struct proxy_topic *ptp;
 
-  assert (is_topic_entityid (guid->entityid));
   assert (entidx_lookup_proxy_topic_guid (gv->entity_index, guid) == NULL);
 
   if ((proxypp = entidx_lookup_proxy_participant_guid (gv->entity_index, ppguid)) == NULL)
@@ -5704,27 +5683,28 @@ int new_proxy_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *ppguid, c
   /* ref proxy participant */
   ref_proxy_participant (proxypp, NULL, ptp);
 
-  if (is_builtin_entityid (guid->entityid, proxypp->vendor))
-    assert ((plist->qos.present & QP_TYPE_NAME) == 0);
-  else
-    assert ((plist->qos.present & (QP_TOPIC_NAME | QP_TYPE_NAME)) == (QP_TOPIC_NAME | QP_TYPE_NAME));
 
-  const char *name = (plist->present & PP_ENTITY_NAME) ? plist->entity_name : "";
-  entity_common_init (&ptp->e, proxypp->e.gv, guid, name, EK_PROXY_TOPIC, timestamp, proxypp->vendor, false);
+  assert ((plist->qos.present & QP_TOPIC_NAME) == QP_TOPIC_NAME);
+  if (!strncmp(plist->qos.topic_name, "DCPS", 4))
+    assert ((plist->qos.present & QP_TYPE_NAME) == 0);
+
+  entity_common_init (&ptp->e, proxypp->e.gv, guid, plist->qos.topic_name, EK_PROXY_TOPIC, timestamp, proxypp->vendor, false);
   ptp->seq = seq;
   ptp->xqos = ddsi_xqos_dup (&plist->qos);
   ptp->vendor = proxypp->vendor;
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (vendor_is_eclipse (ptp->vendor) && plist->present & PP_CYCLONE_TYPE_INFORMATION)
-    memcpy (&ptp->type_id, &plist->type_information, sizeof (ptp->type_id));
+  ptp->type = NULL;
+  if (vendor_is_eclipse (ptp->vendor) && plist->qos.present & QP_CYCLONE_TYPE_INFORMATION)
+  {
+    assert (plist->qos.type_information.length == sizeof (ptp->type_id));
+    memcpy (&ptp->type_id, plist->qos.type_information.value, sizeof (ptp->type_id));
+  }
   else
     memset (&ptp->type_id, 0, sizeof (ptp->type_id));
-  ptp->type = NULL;
-#endif
 
   /* locking the entity prevents matching while the built-in topic hasn't been published yet */
   ddsrt_mutex_lock (&ptp->e.lock);
-  entidx_insert_proxy_topic_guid (gv->entity_index, ptp);
+  // FIXME: add to hash table in gv
+  //entidx_insert_proxy_topic_guid (gv->entity_index, ptp);
   builtintopic_write (gv->builtin_topic_interface, &ptp->e, timestamp, true);
   ddsrt_mutex_unlock (&ptp->e.lock);
 

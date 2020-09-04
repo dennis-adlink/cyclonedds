@@ -808,14 +808,13 @@ static struct ddsi_sertype *make_special_type_pserop (struct ddsi_domaingv *gv, 
   return (struct ddsi_sertype *) st;
 }
 
-static struct ddsi_sertype *make_special_type_plist (struct ddsi_domaingv *gv, const char *typename, nn_parameterid_t keyparam1, nn_parameterid_t keyparam2)
+static struct ddsi_sertype *make_special_type_plist (struct ddsi_domaingv *gv, const char *typename, nn_parameterid_t keyparam)
 {
   struct ddsi_sertype_plist *st = ddsrt_malloc (sizeof (*st));
   memset (st, 0, sizeof (*st));
   ddsi_sertype_init (gv, &st->c, typename, &ddsi_sertype_ops_plist, &ddsi_serdata_ops_plist, false);
   st->native_encoding_identifier = (DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN) ? PL_CDR_LE : PL_CDR_BE;
-  st->keyparam1 = keyparam1;
-  st->keyparam2 = keyparam2;
+  st->keyparam = keyparam;
   return (struct ddsi_sertype *) st;
 }
 
@@ -842,19 +841,19 @@ static void free_special_types (struct ddsi_domaingv *gv)
 
 static void make_special_types (struct ddsi_domaingv *gv)
 {
-  gv->spdp_type = make_special_type_plist (gv, "ParticipantBuiltinTopicData", PID_PARTICIPANT_GUID, PID_SENTINEL);
-  gv->sedp_reader_type = make_special_type_plist (gv, "SubscriptionBuiltinTopicData", PID_ENDPOINT_GUID, PID_SENTINEL);
-  gv->sedp_writer_type = make_special_type_plist (gv, "PublicationBuiltinTopicData", PID_ENDPOINT_GUID, PID_SENTINEL);
+  gv->spdp_type = make_special_type_plist (gv, "ParticipantBuiltinTopicData", PID_PARTICIPANT_GUID);
+  gv->sedp_reader_type = make_special_type_plist (gv, "SubscriptionBuiltinTopicData", PID_ENDPOINT_GUID);
+  gv->sedp_writer_type = make_special_type_plist (gv, "PublicationBuiltinTopicData", PID_ENDPOINT_GUID);
   gv->pmd_type = make_special_type_pserop (gv, "ParticipantMessageData", sizeof (ParticipantMessageData_t), participant_message_data_nops, participant_message_data_ops, participant_message_data_nops_key, participant_message_data_ops_key);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  gv->sedp_topic_type = make_special_type_plist (gv, "TopicBuiltinTopicData", PID_TOPIC_NAME, PID_CYCLONE_TYPE_INFORMATION);
+  gv->sedp_topic_type = make_special_type_plist (gv, "TopicBuiltinTopicData", PID_ENDPOINT_GUID);
   gv->tl_svc_request_type = make_special_type_pserop (gv, "TypeLookup_Request", sizeof (type_lookup_request_t), typelookup_service_request_nops, typelookup_service_request_ops, 0, NULL);
   gv->tl_svc_reply_type = make_special_type_pserop (gv, "TypeLookup_Reply", sizeof (type_lookup_reply_t), typelookup_service_reply_nops, typelookup_service_reply_ops, 0, NULL);
 #endif
 #ifdef DDSI_INCLUDE_SECURITY
-  gv->spdp_secure_type = make_special_type_plist (gv, "ParticipantBuiltinTopicDataSecure", PID_PARTICIPANT_GUID, PID_SENTINEL);
-  gv->sedp_reader_secure_type = make_special_type_plist (gv, "SubscriptionBuiltinTopicDataSecure", PID_ENDPOINT_GUID, PID_SENTINEL);
-  gv->sedp_writer_secure_type = make_special_type_plist (gv, "PublicationBuiltinTopicDataSecure", PID_ENDPOINT_GUID, PID_SENTINEL);
+  gv->spdp_secure_type = make_special_type_plist (gv, "ParticipantBuiltinTopicDataSecure", PID_PARTICIPANT_GUID);
+  gv->sedp_reader_secure_type = make_special_type_plist (gv, "SubscriptionBuiltinTopicDataSecure", PID_ENDPOINT_GUID);
+  gv->sedp_writer_secure_type = make_special_type_plist (gv, "PublicationBuiltinTopicDataSecure", PID_ENDPOINT_GUID);
   gv->pmd_secure_type = make_special_type_pserop (gv, "ParticipantMessageDataSecure", sizeof (ParticipantMessageData_t), participant_message_data_nops, participant_message_data_ops, participant_message_data_nops_key, participant_message_data_ops_key);
   gv->pgm_stateless_type = make_special_type_pserop (gv, "ParticipantStatelessMessage", sizeof (nn_participant_generic_message_t), pserop_participant_generic_message_nops, pserop_participant_generic_message, 0, NULL);
   gv->pgm_volatile_type = make_special_type_pserop (gv, "ParticipantVolatileMessageSecure", sizeof (nn_participant_generic_message_t), pserop_participant_generic_message_nops, pserop_participant_generic_message, 0, NULL);

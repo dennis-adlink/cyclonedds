@@ -308,9 +308,9 @@ void get_participant_builtin_topic_data (const struct participant *pp, ddsi_plis
 #endif
 }
 
-static int write_and_fini_plist (struct writer *wr, ddsi_plist_t *ps, bool alive, bool force_data)
+static int write_and_fini_plist (struct writer *wr, ddsi_plist_t *ps, bool alive)
 {
-  struct ddsi_serdata *serdata = ddsi_serdata_from_sample (wr->type, alive || force_data ? SDK_DATA : SDK_KEY, ps);
+  struct ddsi_serdata *serdata = ddsi_serdata_from_sample (wr->type, alive ? SDK_DATA : SDK_KEY, ps);
   ddsi_plist_fini (ps);
   serdata->statusinfo = alive ? 0 : (NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER);
   serdata->timestamp = ddsrt_time_wallclock ();
@@ -337,7 +337,7 @@ int spdp_write (struct participant *pp)
   }
 
   get_participant_builtin_topic_data (pp, &ps, &locs);
-  return write_and_fini_plist (wr, &ps, true, false);
+  return write_and_fini_plist (wr, &ps, true);
 }
 
 static int spdp_dispose_unregister_with_wr (struct participant *pp, unsigned entityid)
@@ -356,7 +356,7 @@ static int spdp_dispose_unregister_with_wr (struct participant *pp, unsigned ent
   ddsi_plist_init_empty (&ps);
   ps.present |= PP_PARTICIPANT_GUID;
   ps.participant_guid = pp->e.guid;
-  return write_and_fini_plist (wr, &ps, false, false);
+  return write_and_fini_plist (wr, &ps, false);
 }
 
 int spdp_dispose_unregister (struct participant *pp)
@@ -875,7 +875,15 @@ static void add_locator_to_ps (const nn_locator_t *loc, void *varg)
  ***
  *****************************************************************************/
 
-static int sedp_write_endpoint_or_topic
+static struct writer *get_sedp_writer (const struct participant *pp, unsigned entityid)
+{
+  struct writer *sedp_wr = get_builtin_writer (pp, entityid);
+  if (sedp_wr == NULL)
+    DDS_FATAL ("sedp_write_writer: no SEDP builtin writer %x for "PGUIDFMT"\n", entityid, PGUID (pp->e.guid));
+  return sedp_wr;
+}
+
+static int sedp_write_endpoint_impl
 (
    struct writer *wr, int alive, const ddsi_guid_t *guid,
    const struct entity_common *common, const struct endpoint_common *epcommon,
@@ -891,8 +899,6 @@ static int sedp_write_endpoint_or_topic
     defqos = &gv->default_xqos_wr;
   else if (is_reader_entityid (guid->entityid))
     defqos = &gv->default_xqos_rd;
-  else if (is_topic_entityid (guid->entityid))
-    defqos = &gv->default_xqos_tp;
   else
     assert (false);
 
@@ -921,7 +927,7 @@ static int sedp_write_endpoint_or_topic
   assert(security == NULL);
 #endif
 
-  if (!alive && !is_topic_entityid (guid->entityid))
+  if (!alive)
   {
     assert (xqos == NULL);
     assert (epcommon == NULL);
@@ -935,33 +941,30 @@ static int sedp_write_endpoint_or_topic
     ps.protocol_version.minor = RTPS_MINOR;
     ps.vendorid = NN_VENDORID_ECLIPSE;
 
-    if (!is_topic_entityid (guid->entityid))
-    {
-      assert (epcommon != NULL);
+    assert (epcommon != NULL);
 
-      if (epcommon->group_guid.entityid.u != 0)
-      {
-        ps.present |= PP_GROUP_GUID;
-        ps.group_guid = epcommon->group_guid;
-      }
+    if (epcommon->group_guid.entityid.u != 0)
+    {
+      ps.present |= PP_GROUP_GUID;
+      ps.group_guid = epcommon->group_guid;
+    }
 
   #ifdef DDSI_INCLUDE_SSM
-      /* A bit of a hack -- the easy alternative would be to make it yet
-      another parameter.  We only set "reader favours SSM" if we
-      really do: no point in telling the world that everything is at
-      the default. */
-      if (is_reader_entityid (guid->entityid))
+    /* A bit of a hack -- the easy alternative would be to make it yet
+    another parameter.  We only set "reader favours SSM" if we
+    really do: no point in telling the world that everything is at
+    the default. */
+    if (is_reader_entityid (guid->entityid))
+    {
+      const struct reader *rd = entidx_lookup_reader_guid (gv->entity_index, guid);
+      assert (rd);
+      if (rd->favours_ssm)
       {
-        const struct reader *rd = entidx_lookup_reader_guid (gv->entity_index, guid);
-        assert (rd);
-        if (rd->favours_ssm)
-        {
-          ps.present |= PP_READER_FAVOURS_SSM;
-          ps.reader_favours_ssm.state = 1u;
-        }
+        ps.present |= PP_READER_FAVOURS_SSM;
+        ps.reader_favours_ssm.state = 1u;
       }
-  #endif
     }
+  #endif
 
     qosdiff = ddsi_xqos_delta (xqos, defqos, ~(uint64_t)0);
     if (gv->config.explicitly_publish_qos_set_to_default)
@@ -984,15 +987,37 @@ static int sedp_write_endpoint_or_topic
 
   if (xqos)
     ddsi_xqos_mergein_missing (&ps.qos, xqos, qosdiff);
-  return write_and_fini_plist (wr, &ps, alive, is_topic_entityid (guid->entityid));
+  return write_and_fini_plist (wr, &ps, alive);
 }
 
-static struct writer *get_sedp_writer (const struct participant *pp, unsigned entityid)
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_t *guid, const dds_qos_t *xqos, type_identifier_t *type_id)
 {
-  struct writer *sedp_wr = get_builtin_writer (pp, entityid);
-  if (sedp_wr == NULL)
-    DDS_FATAL ("sedp_write_writer: no SEDP builtin writer %x for "PGUIDFMT"\n", entityid, PGUID (pp->e.guid));
-  return sedp_wr;
+  struct ddsi_domaingv * const gv = wr->e.gv;
+  const dds_qos_t *defqos = &gv->default_xqos_tp;
+
+  ddsi_plist_t ps;
+  ddsi_plist_init_empty (&ps);
+  ps.present |= PP_ENDPOINT_GUID;
+  ps.endpoint_guid = *guid;
+
+  assert (xqos != NULL);
+  ps.present |= PP_PROTOCOL_VERSION | PP_VENDORID;
+  ps.protocol_version.major = RTPS_MAJOR;
+  ps.protocol_version.minor = RTPS_MINOR;
+  ps.vendorid = NN_VENDORID_ECLIPSE;
+
+  uint64_t qosdiff = ddsi_xqos_delta (xqos, defqos, ~(uint64_t)0);
+  if (gv->config.explicitly_publish_qos_set_to_default)
+    qosdiff |= ~QP_UNRECOGNIZED_INCOMPATIBLE_MASK;
+
+  ps.qos.present |= QP_CYCLONE_TYPE_INFORMATION;
+  ps.qos.type_information.length = sizeof (*type_id);
+  ps.qos.type_information.value = ddsrt_memdup (&type_id->hash, ps.qos.type_information.length);
+
+  if (xqos)
+    ddsi_xqos_mergein_missing (&ps.qos, xqos, qosdiff);
+  return write_and_fini_plist (wr, &ps, alive);
 }
 
 int sedp_write_topic (struct topic *tp)
@@ -1002,18 +1027,19 @@ int sedp_write_topic (struct topic *tp)
   {
     unsigned entityid = determine_topic_writer (tp);
     struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
-    nn_security_info_t *security = NULL;
-    struct addrset *as = NULL;
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    type_identifier_t *type_id = ddsi_typeid_from_sertype (tp->type);
-    res = sedp_write_endpoint_or_topic (sedp_wr, 1, &tp->e.guid, &tp->e, NULL, tp->xqos, as, security, type_id);
-    ddsrt_free (type_id);
-#else
-    res = sedp_write_endpoint_or_topic (sedp_wr, 1, &tp->e.guid, &tp->e, NULL, tp->xqos, as, security);
-#endif
+
+    ddsi_guid_t guid;
+    ddsrt_md5_state_t md5st;
+    ddsrt_md5_init (&md5st);
+    ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) &tp->type_id, sizeof (tp->type_id));
+    FIXME: add qos to hash
+    ddsrt_md5_finish (&md5st, (ddsrt_md5_byte_t *) &guid);
+
+    res = sedp_write_topic_impl (sedp_wr, 1, &guid, tp->xqos, &tp->type_id);
   }
   return res;
 }
+#endif
 
 int sedp_write_writer (struct writer *wr)
 {
@@ -1082,10 +1108,10 @@ int sedp_dispose_unregister_topic (struct topic *tp)
     struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     type_identifier_t *type_id = ddsi_typeid_from_sertype (tp->type);
-    res = sedp_write_endpoint_or_topic (sedp_wr, 0, &tp->e.guid, NULL, NULL, tp->xqos, NULL, NULL, type_id);
+    res = sedp_write_topic_impl (sedp_wr, 0, &tp->e.guid, tp->xqos, type_id);
     ddsrt_free (type_id);
 #else
-    res = sedp_write_endpoint_or_topic (sedp_wr, 0, &tp->e.guid, NULL, NULL, tp->xqos, NULL, NULL);
+    res = sedp_write_topic_impl (sedp_wr, 0, &tp->e.guid, tp->xqos);
 #endif
   }
   return res;
@@ -1098,9 +1124,9 @@ int sedp_dispose_unregister_writer (struct writer *wr)
     unsigned entityid = determine_publication_writer(wr);
     struct writer *sedp_wr = get_sedp_writer (wr->c.pp, entityid);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    return sedp_write_endpoint_or_topic (sedp_wr, 0, &wr->e.guid, NULL, NULL, NULL, NULL, NULL, NULL);
+    return sedp_write_endpoint_impl (sedp_wr, 0, &wr->e.guid, NULL, NULL, NULL, NULL, NULL, NULL);
 #else
-    return sedp_write_endpoint_or_topic (sedp_wr, 0, &wr->e.guid, NULL, NULL, NULL, NULL, NULL);
+    return sedp_write_endpoint_impl (sedp_wr, 0, &wr->e.guid, NULL, NULL, NULL, NULL, NULL);
 #endif
   }
   return 0;
@@ -1113,9 +1139,9 @@ int sedp_dispose_unregister_reader (struct reader *rd)
     unsigned entityid = determine_subscription_writer(rd);
     struct writer *sedp_wr = get_sedp_writer (rd->c.pp, entityid);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    return sedp_write_endpoint_or_topic (sedp_wr, 0, &rd->e.guid, NULL, NULL, NULL, NULL, NULL, NULL);
+    return sedp_write_endpoint_impl (sedp_wr, 0, &rd->e.guid, NULL, NULL, NULL, NULL, NULL, NULL);
 #else
-    return sedp_write_endpoint_or_topic (sedp_wr, 0, &rd->e.guid, NULL, NULL, NULL, NULL, NULL);
+    return sedp_write_endpoint_impl (sedp_wr, 0, &rd->e.guid, NULL, NULL, NULL, NULL, NULL);
 #endif
   }
   return 0;
@@ -1220,7 +1246,6 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
   struct proxy_participant *pp;
   struct proxy_writer * pwr = NULL;
   struct proxy_reader * prd = NULL;
-  struct proxy_topic *ptp = NULL;
   ddsi_guid_t ppguid;
   dds_qos_t *xqos;
   int reliable;
@@ -1263,14 +1288,10 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
   is_reader = is_reader_entityid (datap->endpoint_guid.entityid);
   if (is_reader)
     ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_rd, ~(uint64_t)0);
-  else if (is_topic_entityid (datap->endpoint_guid.entityid))
-    ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_tp, ~(uint64_t)0);
   else if (is_writer && vendor_is_eclipse_or_adlink(vendorid))
     ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_wr, ~(uint64_t)0);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   else
     ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_wr_nad, ~(uint64_t)0);
-#endif
 
   /* After copy + merge, should have at least the ones present in the
      input.  Also verify reliability and durability are present,
@@ -1283,7 +1304,7 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
   GVLOGDISC (" %s %s %s: %s%s.%s/%s",
              reliable ? "reliable" : "best-effort",
              durability_to_string (xqos->durability.kind),
-             is_writer ? "writer" : (is_reader ? "reader" : "topic"),
+             is_writer ? "writer" : "reader",
              ((!(xqos->present & QP_PARTITION) || xqos->partition.n == 0 || *xqos->partition.strs[0] == '\0')
               ? "(default)" : xqos->partition.strs[0]),
              ((xqos->present & QP_PARTITION) && xqos->partition.n > 1) ? "+" : "",
@@ -1310,13 +1331,9 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
 
   if (is_writer)
     pwr = entidx_lookup_proxy_writer_guid (gv->entity_index, &datap->endpoint_guid);
-  else if (is_reader)
-    prd = entidx_lookup_proxy_reader_guid (gv->entity_index, &datap->endpoint_guid);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   else
-    ptp = entidx_lookup_proxy_topic_guid (gv->entity_index, &datap->endpoint_guid);
-#endif
-  if (pwr || prd || ptp)
+    prd = entidx_lookup_proxy_reader_guid (gv->entity_index, &datap->endpoint_guid);
+  if (pwr || prd)
   {
     /* Re-bind the proxy participant to the discovery service - and do this if it is currently
        bound to another DS instance, because that other DS instance may have already failed and
@@ -1399,7 +1416,7 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
 #endif
       }
     }
-    else if (is_reader)
+    else
     {
       if (prd)
         update_proxy_reader (prd, seq, as, xqos, timestamp);
@@ -1412,21 +1429,85 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
 #endif
       }
     }
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    else /* topic */
-    {
-      if (ptp)
-        update_proxy_topic (ptp, seq, xqos, timestamp);
-      else
-        new_proxy_topic (gv, &ppguid, &datap->endpoint_guid, datap, timestamp, seq);
-    }
-#endif
   }
 
   unref_addrset (as);
 
 err:
 
+  return;
+#undef E
+}
+
+static void handle_SEDP_alive_topic (const struct receiver_state *rst, seqno_t seq, ddsi_plist_t *datap /* note: potentially modifies datap */, const ddsi_guid_prefix_t *src_guid_prefix, nn_vendorid_t vendorid, ddsrt_wctime_t timestamp)
+{
+#define E(msg, lbl) do { GVLOGDISC (msg); goto lbl; } while (0)
+  struct ddsi_domaingv * const gv = rst->gv;
+  struct proxy_participant *pp;
+  struct proxy_topic *ptp = NULL;
+  ddsi_guid_t ppguid;
+  dds_qos_t *xqos;
+  int reliable;
+
+  assert (datap);
+  assert (datap->present & PP_ENDPOINT_GUID);
+  GVLOGDISC (" "PGUIDFMT, PGUID (datap->endpoint_guid));
+
+  ppguid.prefix = *src_guid_prefix; // the proxy topic guid prefix cannot be used here because it is a hash and not the prefix of its proxypp
+  ppguid.entityid.u = NN_ENTITYID_PARTICIPANT;
+  if (is_deleted_participant_guid (gv->deleted_participants, &ppguid, DPG_REMOTE))
+    E (" local dead pp?\n", err);
+  if (entidx_lookup_participant_guid (gv->entity_index, &ppguid) != NULL)
+    E (" local pp?\n", err);
+  if (!(datap->qos.present & QP_TOPIC_NAME))
+    E (" no topicname?\n", err);
+  if (!(datap->qos.present & QP_TYPE_NAME))
+    E (" no typename?\n", err);
+  if ((pp = entidx_lookup_proxy_participant_guid (gv->entity_index, &ppguid)) == NULL)
+    E (" unknown-proxypp?\n", err);
+
+  xqos = &datap->qos;
+  ddsi_xqos_mergein_missing (xqos, &gv->default_xqos_tp, ~(uint64_t)0);
+  /* After copy + merge, should have at least the ones present in the
+     input. Also verify reliability and durability are present,
+     because we explicitly read those. */
+  assert ((xqos->present & datap->qos.present) == datap->qos.present);
+  assert (xqos->present & QP_RELIABILITY);
+  assert (xqos->present & QP_DURABILITY);
+  reliable = (xqos->reliability.kind == DDS_RELIABILITY_RELIABLE);
+
+  GVLOGDISC (" %s %s %s: %s/%s",
+             reliable ? "reliable" : "best-effort",
+             durability_to_string (xqos->durability.kind),
+             "topic", xqos->topic_name, xqos->type_name);
+  if (vendor_is_eclipse (vendorid) && xqos->present & QP_CYCLONE_TYPE_INFORMATION)
+    GVLOGDISC (" type-hash "PTYPEIDFMT, PTYPEID(datap->type_information));
+
+  ptp = entidx_lookup_proxy_topic_guid (gv->entity_index, &datap->endpoint_guid);
+  if (ptp)
+    GVLOGDISC (" known%s\n", vendor_is_cloud (vendorid) ? "-DS" : "");
+  else
+  {
+    GVLOGDISC (" NEW");
+    if (vendor_is_eclipse (vendorid) && xqos->present & QP_CYCLONE_TYPE_INFORMATION)
+    {
+      type_identifier_t type_id;
+      assert (xqos->type_information.length == sizeof (type_id.hash));
+      memcpy (type_id.hash, xqos->type_information.value, sizeof (type_id));
+      ddsi_tl_meta_proxy_ref (gv, &type_id, &datap->endpoint_guid);
+    }
+  }
+
+  GVLOGDISC (" QOS={");
+  ddsi_xqos_log (DDS_LC_DISCOVERY, &gv->logconfig, xqos);
+  GVLOGDISC ("}\n");
+
+  if (ptp)
+    update_proxy_topic (ptp, seq, xqos, timestamp);
+  else
+    new_proxy_topic (gv, &ppguid, &datap->endpoint_guid, datap, timestamp, seq);
+
+err:
   return;
 #undef E
 }
@@ -1441,14 +1522,19 @@ static void handle_SEDP_dead (const struct receiver_state *rst, ddsi_plist_t *da
     res = delete_proxy_writer (gv, &datap->endpoint_guid, timestamp, 0);
   else if (is_reader_entityid (datap->endpoint_guid.entityid))
     res = delete_proxy_reader (gv, &datap->endpoint_guid, timestamp, 0);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  else
-    res = delete_proxy_topic (gv, &datap->endpoint_guid, timestamp);
-#endif
   GVLOGDISC (" %s\n", (res < 0) ? " unknown" : " delete");
 }
 
-static void handle_SEDP (const struct receiver_state *rst, seqno_t seq, struct ddsi_serdata *serdata)
+static void handle_SEDP_dead_topic (const struct receiver_state *rst, ddsi_plist_t *datap, ddsrt_wctime_t timestamp)
+{
+  struct ddsi_domaingv * const gv = rst->gv;
+  assert (datap->present & PP_ENDPOINT_GUID);
+  GVLOGDISC (" "PGUIDFMT, PGUID (datap->endpoint_guid));
+  int res = delete_proxy_topic (gv, &datap->endpoint_guid, timestamp);
+  GVLOGDISC (" %s\n", (res < 0) ? " unknown" : " delete");
+}
+
+static void handle_SEDP (const struct receiver_state *rst, seqno_t seq, struct ddsi_serdata *serdata, bool is_topic)
 {
   ddsi_plist_t decoded_data;
   if (ddsi_serdata_to_sample (serdata, &decoded_data, NULL, NULL))
@@ -1458,12 +1544,18 @@ static void handle_SEDP (const struct receiver_state *rst, seqno_t seq, struct d
     switch (serdata->statusinfo & (NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER))
     {
       case 0:
-        handle_SEDP_alive (rst, seq, &decoded_data, &rst->src_guid_prefix, rst->vendor, serdata->timestamp);
+        if (is_topic)
+          handle_SEDP_alive_topic (rst, seq, &decoded_data, &rst->src_guid_prefix, rst->vendor, serdata->timestamp);
+        else
+          handle_SEDP_alive (rst, seq, &decoded_data, &rst->src_guid_prefix, rst->vendor, serdata->timestamp);
         break;
       case NN_STATUSINFO_DISPOSE:
       case NN_STATUSINFO_UNREGISTER:
       case (NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER):
-        handle_SEDP_dead (rst, &decoded_data, serdata->timestamp);
+        if (is_topic)
+          handle_SEDP_dead_topic (rst, &decoded_data, serdata->timestamp);
+        else
+          handle_SEDP_dead (rst, &decoded_data, serdata->timestamp);
         break;
     }
     ddsi_plist_fini (&decoded_data);
@@ -1687,10 +1779,12 @@ int builtins_dqueue_handler (const struct nn_rsample_info *sampleinfo, const str
       break;
     case NN_ENTITYID_SEDP_BUILTIN_PUBLICATIONS_WRITER:
     case NN_ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_WRITER:
-    case NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER:
     case NN_ENTITYID_SEDP_BUILTIN_PUBLICATIONS_SECURE_WRITER:
     case NN_ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_SECURE_WRITER:
-      handle_SEDP (sampleinfo->rst, sampleinfo->seq, d);
+      handle_SEDP (sampleinfo->rst, sampleinfo->seq, d, false);
+      break;
+    case NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER:
+      handle_SEDP (sampleinfo->rst, sampleinfo->seq, d, true);
       break;
     case NN_ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER:
     case NN_ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_SECURE_WRITER:

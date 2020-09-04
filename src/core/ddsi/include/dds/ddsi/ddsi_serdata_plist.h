@@ -63,8 +63,7 @@ struct ddsi_serdata_plist {
 struct ddsi_sertype_plist {
   struct ddsi_sertype c;
   uint16_t native_encoding_identifier; /* PL_CDR_(LE|BE) */
-  nn_parameterid_t keyparam1;
-  nn_parameterid_t keyparam2;
+  nn_parameterid_t keyparam;
 };
 
 extern DDS_EXPORT const struct ddsi_sertype_ops ddsi_sertype_ops_plist;

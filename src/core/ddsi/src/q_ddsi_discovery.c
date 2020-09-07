@@ -1011,10 +1011,12 @@ static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_
   if (gv->config.explicitly_publish_qos_set_to_default)
     qosdiff |= ~QP_UNRECOGNIZED_INCOMPATIBLE_MASK;
 
-  ps.qos.present |= QP_CYCLONE_TYPE_INFORMATION;
-  ps.qos.type_information.length = sizeof (*type_id);
-  ps.qos.type_information.value = ddsrt_memdup (&type_id->hash, ps.qos.type_information.length);
-
+  if (!ddsi_typeid_none (type_id))
+  {
+    ps.qos.present |= QP_CYCLONE_TYPE_INFORMATION;
+    ps.qos.type_information.length = sizeof (*type_id);
+    ps.qos.type_information.value = ddsrt_memdup (&type_id->hash, ps.qos.type_information.length);
+  }
   if (xqos)
     ddsi_xqos_mergein_missing (&ps.qos, xqos, qosdiff);
   return write_and_fini_plist (wr, &ps, alive);
@@ -1028,12 +1030,26 @@ int sedp_write_topic (struct topic *tp)
     unsigned entityid = determine_topic_writer (tp);
     struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
 
-    ddsi_guid_t guid;
     ddsrt_md5_state_t md5st;
     ddsrt_md5_init (&md5st);
     ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) &tp->type_id, sizeof (tp->type_id));
-    FIXME: add qos to hash
-    ddsrt_md5_finish (&md5st, (ddsrt_md5_byte_t *) &guid);
+
+    // Serialize qos and add to hash
+    const ddsi_guid_t nullguid = { .prefix = { .u = { 0,0,0 } }, .entityid = { .u = 0 } };
+    struct nn_xmsg *mqos = nn_xmsg_new (tp->e.gv->xmsgpool, &nullguid, NULL, 0, NN_XMSG_KIND_DATA);
+    size_t sqos_sz;
+    ddsi_xqos_addtomsg (mqos, tp->xqos, ~(uint64_t)0);
+    void * sqos = nn_xmsg_payload (&sqos_sz, mqos);
+    assert (sqos_sz <= UINT32_MAX);
+    ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) sqos, (uint32_t) sqos_sz);
+    nn_xmsg_free (mqos);
+
+    // Guid prefix is filled with bytes from hash, entity is set to entity kind
+    ddsi_guid_t guid;
+    unsigned char buf[16];
+    ddsrt_md5_finish (&md5st, (ddsrt_md5_byte_t *) buf);
+    memcpy (&guid, buf, sizeof (guid.prefix));
+    guid.entityid.u = NN_ENTITYID_KIND_TOPIC;
 
     res = sedp_write_topic_impl (sedp_wr, 1, &guid, tp->xqos, &tp->type_id);
   }
@@ -1062,7 +1078,7 @@ int sedp_write_writer (struct writer *wr)
     }
 #endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    return sedp_write_endpoint (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security, &wr->c.type_id);
+    res = sedp_write_endpoint_impl (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security, &wr->c.type_id);
 #else
     return sedp_write_endpoint (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security);
 #endif
@@ -1091,7 +1107,7 @@ int sedp_write_reader (struct reader *rd)
     }
 #endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    return sedp_write_endpoint (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, &rd->c.type_id);
+    res = sedp_write_endpoint_impl (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, &rd->c.type_id);
 #else
     return sedp_write_endpoint (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security);
 #endif
@@ -1099,6 +1115,7 @@ int sedp_write_reader (struct reader *rd)
   return res;
 }
 
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 int sedp_dispose_unregister_topic (struct topic *tp)
 {
   int res = 0;
@@ -1106,16 +1123,11 @@ int sedp_dispose_unregister_topic (struct topic *tp)
   {
     unsigned entityid = determine_topic_writer (tp);
     struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    type_identifier_t *type_id = ddsi_typeid_from_sertype (tp->type);
-    res = sedp_write_topic_impl (sedp_wr, 0, &tp->e.guid, tp->xqos, type_id);
-    ddsrt_free (type_id);
-#else
-    res = sedp_write_topic_impl (sedp_wr, 0, &tp->e.guid, tp->xqos);
-#endif
+    res = sedp_write_topic_impl (sedp_wr, 0, &tp->e.guid, tp->xqos, &tp->type_id);
   }
   return res;
 }
+#endif
 
 int sedp_dispose_unregister_writer (struct writer *wr)
 {
@@ -1430,30 +1442,30 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
       }
     }
   }
-
   unref_addrset (as);
 
 err:
-
   return;
 #undef E
 }
+
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 
 static void handle_SEDP_alive_topic (const struct receiver_state *rst, seqno_t seq, ddsi_plist_t *datap /* note: potentially modifies datap */, const ddsi_guid_prefix_t *src_guid_prefix, nn_vendorid_t vendorid, ddsrt_wctime_t timestamp)
 {
 #define E(msg, lbl) do { GVLOGDISC (msg); goto lbl; } while (0)
   struct ddsi_domaingv * const gv = rst->gv;
-  struct proxy_participant *pp;
-  struct proxy_topic *ptp = NULL;
+  struct proxy_participant *proxypp;
   ddsi_guid_t ppguid;
   dds_qos_t *xqos;
   int reliable;
+  type_identifier_t type_id;
 
   assert (datap);
   assert (datap->present & PP_ENDPOINT_GUID);
   GVLOGDISC (" "PGUIDFMT, PGUID (datap->endpoint_guid));
 
-  ppguid.prefix = *src_guid_prefix; // the proxy topic guid prefix cannot be used here because it is a hash and not the prefix of its proxypp
+  ppguid.prefix = *src_guid_prefix; // the proxy topic guid prefix cannot be used to construct pp guid, because it is a hash and not the prefix of its proxypp
   ppguid.entityid.u = NN_ENTITYID_PARTICIPANT;
   if (is_deleted_participant_guid (gv->deleted_participants, &ppguid, DPG_REMOTE))
     E (" local dead pp?\n", err);
@@ -1463,7 +1475,7 @@ static void handle_SEDP_alive_topic (const struct receiver_state *rst, seqno_t s
     E (" no topicname?\n", err);
   if (!(datap->qos.present & QP_TYPE_NAME))
     E (" no typename?\n", err);
-  if ((pp = entidx_lookup_proxy_participant_guid (gv->entity_index, &ppguid)) == NULL)
+  if ((proxypp = entidx_lookup_proxy_participant_guid (gv->entity_index, &ppguid)) == NULL)
     E (" unknown-proxypp?\n", err);
 
   xqos = &datap->qos;
@@ -1481,36 +1493,37 @@ static void handle_SEDP_alive_topic (const struct receiver_state *rst, seqno_t s
              durability_to_string (xqos->durability.kind),
              "topic", xqos->topic_name, xqos->type_name);
   if (vendor_is_eclipse (vendorid) && xqos->present & QP_CYCLONE_TYPE_INFORMATION)
-    GVLOGDISC (" type-hash "PTYPEIDFMT, PTYPEID(datap->type_information));
+  {
+    assert (xqos->type_information.length == sizeof (type_id.hash));
+    memcpy (type_id.hash, xqos->type_information.value, sizeof (type_id));
+    GVLOGDISC (" type-hash "PTYPEIDFMT, PTYPEID(type_id));
+  }
 
-  ptp = entidx_lookup_proxy_topic_guid (gv->entity_index, &datap->endpoint_guid);
-  if (ptp)
+  struct proxy_topic templ;
+  memset (&templ, 0, sizeof (templ));
+  templ.e.guid = datap->endpoint_guid;
+  ddsrt_mutex_lock (&gv->proxy_topics_lock);
+  struct proxy_topic *proxytp = ddsrt_hh_lookup (gv->proxy_topics, &templ);
+  ddsrt_mutex_unlock (&gv->proxy_topics_lock);
+  if (proxytp)
     GVLOGDISC (" known%s\n", vendor_is_cloud (vendorid) ? "-DS" : "");
   else
-  {
     GVLOGDISC (" NEW");
-    if (vendor_is_eclipse (vendorid) && xqos->present & QP_CYCLONE_TYPE_INFORMATION)
-    {
-      type_identifier_t type_id;
-      assert (xqos->type_information.length == sizeof (type_id.hash));
-      memcpy (type_id.hash, xqos->type_information.value, sizeof (type_id));
-      ddsi_tl_meta_proxy_ref (gv, &type_id, &datap->endpoint_guid);
-    }
-  }
 
   GVLOGDISC (" QOS={");
   ddsi_xqos_log (DDS_LC_DISCOVERY, &gv->logconfig, xqos);
   GVLOGDISC ("}\n");
 
-  if (ptp)
-    update_proxy_topic (ptp, seq, xqos, timestamp);
+  if (proxytp)
+    update_proxy_topic (proxypp, proxytp, seq, xqos, timestamp);
   else
-    new_proxy_topic (gv, &ppguid, &datap->endpoint_guid, datap, timestamp, seq);
+    new_proxy_topic (gv, proxypp, &datap->endpoint_guid, datap, timestamp, seq);
 
 err:
   return;
 #undef E
 }
+#endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
 
 static void handle_SEDP_dead (const struct receiver_state *rst, ddsi_plist_t *datap, ddsrt_wctime_t timestamp)
 {
@@ -1525,15 +1538,6 @@ static void handle_SEDP_dead (const struct receiver_state *rst, ddsi_plist_t *da
   GVLOGDISC (" %s\n", (res < 0) ? " unknown" : " delete");
 }
 
-static void handle_SEDP_dead_topic (const struct receiver_state *rst, ddsi_plist_t *datap, ddsrt_wctime_t timestamp)
-{
-  struct ddsi_domaingv * const gv = rst->gv;
-  assert (datap->present & PP_ENDPOINT_GUID);
-  GVLOGDISC (" "PGUIDFMT, PGUID (datap->endpoint_guid));
-  int res = delete_proxy_topic (gv, &datap->endpoint_guid, timestamp);
-  GVLOGDISC (" %s\n", (res < 0) ? " unknown" : " delete");
-}
-
 static void handle_SEDP (const struct receiver_state *rst, seqno_t seq, struct ddsi_serdata *serdata, bool is_topic)
 {
   ddsi_plist_t decoded_data;
@@ -1544,18 +1548,20 @@ static void handle_SEDP (const struct receiver_state *rst, seqno_t seq, struct d
     switch (serdata->statusinfo & (NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER))
     {
       case 0:
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
         if (is_topic)
           handle_SEDP_alive_topic (rst, seq, &decoded_data, &rst->src_guid_prefix, rst->vendor, serdata->timestamp);
         else
+#endif
           handle_SEDP_alive (rst, seq, &decoded_data, &rst->src_guid_prefix, rst->vendor, serdata->timestamp);
         break;
       case NN_STATUSINFO_DISPOSE:
       case NN_STATUSINFO_UNREGISTER:
       case (NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER):
-        if (is_topic)
-          handle_SEDP_dead_topic (rst, &decoded_data, serdata->timestamp);
-        else
+        if (!is_topic)
           handle_SEDP_dead (rst, &decoded_data, serdata->timestamp);
+        /* for proxy_topic a SEDP dispose/unregister is ignored (and is not sent by Cyclone)
+           because proxy topics lifetime is handled by counted references from proxy participants */
         break;
     }
     ddsi_plist_fini (&decoded_data);

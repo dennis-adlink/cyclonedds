@@ -72,7 +72,7 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
   struct bwhc_iter * const it = (struct bwhc_iter *) opaque_it;
   struct bwhc * const whc = (struct bwhc *) it->c.whc;
   enum entity_kind kind = EK_PARTICIPANT; /* pacify gcc */
-  struct entity_common *entity;
+  struct entity_common *entity = NULL;
 
   if (it->have_sample)
   {
@@ -117,13 +117,19 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
         case DSBT_READER:      kind = EK_PROXY_READER; break;
       }
       assert (kind != EK_PARTICIPANT);
-      entidx_enum_init (&it->it, whc->entidx, kind);
+      /* proxy topics are not stored in entity index as these are not entities
+         with a guid that is related to a proxy participant */
+      if (kind != EK_PROXY_TOPIC)
+        entidx_enum_init (&it->it, whc->entidx, kind);
       it->st = BIS_PROXY;
       /* FALLS THROUGH */
     case BIS_PROXY:
-      while ((entity = entidx_enum_next (&it->it)) != NULL)
-        if (is_visible (entity))
-          break;
+      if (kind != EK_PROXY_TOPIC)
+      {
+        while ((entity = entidx_enum_next (&it->it)) != NULL)
+          if (is_visible (entity))
+            break;
+      }
       if (entity) {
         sample->serdata = dds__builtin_make_sample (entity, entity->tupdate, true);
         it->have_sample = true;

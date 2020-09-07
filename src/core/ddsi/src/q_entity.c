@@ -51,6 +51,7 @@
 #include "dds/ddsi/ddsi_tkmap.h"
 #include "dds/ddsi/ddsi_security_omg.h"
 #include "dds/ddsi/ddsi_typelookup.h"
+#include "dds/ddsi/ddsi_list_tmpl.h"
 
 #ifdef DDSI_INCLUDE_SECURITY
 #include "dds/ddsi/ddsi_security_msg.h"
@@ -125,7 +126,14 @@ static int gcreq_proxy_writer (struct proxy_writer *pwr);
 static int gcreq_proxy_reader (struct proxy_reader *prd);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 static int gcreq_topic (struct topic *tp);
-static int gcreq_proxy_topic (struct proxy_topic *ptp);
+static int gcreq_proxy_topic (struct proxy_topic *proxytp);
+static void ref_proxy_topic_locked (struct proxy_topic *proxytp, struct proxy_participant *proxypp);
+static void unref_proxy_topic (struct proxy_participant *proxypp, struct proxy_topic *proxytp, ddsrt_wctime_t timestamp);
+
+#define DDSI_PROXYTP_LIST_EQUALS(a,b) proxy_topic_equal((a),(b))
+DDSI_LIST_DECLS_TMPL(static, proxy_topic_list, struct proxy_topic *, ddsrt_attribute_unused)
+DDSI_LIST_CODE_TMPL(static, proxy_topic_list, struct proxy_topic *, NULL, DDSI_PROXYTP_LIST_EQUALS, ddsrt_malloc, ddsrt_free)
+
 #endif
 
 extern inline bool builtintopic_is_visible (const struct ddsi_builtin_topic_interface *btif, const struct ddsi_guid *guid, nn_vendorid_t vendorid);
@@ -671,18 +679,17 @@ static void add_builtin_endpoints(struct participant *pp, ddsi_guid_t *subguid, 
     new_writer_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_PUBLICATION_NAME, gv->sedp_writer_type, &gv->builtin_endpoint_xqos_wr, whc_new(gv, wrinfo_tl), NULL, NULL);
     pp->bes |= NN_DISC_BUILTIN_ENDPOINT_PUBLICATION_ANNOUNCER;
 
-    subguid->entityid = to_entityid (NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER);
-    new_writer_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_TOPIC_NAME, gv->sedp_topic_type, &gv->builtin_endpoint_xqos_wr, whc_new(gv, wrinfo_tl), NULL, NULL);
-    pp->bes |= NN_DISC_BUILTIN_ENDPOINT_TOPICS_ANNOUNCER;
-
     /* PMD writer: */
     subguid->entityid = to_entityid (NN_ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER);
     new_writer_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_PARTICIPANT_MESSAGE_NAME, gv->pmd_type, &gv->builtin_endpoint_xqos_wr, whc_new(gv, wrinfo_tl), NULL, NULL);
     pp->bes |= NN_BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER;
 
-    whc_free_wrinfo (wrinfo_tl);
-
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+    /* SEDP topic writer: */
+    subguid->entityid = to_entityid (NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER);
+    new_writer_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_TOPIC_NAME, gv->sedp_topic_type, &gv->builtin_endpoint_xqos_wr, whc_new(gv, wrinfo_tl), NULL, NULL);
+    pp->bes |= NN_DISC_BUILTIN_ENDPOINT_TOPICS_ANNOUNCER;
+
     /* TypeLookup writers */
     struct whc_writer_info *wrinfo_vol = whc_make_wrinfo (NULL, &gv->builtin_volatile_xqos_wr);
     subguid->entityid = to_entityid (NN_ENTITYID_TL_SVC_BUILTIN_REQUEST_WRITER);
@@ -694,6 +701,7 @@ static void add_builtin_endpoints(struct participant *pp, ddsi_guid_t *subguid, 
     pp->bes |= NN_BUILTIN_ENDPOINT_TL_SVC_REPLY_DATA_WRITER;
     whc_free_wrinfo (wrinfo_vol);
 #endif
+    whc_free_wrinfo (wrinfo_tl);
   }
 
   if (add_readers)
@@ -712,16 +720,17 @@ static void add_builtin_endpoints(struct participant *pp, ddsi_guid_t *subguid, 
     new_reader_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_PUBLICATION_NAME, gv->sedp_writer_type, &gv->builtin_endpoint_xqos_rd, NULL, NULL, NULL);
     pp->bes |= NN_DISC_BUILTIN_ENDPOINT_PUBLICATION_DETECTOR;
 
-    subguid->entityid = to_entityid (NN_ENTITYID_SEDP_BUILTIN_TOPIC_READER);
-    new_reader_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_TOPIC_NAME, gv->sedp_topic_type, &gv->builtin_endpoint_xqos_rd, NULL, NULL, NULL);
-    pp->bes |= NN_DISC_BUILTIN_ENDPOINT_TOPICS_DETECTOR;
-
     /* PMD reader: */
     subguid->entityid = to_entityid (NN_ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_READER);
     new_reader_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_PARTICIPANT_MESSAGE_NAME, gv->pmd_type, &gv->builtin_endpoint_xqos_rd, NULL, NULL, NULL);
     pp->bes |= NN_BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER;
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+    /* SEDP topic reader: */
+    subguid->entityid = to_entityid (NN_ENTITYID_SEDP_BUILTIN_TOPIC_READER);
+    new_reader_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_TOPIC_NAME, gv->sedp_topic_type, &gv->builtin_endpoint_xqos_rd, NULL, NULL, NULL);
+    pp->bes |= NN_DISC_BUILTIN_ENDPOINT_TOPICS_DETECTOR;
+
     /* TypeLookup readers: */
     subguid->entityid = to_entityid (NN_ENTITYID_TL_SVC_BUILTIN_REQUEST_READER);
     new_reader_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_TYPELOOKUP_REQUEST_NAME, gv->tl_svc_request_type, &gv->builtin_volatile_xqos_rd, NULL, NULL, NULL);
@@ -4727,6 +4736,12 @@ dds_return_t new_topic
   }
   tp->type = ddsi_sertype_ref (type);
 
+  type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
+  assert (type_id != NULL);
+  memcpy (&tp->type_id, type_id, sizeof (tp->type_id));
+  ddsi_tl_meta_local_ref (gv, type_id, type);
+  ddsrt_free (type_id);
+
   ddsrt_mutex_lock (&tp->e.lock);
   entidx_insert_topic_guid (gv->entity_index, tp);
   builtintopic_write (gv->builtin_topic_interface, &tp->e, ddsrt_time_wallclock(), true);
@@ -4742,7 +4757,10 @@ static void gc_delete_topic (struct gcreq *gcreq)
   gcreq_free (gcreq);
   if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE))
     sedp_dispose_unregister_topic (tp);
-  ddsi_sertype_unref ((struct ddsi_sertype *) tp->type);
+  if (!ddsi_typeid_none (&tp->type_id))
+    ddsi_tl_meta_local_unref (tp->e.gv, &tp->type_id, NULL);
+  if (tp->type != NULL)
+    ddsi_sertype_unref ((struct ddsi_sertype *) tp->type);
   entity_common_fini (&tp->e);
   ddsi_xqos_fini (tp->xqos);
   ddsrt_free (tp->xqos);
@@ -5257,7 +5275,10 @@ bool new_proxy_participant (struct ddsi_domaingv *gv, const struct ddsi_guid *pp
   proxypp->as_default = as_default;
   proxypp->as_meta = as_meta;
   proxypp->endpoints = NULL;
-  proxypp->topics = NULL;
+
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  proxy_topic_list_init (&proxypp->topics);
+#endif
   proxypp->plist = ddsi_plist_dup (plist);
   ddsi_xqos_mergein_missing (&proxypp->plist->qos, &gv->default_plist_pp.qos, ~(uint64_t)0);
   ddsrt_avl_init (&proxypp_groups_treedef, &proxypp->groups);
@@ -5331,7 +5352,7 @@ int update_proxy_participant_plist (struct proxy_participant *proxypp, seqno_t s
   return 0;
 }
 
-static int ref_proxy_participant (struct proxy_participant *proxypp, struct proxy_endpoint_common *c, struct proxy_topic *ptp)
+static int ref_proxy_participant (struct proxy_participant *proxypp, struct proxy_endpoint_common *c)
 {
   ddsrt_mutex_lock (&proxypp->e.lock);
   if (proxypp->deleting)
@@ -5350,26 +5371,12 @@ static int ref_proxy_participant (struct proxy_participant *proxypp, struct prox
       c->next_ep->prev_ep = c;
     proxypp->endpoints = c;
   }
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (ptp != NULL)
-  {
-    ptp->proxypp = proxypp;
-    ptp->next_tp = proxypp->topics;
-    ptp->prev_tp = NULL;
-    if (ptp->next_tp)
-      ptp->next_tp->prev_tp = ptp;
-    proxypp->topics = ptp;
-  }
-#else
-  DDSRT_UNUSED_ARG (ptp);
-  assert (ptp == NULL);
-#endif
   ddsrt_mutex_unlock (&proxypp->e.lock);
 
   return DDS_RETCODE_OK;
 }
 
-static void unref_proxy_participant (struct proxy_participant *proxypp, struct proxy_endpoint_common *c, struct proxy_topic *ptp)
+static void unref_proxy_participant (struct proxy_participant *proxypp, struct proxy_endpoint_common *c)
 {
   uint32_t refc;
   const ddsrt_wctime_t tnow = ddsrt_time_wallclock();
@@ -5386,33 +5393,23 @@ static void unref_proxy_participant (struct proxy_participant *proxypp, struct p
     else
       proxypp->endpoints = c->next_ep;
   }
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (ptp != NULL)
-  {
-    if (ptp->next_tp)
-      ptp->next_tp->prev_tp = ptp->prev_tp;
-    if (ptp->prev_tp)
-      ptp->prev_tp->next_tp = ptp->next_tp;
-    else
-      proxypp->topics = ptp->next_tp;
-  }
-#else
-  DDSRT_UNUSED_ARG (ptp);
-  assert (ptp == NULL);
-#endif
 
   if (refc == 0)
   {
     struct ddsi_domaingv * const gv = proxypp->e.gv;
     const ddsi_guid_t pp_guid = proxypp->e.guid;
     assert (proxypp->endpoints == NULL);
-    assert (proxypp->topics == NULL);
     ddsrt_mutex_unlock (&proxypp->e.lock);
     ELOGDISC (proxypp, "unref_proxy_participant("PGUIDFMT"): refc=0, freeing\n", PGUID (proxypp->e.guid));
     free_proxy_participant (proxypp);
     remove_deleted_participant_guid (gv->deleted_participants, &pp_guid, DPG_LOCAL | DPG_REMOTE);
   }
-  else if (proxypp->endpoints == NULL && proxypp->topics == NULL && proxypp->implicitly_created)
+  else if (
+    proxypp->endpoints == NULL
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+    && proxy_topic_list_count (&proxypp->topics) == 0
+#endif
+    && proxypp->implicitly_created)
   {
     assert (refc == 1);
     ddsrt_mutex_unlock (&proxypp->e.lock);
@@ -5435,7 +5432,7 @@ static void gc_delete_proxy_participant (struct gcreq *gcreq)
   struct proxy_participant *proxypp = gcreq->arg;
   ELOGDISC (proxypp, "gc_delete_proxy_participant(%p, "PGUIDFMT")\n", (void *) gcreq, PGUID (proxypp->e.guid));
   gcreq_free (gcreq);
-  unref_proxy_participant (proxypp, NULL, NULL);
+  unref_proxy_participant (proxypp, NULL);
 }
 
 static struct entity_common *entity_common_from_proxy_endpoint_common (const struct proxy_endpoint_common *c)
@@ -5478,6 +5475,10 @@ static void delete_ppt (struct proxy_participant *proxypp, ddsrt_wctime_t timest
 {
   ddsi_entityid_t *child_entities;
   uint32_t n_child_entities = 0;
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  struct proxy_topic **topic_refs;
+  uint32_t n_topic_refs = 0;
+#endif
 
   /* if any proxy participants depend on this participant, delete them */
   ELOGDISC (proxypp, "delete_ppt("PGUIDFMT") - deleting dependent proxy participants\n", PGUID (proxypp->e.guid));
@@ -5497,7 +5498,7 @@ static void delete_ppt (struct proxy_participant *proxypp, ddsrt_wctime_t timest
 
   /* Get snapshot of endpoints and topics so that we can release proxypp->e.lock
      Pwrs/prds may be deleted during the iteration over the entities,
-     but resolving the guid will fail for these entities and the our
+     but resolving the guid will fail for these entities and the
      call to delete_proxy_writer/reader/topic returns. */
   {
     child_entities = ddsrt_malloc (proxypp->refc * sizeof(ddsi_entityid_t));
@@ -5508,14 +5509,18 @@ static void delete_ppt (struct proxy_participant *proxypp, ddsrt_wctime_t timest
       child_entities[n_child_entities++] = entc->guid.entityid;
       cep = cep->next_ep;
     }
-    struct proxy_topic *ptp = proxypp->topics;
-    while (ptp)
-    {
-      child_entities[n_child_entities++] = ptp->e.guid.entityid;
-      ptp = ptp->next_tp;
-    }
-  }
 
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+    topic_refs = ddsrt_malloc (proxy_topic_list_count (&proxypp->topics) * sizeof(struct proxy_topic *));
+    struct proxy_topic_list_iter it;
+    struct proxy_topic *proxytp = proxy_topic_list_iter_first (&proxypp->topics, &it);
+    while (proxytp != NULL)
+    {
+      topic_refs[n_topic_refs++] = proxytp;
+      proxytp = proxy_topic_list_iter_next (&it);
+    }
+#endif
+  }
   ddsrt_mutex_unlock (&proxypp->e.lock);
 
   ELOGDISC (proxypp, "delete_ppt("PGUIDFMT") - deleting endpoints\n", PGUID (proxypp->e.guid));
@@ -5527,12 +5532,15 @@ static void delete_ppt (struct proxy_participant *proxypp, ddsrt_wctime_t timest
       delete_proxy_writer (proxypp->e.gv, &ep_guid, timestamp, isimplicit);
     else if (is_reader_entityid (ep_guid.entityid))
       delete_proxy_reader (proxypp->e.gv, &ep_guid, timestamp, isimplicit);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    else
-      delete_proxy_topic (proxypp->e.gv, &ep_guid, timestamp);
-#endif
   }
   ddsrt_free (child_entities);
+
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  for (uint32_t n = 0; n < n_topic_refs; n++)
+    unref_proxy_topic (proxypp, topic_refs[n], timestamp);
+  ddsrt_free (topic_refs);
+#endif
+
   gcreq_proxy_participant (proxypp);
 }
 
@@ -5662,107 +5670,151 @@ uint64_t get_entity_instance_id (const struct ddsi_domaingv *gv, const struct dd
   return iid;
 }
 
-/* PROXY-TOPIC --------------------------------------------------- */
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-int new_proxy_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *ppguid, const struct ddsi_guid *guid, const ddsi_plist_t *plist, ddsrt_wctime_t timestamp, seqno_t seq)
+
+/* PROXY-TOPIC --------------------------------------------------- */
+
+int proxy_topic_equal (const struct proxy_topic *proxytp_a, const struct proxy_topic *proxytp_b)
 {
-  struct proxy_participant *proxypp;
-  struct proxy_topic *ptp;
-
-  assert (entidx_lookup_proxy_topic_guid (gv->entity_index, guid) == NULL);
-
-  if ((proxypp = entidx_lookup_proxy_participant_guid (gv->entity_index, ppguid)) == NULL)
-  {
-    GVWARNING ("new_proxy_topic("PGUIDFMT"): proxy participant unknown\n", PGUID (*guid));
-    return DDS_RETCODE_BAD_PARAMETER;
-  }
-
-  ptp = ddsrt_malloc (sizeof (*ptp));
-
-  /* ref proxy participant */
-  ref_proxy_participant (proxypp, NULL, ptp);
-
-
-  assert ((plist->qos.present & QP_TOPIC_NAME) == QP_TOPIC_NAME);
-  if (!strncmp(plist->qos.topic_name, "DCPS", 4))
-    assert ((plist->qos.present & QP_TYPE_NAME) == 0);
-
-  entity_common_init (&ptp->e, proxypp->e.gv, guid, plist->qos.topic_name, EK_PROXY_TOPIC, timestamp, proxypp->vendor, false);
-  ptp->seq = seq;
-  ptp->xqos = ddsi_xqos_dup (&plist->qos);
-  ptp->vendor = proxypp->vendor;
-  ptp->type = NULL;
-  if (vendor_is_eclipse (ptp->vendor) && plist->qos.present & QP_CYCLONE_TYPE_INFORMATION)
-  {
-    assert (plist->qos.type_information.length == sizeof (ptp->type_id));
-    memcpy (&ptp->type_id, plist->qos.type_information.value, sizeof (ptp->type_id));
-  }
+  if (proxytp_a != NULL && proxytp_b != NULL)
+    return memcmp (proxytp_a, proxytp_b, sizeof (*proxytp_a)) == 0;
   else
-    memset (&ptp->type_id, 0, sizeof (ptp->type_id));
-
-  /* locking the entity prevents matching while the built-in topic hasn't been published yet */
-  ddsrt_mutex_lock (&ptp->e.lock);
-  // FIXME: add to hash table in gv
-  //entidx_insert_proxy_topic_guid (gv->entity_index, ptp);
-  builtintopic_write (gv->builtin_topic_interface, &ptp->e, timestamp, true);
-  ddsrt_mutex_unlock (&ptp->e.lock);
-
-  return DDS_RETCODE_OK;
+    return proxytp_a == proxytp_b;
 }
 
-void update_proxy_topic (struct proxy_topic *ptp, seqno_t seq, const struct dds_qos *xqos, ddsrt_wctime_t timestamp)
+uint32_t proxy_topic_hash (const struct proxy_topic *proxytp)
 {
-  ddsrt_mutex_lock (&ptp->e.lock);
-  if (seq > ptp->seq)
+  return *((uint32_t *) &proxytp->e.guid);
+}
+
+int new_proxy_topic (struct ddsi_domaingv *gv, struct proxy_participant *proxypp, const struct ddsi_guid *guid, const ddsi_plist_t *plist, ddsrt_wctime_t timestamp, seqno_t seq)
+{
+  dds_return_t result = DDS_RETCODE_OK;
+  assert (proxypp != NULL);
+  assert ((plist->qos.present & (QP_TOPIC_NAME | QP_TYPE_NAME)) == (QP_TOPIC_NAME | QP_TYPE_NAME));
+
+  struct proxy_topic *proxytp = ddsrt_malloc (sizeof (*proxytp));
+  entity_common_init (&proxytp->e, proxypp->e.gv, guid, plist->qos.topic_name, EK_PROXY_TOPIC, timestamp, proxypp->vendor, false);
+  proxytp->seq = seq;
+  proxytp->xqos = ddsi_xqos_dup (&plist->qos);
+  proxytp->vendor = proxypp->vendor;
+  proxytp->type = NULL;
+  proxytp->refc = 0;
+  if (vendor_is_eclipse (proxytp->vendor) && plist->qos.present & QP_CYCLONE_TYPE_INFORMATION)
   {
-    ptp->seq = seq;
-    (void) update_qos_locked (&ptp->e, ptp->xqos, xqos, timestamp);
+    assert (plist->qos.type_information.length == sizeof (proxytp->type_id));
+    memcpy (&proxytp->type_id, plist->qos.type_information.value, sizeof (proxytp->type_id));
+    ddsi_tl_meta_proxy_ref (gv, &proxytp->type_id, NULL);
   }
-  ddsrt_mutex_unlock (&ptp->e.lock);
+  else
+    memset (&proxytp->type_id, 0, sizeof (proxytp->type_id));
+
+  /* locking the proxy topic prevents refs from other participants while the built-in topic hasn't been published yet */
+  ddsrt_mutex_lock (&proxytp->e.lock);
+  ddsrt_mutex_lock (&gv->proxy_topics_lock);
+
+#ifndef NDEBUG
+  struct proxy_topic templ;
+  memset (&templ, 0, sizeof (templ));
+  memcpy (&templ.e.guid, guid, sizeof (templ.e.guid));
+  assert (ddsrt_hh_lookup (gv->proxy_topics, &templ) == NULL);
+#endif
+
+  (void) ddsrt_hh_add (gv->proxy_topics, proxytp);
+  ddsrt_mutex_unlock (&gv->proxy_topics_lock);
+  ref_proxy_topic_locked (proxytp, proxypp);
+  builtintopic_write (gv->builtin_topic_interface, &proxytp->e, timestamp, true);
+  ddsrt_mutex_unlock (&proxytp->e.lock);
+  return result;
+}
+
+void update_proxy_topic (struct proxy_participant *proxypp, struct proxy_topic *proxytp, seqno_t seq, const struct dds_qos *xqos, ddsrt_wctime_t timestamp)
+{
+  ddsrt_mutex_lock (&proxytp->e.lock);
+  if (seq > proxytp->seq)
+  {
+    proxytp->seq = seq;
+    (void) update_qos_locked (&proxytp->e, proxytp->xqos, xqos, timestamp);
+    ref_proxy_topic_locked (proxytp, proxypp);
+  }
+  ddsrt_mutex_unlock (&proxytp->e.lock);
 }
 
 static void gc_delete_proxy_topic (struct gcreq *gcreq)
 {
-  struct proxy_topic *ptp = gcreq->arg;
-  ELOGDISC (ptp, "gc_delete_proxy_topic(%p, "PGUIDFMT")\n", (void *) gcreq, PGUID (ptp->e.guid));
+  struct proxy_topic *proxytp = gcreq->arg;
+  ELOGDISC (proxytp, "gc_delete_proxy_topic(%p, "PGUIDFMT")\n", (void *) gcreq, PGUID (proxytp->e.guid));
   gcreq_free (gcreq);
-  unref_proxy_participant (ptp->proxypp, NULL, ptp);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (ptp->type != NULL)
-    ddsi_sertype_unref ((struct ddsi_sertype *) ptp->type);
-#endif
-  ddsi_xqos_fini (ptp->xqos);
-  ddsrt_free (ptp->xqos);
-  entity_common_fini (&ptp->e);
-  ddsrt_free (ptp);
+  if (!ddsi_typeid_none (&proxytp->type_id))
+    ddsi_tl_meta_proxy_unref (proxytp->e.gv, &proxytp->type_id, NULL);
+  if (proxytp->type != NULL)
+    ddsi_sertype_unref ((struct ddsi_sertype *) proxytp->type);
+  ddsi_xqos_fini (proxytp->xqos);
+  ddsrt_free (proxytp->xqos);
+  entity_common_fini (&proxytp->e);
+  ddsrt_free (proxytp);
 }
 
-int delete_proxy_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid, ddsrt_wctime_t timestamp)
+static int delete_proxy_topic (struct proxy_topic *proxytp, ddsrt_wctime_t timestamp)
 {
-  struct proxy_topic *ptp;
-  GVLOGDISC ("delete_proxy_topic ("PGUIDFMT") ", PGUID (*guid));
-  ddsrt_mutex_lock (&gv->lock);
-  if ((ptp = entidx_lookup_proxy_topic_guid (gv->entity_index, guid)) == NULL)
-  {
-    ddsrt_mutex_unlock (&gv->lock);
-    GVLOGDISC ("- unknown\n");
-    return DDS_RETCODE_BAD_PARAMETER;
-  }
-  builtintopic_write (gv->builtin_topic_interface, &ptp->e, timestamp, false);
-  entidx_remove_proxy_topic_guid (gv->entity_index, ptp);
-  ddsrt_mutex_unlock (&gv->lock);
+  struct ddsi_domaingv *gv = proxytp->e.gv;
+  GVLOGDISC ("delete_proxy_topic ("PGUIDFMT") ", PGUID (proxytp->e.guid));
+  ddsrt_mutex_lock (&gv->proxy_topics_lock);
+#ifndef NDEBUG
+  void *tmp = ddsrt_hh_lookup (gv->proxy_topics, proxytp);
+  assert (tmp != NULL);
+#endif
+  (void) ddsrt_hh_remove (gv->proxy_topics, proxytp);
+  ddsrt_mutex_unlock (&gv->proxy_topics_lock);
+  builtintopic_write (gv->builtin_topic_interface, &proxytp->e, timestamp, false);
   GVLOGDISC ("- deleting\n");
-
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (!ddsi_typeid_none (&ptp->type_id))
-    ddsi_tl_meta_proxy_unref (gv, &ptp->type_id, guid);
-#endif
-
-  gcreq_proxy_topic (ptp);
-  return 0;
+  gcreq_proxy_topic (proxytp);
+  return DDS_RETCODE_OK;
 }
-#endif
+
+static void ref_proxy_topic_locked (struct proxy_topic *proxytp, struct proxy_participant *proxypp)
+{
+  assert (proxytp != NULL);
+  assert (proxypp != NULL);
+  struct proxy_topic_list_iter it;
+  ddsrt_mutex_lock (&proxypp->e.lock);
+  struct proxy_topic *pp_proxytp = proxy_topic_list_iter_first (&proxypp->topics, &it);
+  bool found = false;
+  while (pp_proxytp != NULL)
+  {
+    if (proxy_topic_equal (pp_proxytp, proxytp))
+    {
+      found = true;
+      break;
+    }
+    pp_proxytp = proxy_topic_list_iter_next (&it);
+  }
+  if (!found)
+  {
+    proxy_topic_list_insert (&proxypp->topics, proxytp);
+    proxytp->refc++;
+  }
+  ddsrt_mutex_unlock (&proxypp->e.lock);
+}
+
+static void unref_proxy_topic (struct proxy_participant *proxypp, struct proxy_topic *proxytp, ddsrt_wctime_t timestamp)
+{
+  ddsrt_mutex_lock (&proxytp->e.lock);
+  if (--proxytp->refc > 0)
+  {
+    ddsrt_mutex_unlock (&proxytp->e.lock);
+    return;
+  }
+  ddsrt_mutex_lock (&proxypp->e.lock);
+  proxy_topic_list_remove (&proxypp->topics, proxytp);
+  ddsrt_mutex_unlock (&proxypp->e.lock);
+  ddsrt_mutex_unlock (&proxytp->e.lock);
+  (void) delete_proxy_topic (proxytp, timestamp);
+}
+
+#endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
+
 
 /* PROXY-ENDPOINT --------------------------------------------------- */
 
@@ -5802,7 +5854,7 @@ static int proxy_endpoint_common_init (struct entity_common *e, struct proxy_end
   q_omg_get_proxy_endpoint_security_info(e, &proxypp->security_info, plist, &c->security_info);
 #endif
 
-  if ((ret = ref_proxy_participant (proxypp, c, NULL)) != DDS_RETCODE_OK)
+  if ((ret = ref_proxy_participant (proxypp, c)) != DDS_RETCODE_OK)
   {
     ddsi_xqos_fini (c->xqos);
     ddsrt_free (c->xqos);
@@ -5816,8 +5868,10 @@ static int proxy_endpoint_common_init (struct entity_common *e, struct proxy_end
 
 static void proxy_endpoint_common_fini (struct entity_common *e, struct proxy_endpoint_common *c)
 {
-  unref_proxy_participant (c->proxypp, c, NULL);
+  unref_proxy_participant (c->proxypp, c);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  if (!ddsi_typeid_none (&c->type_id))
+    ddsi_tl_meta_proxy_unref (e->gv, &c->type_id, &e->guid);
   if (c->type != NULL)
     ddsi_sertype_unref ((struct ddsi_sertype *) c->type);
 #endif
@@ -6116,10 +6170,6 @@ int delete_proxy_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *guid,
     lease_unregister (pwr->lease);
   if (proxy_writer_set_notalive (pwr, false) != DDS_RETCODE_OK)
     GVLOGDISC ("proxy_writer_set_notalive failed for "PGUIDFMT"\n", PGUID(*guid));
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (!ddsi_typeid_none (&pwr->c.type_id))
-    ddsi_tl_meta_proxy_unref (gv, &pwr->c.type_id, guid);
-#endif
   gcreq_proxy_writer (pwr);
   return DDS_RETCODE_OK;
 }
@@ -6345,11 +6395,6 @@ int delete_proxy_reader (struct ddsi_domaingv *gv, const struct ddsi_guid *guid,
      do its work. */
   proxy_reader_set_delete_and_ack_all_messages (prd);
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (!ddsi_typeid_none (&prd->c.type_id))
-    ddsi_tl_meta_proxy_unref (gv, &prd->c.type_id, guid);
-#endif
-
   gcreq_proxy_reader (prd);
   return 0;
 }
@@ -6373,10 +6418,10 @@ static int gcreq_topic (struct topic *tp)
   return 0;
 }
 
-static int gcreq_proxy_topic (struct proxy_topic *ptp)
+static int gcreq_proxy_topic (struct proxy_topic *proxytp)
 {
-  struct gcreq *gcreq = gcreq_new (ptp->e.gv->gcreq_queue, gc_delete_proxy_topic);
-  gcreq->arg = ptp;
+  struct gcreq *gcreq = gcreq_new (proxytp->e.gv->gcreq_queue, gc_delete_proxy_topic);
+  gcreq->arg = proxytp;
   gcreq_enqueue (gcreq);
   return 0;
 }

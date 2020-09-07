@@ -98,12 +98,7 @@ static int all_entities_compare (const void *va, const void *vb)
     }
 
     case EK_PROXY_TOPIC: {
-      const struct proxy_topic *tpa = va;
-      const struct proxy_topic *tpb = vb;
-      assert ((tpa->xqos->present & QP_TOPIC_NAME) && tpa->xqos->topic_name);
-      assert ((tpb->xqos->present & QP_TOPIC_NAME) && tpb->xqos->topic_name);
-      tp_a = tpa->xqos->topic_name;
-      tp_b = tpb->xqos->topic_name;
+      abort();
       break;
     }
 
@@ -173,8 +168,7 @@ static void match_endpoint_range (enum entity_kind kind, const char *tp, struct 
       max->entity.rd.xqos = &max->xqos;
       break;
     case EK_PROXY_TOPIC:
-      min->entity.ptp.xqos = &min->xqos;
-      max->entity.ptp.xqos = &max->xqos;
+      abort ();
       break;
     case EK_PROXY_WRITER:
     case EK_PROXY_READER:
@@ -209,8 +203,7 @@ static void match_entity_kind_min (enum entity_kind kind, struct match_entities_
       min->entity.rd.xqos = &min->xqos;
       break;
     case EK_PROXY_TOPIC:
-      min->entity.ptp.vendor = NN_VENDORID_ECLIPSE;
-      min->entity.ptp.xqos = &min->xqos;
+      abort ();
       break;
     case EK_PROXY_WRITER:
     case EK_PROXY_READER:
@@ -351,11 +344,6 @@ void entidx_insert_topic_guid (struct entity_index *ei, struct topic *tp)
   entity_index_insert (ei, &tp->e);
 }
 
-void entidx_insert_proxy_topic_guid (struct entity_index *ei, struct proxy_topic *ptp)
-{
-  entity_index_insert (ei, &ptp->e);
-}
-
 void entidx_remove_participant_guid (struct entity_index *ei, struct participant *pp)
 {
   entity_index_remove (ei, &pp->e);
@@ -389,11 +377,6 @@ void entidx_remove_proxy_reader_guid (struct entity_index *ei, struct proxy_read
 void entidx_remove_topic_guid (struct entity_index *ei, struct topic *tp)
 {
   entity_index_remove (ei, &tp->e);
-}
-
-void entidx_remove_proxy_topic_guid (struct entity_index *ei, struct proxy_topic *ptp)
-{
-  entity_index_remove (ei, &ptp->e);
 }
 
 struct participant *entidx_lookup_participant_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
@@ -443,12 +426,6 @@ struct proxy_reader *entidx_lookup_proxy_reader_guid (const struct entity_index 
   DDSRT_STATIC_ASSERT (offsetof (struct proxy_reader, e) == 0);
   assert (is_reader_entityid (guid->entityid));
   return entidx_lookup_guid_int (ei, guid, EK_PROXY_READER);
-}
-
-struct proxy_topic *entidx_lookup_proxy_topic_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
-{
-  DDSRT_STATIC_ASSERT (offsetof (struct proxy_topic, e) == 0);
-  return entidx_lookup_guid_int (ei, guid, EK_PROXY_TOPIC);
 }
 
 /* Enumeration */
@@ -527,11 +504,6 @@ void entidx_enum_topic_init (struct entidx_enum_topic *st, const struct entity_i
   entidx_enum_init (&st->st, ei, EK_TOPIC);
 }
 
-void entidx_enum_proxy_topic_init (struct entidx_enum_proxy_topic *st, const struct entity_index *ei)
-{
-  entidx_enum_init (&st->st, ei, EK_PROXY_TOPIC);
-}
-
 void entidx_enum_participant_init (struct entidx_enum_participant *st, const struct entity_index *ei)
 {
   entidx_enum_init (&st->st, ei, EK_PARTICIPANT);
@@ -599,12 +571,6 @@ struct topic *entidx_enum_topic_next (struct entidx_enum_topic *st)
   return entidx_enum_next (&st->st);
 }
 
-struct proxy_topic *entidx_enum_proxy_topic_next (struct entidx_enum_proxy_topic *st)
-{
-  DDSRT_STATIC_ASSERT (offsetof (struct proxy_topic, e) == 0);
-  return entidx_enum_next (&st->st);
-}
-
 struct participant *entidx_enum_participant_next (struct entidx_enum_participant *st)
 {
   DDSRT_STATIC_ASSERT (offsetof (struct participant, e) == 0);
@@ -644,11 +610,6 @@ void entidx_enum_proxy_reader_fini (struct entidx_enum_proxy_reader *st)
 }
 
 void entidx_enum_topic_fini (struct entidx_enum_topic *st)
-{
-  entidx_enum_fini (&st->st);
-}
-
-void entidx_enum_proxy_topic_fini (struct entidx_enum_proxy_topic *st)
 {
   entidx_enum_fini (&st->st);
 }

@@ -29,6 +29,7 @@
 #include "dds/ddsi/ddsi_typeid.h"
 #include "dds/ddsi/ddsi_typelookup.h"
 #include "dds/ddsi/ddsi_tran.h"
+#include "dds/ddsi/ddsi_list_tmpl.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -377,6 +378,10 @@ struct reader
 #endif
 };
 
+#define NOARG
+DDSI_LIST_TYPES_TMPL(proxy_topic_list, struct proxy_topic *, NOARG, 32)
+#undef NOARG
+
 struct proxy_participant
 {
   struct entity_common e;
@@ -393,7 +398,7 @@ struct proxy_participant
   struct addrset *as_default; /* default address set to use for user data traffic */
   struct addrset *as_meta; /* default address set to use for discovery traffic */
   struct proxy_endpoint_common *endpoints; /* all proxy endpoints can be reached from here */
-  struct proxy_topic *topics;
+  struct proxy_topic_list_def topics;
   ddsrt_avl_tree_t groups; /* table of all groups (publisher, subscriber), see struct proxy_group */
   seqno_t seq; /* sequence number of most recent SPDP message */
   unsigned implicitly_created : 1; /* participants are implicitly created for Cloud/Fog discovered endpoints */
@@ -413,14 +418,13 @@ struct proxy_topic
 {
   struct entity_common e;
   struct proxy_participant *proxypp; /* counted backref to proxy participant */
-  struct proxy_topic *next_tp; /* next \ proxy topic belonging to this proxy participant */
-  struct proxy_topic *prev_tp; /* prev / -- this is in arbitrary ordering */
   struct dds_qos *xqos; /* proxy endpoint QoS lives here; FIXME: local ones should have it moved to common as well */
+  uint32_t refc;
   seqno_t seq; /* sequence number of most recent SEDP message */
   nn_vendorid_t vendor; /* cached from proxypp->vendor */
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   type_identifier_t type_id; /* type identifier for for type used by this proxy endpoint */
-  const struct ddsi_sertype * type; /* sertype for data this endpoint reads/writes */
+  const struct ddsi_sertype * type; /* sertype for data this proxy topic */
 #endif
 };
 
@@ -747,9 +751,10 @@ void proxy_participant_reassign_lease (struct proxy_participant *proxypp, struct
 void purge_proxy_participants (struct ddsi_domaingv *gv, const nn_locator_t *loc, bool delete_from_as_disc);
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-int new_proxy_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *ppguid, const struct ddsi_guid *guid, const ddsi_plist_t *plist, ddsrt_wctime_t timestamp, seqno_t seq);
-void update_proxy_topic (struct proxy_topic *ptp, seqno_t seq, const struct dds_qos *xqos, ddsrt_wctime_t timestamp);
-int delete_proxy_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid, ddsrt_wctime_t timestamp);
+int proxy_topic_equal (const struct proxy_topic *proxytp_a, const struct proxy_topic *proxytp_b);
+uint32_t proxy_topic_hash (const struct proxy_topic *proxytp);
+int new_proxy_topic (struct ddsi_domaingv *gv, struct proxy_participant *proxypp, const struct ddsi_guid *guid, const ddsi_plist_t *plist, ddsrt_wctime_t timestamp, seqno_t seq);
+void update_proxy_topic (struct proxy_participant *proxypp, struct proxy_topic *proxytp, seqno_t seq, const struct dds_qos *xqos, ddsrt_wctime_t timestamp);
 #endif
 
 /* To create a new proxy writer or reader; the proxy participant is

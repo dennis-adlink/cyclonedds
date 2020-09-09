@@ -5856,7 +5856,9 @@ static int proxy_endpoint_common_init (struct entity_common *e, struct proxy_end
 
   if ((ret = ref_proxy_participant (proxypp, c)) != DDS_RETCODE_OK)
   {
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     ddsi_tl_meta_proxy_unref (proxypp->e.gv, &c->type_id, guid);
+#endif
     ddsi_xqos_fini (c->xqos);
     ddsrt_free (c->xqos);
     unref_addrset (c->as);

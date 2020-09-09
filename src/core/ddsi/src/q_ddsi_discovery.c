@@ -1059,7 +1059,6 @@ int sedp_write_topic (struct topic *tp)
 
 int sedp_write_writer (struct writer *wr)
 {
-  int res = 0;
   if ((!is_builtin_entityid(wr->e.guid.entityid, NN_VENDORID_ECLIPSE)) && (!wr->e.onlylocal))
   {
     unsigned entityid = determine_publication_writer(wr);
@@ -1078,17 +1077,16 @@ int sedp_write_writer (struct writer *wr)
     }
 #endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    res = sedp_write_endpoint_impl (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security, &wr->c.type_id);
+    return sedp_write_endpoint_impl (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security, &wr->c.type_id);
 #else
-    return sedp_write_endpoint (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security);
+    return sedp_write_endpoint_impl (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security);
 #endif
   }
-  return res;
+  return 0;
 }
 
 int sedp_write_reader (struct reader *rd)
 {
-  int res = 0;
   if ((!is_builtin_entityid (rd->e.guid.entityid, NN_VENDORID_ECLIPSE)) && (!rd->e.onlylocal))
   {
     unsigned entityid = determine_subscription_writer(rd);
@@ -1107,25 +1105,24 @@ int sedp_write_reader (struct reader *rd)
     }
 #endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    res = sedp_write_endpoint_impl (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, &rd->c.type_id);
+    return sedp_write_endpoint_impl (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, &rd->c.type_id);
 #else
-    return sedp_write_endpoint (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security);
+    return sedp_write_endpoint_impl (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security);
 #endif
   }
-  return res;
+  return 0;
 }
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 int sedp_dispose_unregister_topic (struct topic *tp)
 {
-  int res = 0;
   if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE))
   {
     unsigned entityid = determine_topic_writer (tp);
     struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
-    res = sedp_write_topic_impl (sedp_wr, 0, &tp->e.guid, tp->xqos, &tp->type_id);
+    return sedp_write_topic_impl (sedp_wr, 0, &tp->e.guid, tp->xqos, &tp->type_id);
   }
-  return res;
+  return 0;
 }
 #endif
 

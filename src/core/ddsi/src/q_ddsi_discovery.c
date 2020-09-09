@@ -1517,7 +1517,10 @@ static void handle_SEDP_alive_topic (const struct receiver_state *rst, seqno_t s
   if (proxytp)
     update_proxy_topic (proxypp, proxytp, seq, xqos, timestamp);
   else
+  {
+    // FIXME: check compatibility with known (proxy) topics
     new_proxy_topic (gv, proxypp, &datap->endpoint_guid, datap, timestamp, seq);
+  }
 
 err:
   return;

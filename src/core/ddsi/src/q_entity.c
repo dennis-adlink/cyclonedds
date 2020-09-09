@@ -3471,7 +3471,8 @@ static void endpoint_common_fini (struct entity_common *e, struct endpoint_commo
     assert (is_local_orphan_endpoint (e));
   }
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  ddsi_tl_meta_local_unref (e->gv, &c->type_id, NULL);
+  if (!ddsi_typeid_none (&c->type_id))
+    ddsi_tl_meta_local_unref (e->gv, &c->type_id, NULL);
 #endif
   entity_common_fini (e);
 }
@@ -5870,8 +5871,6 @@ static void proxy_endpoint_common_fini (struct entity_common *e, struct proxy_en
 {
   unref_proxy_participant (c->proxypp, c);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (!ddsi_typeid_none (&c->type_id))
-    ddsi_tl_meta_proxy_unref (e->gv, &c->type_id, &e->guid);
   if (c->type != NULL)
     ddsi_sertype_unref ((struct ddsi_sertype *) c->type);
 #endif
@@ -6163,6 +6162,15 @@ int delete_proxy_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *guid,
   local_reader_ary_setinvalid (&pwr->rdary);
   GVLOGDISC ("- deleting\n");
   builtintopic_write (gv->builtin_topic_interface, &pwr->e, timestamp, false);
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  /* Unref tl_meta before removing from entity index, because
+     a tl_lookup_reply could be pending and will trigger an update
+     of the endpoint matching for all endpoints that are registered
+     for the tl_meta. The unref removes this proxy writer from
+     the endpoint list. */
+  if (!ddsi_typeid_none (&pwr->c.type_id))
+    ddsi_tl_meta_proxy_unref (gv, &pwr->c.type_id, &pwr->e.guid);
+#endif
   entidx_remove_proxy_writer_guid (gv->entity_index, pwr);
   ddsrt_mutex_unlock (&gv->lock);
   if (pwr->c.xqos->liveliness.lease_duration != DDS_INFINITY &&
@@ -6377,6 +6385,7 @@ int delete_proxy_reader (struct ddsi_domaingv *gv, const struct ddsi_guid *guid,
   struct proxy_reader *prd;
   (void)isimplicit;
   GVLOGDISC ("delete_proxy_reader ("PGUIDFMT") ", PGUID (*guid));
+
   ddsrt_mutex_lock (&gv->lock);
   if ((prd = entidx_lookup_proxy_reader_guid (gv->entity_index, guid)) == NULL)
   {
@@ -6385,6 +6394,15 @@ int delete_proxy_reader (struct ddsi_domaingv *gv, const struct ddsi_guid *guid,
     return DDS_RETCODE_BAD_PARAMETER;
   }
   builtintopic_write (gv->builtin_topic_interface, &prd->e, timestamp, false);
+#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  /* Unref tl_meta before removing from entity index, because
+     a tl_lookup_reply could be pending and will trigger an update
+     of the endpoint matching for all endpoints that are registered
+     for the tl_meta. The unref removes this proxy writer from
+     the endpoint list. */
+  if (!ddsi_typeid_none (&prd->c.type_id))
+    ddsi_tl_meta_proxy_unref (gv, &prd->c.type_id, &prd->e.guid);
+#endif
   entidx_remove_proxy_reader_guid (gv->entity_index, prd);
   ddsrt_mutex_unlock (&gv->lock);
   GVLOGDISC ("- deleting\n");

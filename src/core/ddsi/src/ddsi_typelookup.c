@@ -478,8 +478,8 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
         {
           struct entity_common *ec = entidx_lookup_guid_untyped (gv->entity_index, ep);
           assert (ec != NULL);
-          if (ec->kind == EK_PROXY_READER || ec->kind == EK_PROXY_WRITER)
-            gpe_match_upd[n_match_upd++] = (struct generic_proxy_endpoint *) ec;
+          assert (ec->kind == EK_PROXY_READER || ec->kind == EK_PROXY_WRITER);
+          gpe_match_upd[n_match_upd++] = (struct generic_proxy_endpoint *) ec;
         }
 
         tlm_register_with_proxy_endpoints_locked (gv, tlm);

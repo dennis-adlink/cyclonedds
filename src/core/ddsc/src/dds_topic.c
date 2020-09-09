@@ -352,7 +352,7 @@ dds_entity_t dds_create_topic_impl (dds_entity_t participant, const char * name,
     goto error;
   }
 
-  /* See if we're allowed to create the topic; ktp is returned pinned & locked
+  /* See if we're allowed to create the topic; ktp is returned pinned & locked (protected by pp's lock)
      so we can be sure it doesn't disappear and its QoS can't change */
   GVTRACE ("dds_create_topic_generic (pp %p "PGUIDFMT" sertype %p reg?%s refc %"PRIu32" %s/%s)\n",
            (void *) pp, PGUID (pp->m_entity.m_guid), (void *) (*sertype), (*sertype)->registered ? "yes" : "no",
@@ -411,14 +411,14 @@ dds_entity_t dds_create_topic_impl (dds_entity_t participant, const char * name,
   *sertype = sertype_registered;
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  /* register ktopic-sertype meta-data entry */
+  /* create or reference ktopic-sertype meta-data entry */
   struct ktopic_type_guid templ, *m;
   type_identifier_t *tid = ddsi_typeid_from_sertype (sertype_registered);
   memset (&templ, 0, sizeof (templ));
   templ.type_id = tid;
   if ((m = ddsrt_hh_lookup (ktp->topic_guid_map, &templ)) == NULL)
   {
-    /* register new */
+    /* create ddsi topic and new ktopic-sertype-guid entry */
     thread_state_awake (lookup_thread_state (), gv);
     const struct ddsi_guid * ppguid = dds_entity_participant_guid (&pp->m_entity);
     struct participant * pp_ddsi = entidx_lookup_participant_guid (gv->entity_index, ppguid);

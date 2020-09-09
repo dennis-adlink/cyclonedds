@@ -477,11 +477,12 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
         for (const ddsi_guid_t *ep = tlm_endpoints_iter_first (tlm, &it); ep != NULL; ep = tlm_endpoints_iter_next (&it))
         {
           struct entity_common *ec = entidx_lookup_guid_untyped (gv->entity_index, ep);
-          assert (ec != NULL);
-          assert (ec->kind == EK_PROXY_READER || ec->kind == EK_PROXY_WRITER);
-          gpe_match_upd[n_match_upd++] = (struct generic_proxy_endpoint *) ec;
+          if (ec != NULL)
+          {
+            assert (ec->kind == EK_PROXY_READER || ec->kind == EK_PROXY_WRITER);
+            gpe_match_upd[n_match_upd++] = (struct generic_proxy_endpoint *) ec;
+          }
         }
-
         tlm_register_with_proxy_endpoints_locked (gv, tlm);
       }
       resolved = true;
@@ -496,10 +497,7 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
   if (gpe_match_upd != NULL)
   {
     for (uint32_t e = 0; e < n_match_upd; e++)
-    {
-      if (gpe_match_upd[e] != NULL)
-        update_proxy_endpoint_matching (gv, gpe_match_upd[e]);
-    }
+      update_proxy_endpoint_matching (gv, gpe_match_upd[e]);
     ddsrt_free (gpe_match_upd);
   }
 }

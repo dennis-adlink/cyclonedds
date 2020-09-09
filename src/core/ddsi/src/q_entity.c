@@ -3471,8 +3471,7 @@ static void endpoint_common_fini (struct entity_common *e, struct endpoint_commo
     assert (is_local_orphan_endpoint (e));
   }
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (!ddsi_typeid_none (&c->type_id))
-    ddsi_tl_meta_local_unref (e->gv, &c->type_id, NULL);
+  ddsi_tl_meta_local_unref (e->gv, &c->type_id, NULL);
 #endif
   entity_common_fini (e);
 }
@@ -5857,6 +5856,7 @@ static int proxy_endpoint_common_init (struct entity_common *e, struct proxy_end
 
   if ((ret = ref_proxy_participant (proxypp, c)) != DDS_RETCODE_OK)
   {
+    ddsi_tl_meta_proxy_unref (proxypp->e.gv, &c->type_id, guid);
     ddsi_xqos_fini (c->xqos);
     ddsrt_free (c->xqos);
     unref_addrset (c->as);

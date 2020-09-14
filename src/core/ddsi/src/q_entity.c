@@ -130,11 +130,10 @@ static int gcreq_proxy_topic (struct proxy_topic *proxytp);
 static void ref_proxy_topic_locked (struct proxy_topic *proxytp, struct proxy_participant *proxypp);
 static void unref_proxy_topic (struct proxy_participant *proxypp, struct proxy_topic *proxytp, ddsrt_wctime_t timestamp);
 
-#define DDSI_PROXYTP_LIST_EQUALS(a,b) proxy_topic_equal((a),(b))
-DDSI_LIST_DECLS_TMPL(static, proxy_topic_list, struct proxy_topic *, ddsrt_attribute_unused)
-DDSI_LIST_CODE_TMPL(static, proxy_topic_list, struct proxy_topic *, NULL, DDSI_PROXYTP_LIST_EQUALS, ddsrt_malloc, ddsrt_free)
+DDSI_LIST_GENERIC_PTR_DECL(extern inline, proxy_topic_list, struct proxy_topic *, ddsrt_attribute_unused);
+DDSI_LIST_GENERIC_PTR_CODE(extern inline, proxy_topic_list, struct proxy_topic *, proxy_topic_equal)
 
-#endif
+#endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
 
 extern inline bool builtintopic_is_visible (const struct ddsi_builtin_topic_interface *btif, const struct ddsi_guid *guid, nn_vendorid_t vendorid);
 extern inline bool builtintopic_is_builtintopic (const struct ddsi_builtin_topic_interface *btif, const struct ddsi_sertype *type);
@@ -5512,7 +5511,7 @@ static void delete_ppt (struct proxy_participant *proxypp, ddsrt_wctime_t timest
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
     topic_refs = ddsrt_malloc (proxy_topic_list_count (&proxypp->topics) * sizeof(struct proxy_topic *));
-    struct proxy_topic_list_iter it;
+    proxy_topic_list_iter_t it;
     struct proxy_topic *proxytp = proxy_topic_list_iter_first (&proxypp->topics, &it);
     while (proxytp != NULL)
     {
@@ -5776,7 +5775,7 @@ static void ref_proxy_topic_locked (struct proxy_topic *proxytp, struct proxy_pa
 {
   assert (proxytp != NULL);
   assert (proxypp != NULL);
-  struct proxy_topic_list_iter it;
+  proxy_topic_list_iter_t it;
   ddsrt_mutex_lock (&proxypp->e.lock);
   struct proxy_topic *pp_proxytp = proxy_topic_list_iter_first (&proxypp->topics, &it);
   bool found = false;

@@ -29,7 +29,7 @@
 #include "dds/ddsi/ddsi_typeid.h"
 #include "dds/ddsi/ddsi_typelookup.h"
 #include "dds/ddsi/ddsi_tran.h"
-#include "dds/ddsi/ddsi_list_tmpl.h"
+#include "dds/ddsi/ddsi_list_genptr.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -378,9 +378,7 @@ struct reader
 #endif
 };
 
-#define NOARG
-DDSI_LIST_TYPES_TMPL(proxy_topic_list, struct proxy_topic *, NOARG, 32)
-#undef NOARG
+DDSI_LIST_GENERIC_PTR_TYPES(proxy_topic_list)
 
 struct proxy_participant
 {
@@ -398,7 +396,7 @@ struct proxy_participant
   struct addrset *as_default; /* default address set to use for user data traffic */
   struct addrset *as_meta; /* default address set to use for discovery traffic */
   struct proxy_endpoint_common *endpoints; /* all proxy endpoints can be reached from here */
-  struct proxy_topic_list_def topics;
+  proxy_topic_list_t topics;
   ddsrt_avl_tree_t groups; /* table of all groups (publisher, subscriber), see struct proxy_group */
   seqno_t seq; /* sequence number of most recent SPDP message */
   unsigned implicitly_created : 1; /* participants are implicitly created for Cloud/Fog discovered endpoints */

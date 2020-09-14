@@ -5678,7 +5678,7 @@ uint64_t get_entity_instance_id (const struct ddsi_domaingv *gv, const struct dd
 int proxy_topic_equal (const struct proxy_topic *proxytp_a, const struct proxy_topic *proxytp_b)
 {
   if (proxytp_a != NULL && proxytp_b != NULL)
-    return memcmp (proxytp_a, proxytp_b, sizeof (*proxytp_a)) == 0;
+    return memcmp (&proxytp_a->e.guid, &proxytp_b->e.guid, sizeof (proxytp_a->e.guid)) == 0;
   else
     return proxytp_a == proxytp_b;
 }
@@ -5710,7 +5710,6 @@ int new_proxy_topic (struct ddsi_domaingv *gv, struct proxy_participant *proxypp
   else
     memset (&proxytp->type_id, 0, sizeof (proxytp->type_id));
 
-  /* locking the proxy topic prevents refs from other participants while the built-in topic hasn't been published yet */
   ddsrt_mutex_lock (&proxytp->e.lock);
   ddsrt_mutex_lock (&gv->proxy_topics_lock);
 

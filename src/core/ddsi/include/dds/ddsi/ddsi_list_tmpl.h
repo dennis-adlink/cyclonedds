@@ -13,30 +13,32 @@
 #define DDSI_LIST_TMPL_H
 
 #define DDSI_LIST_TYPES_TMPL(prefix_, elemT_, extension_, batch_) \
-struct prefix_##_node {                        \
-  struct prefix_##_node *next;                 \
-  uint32_t first, lastp1;                      \
-  elemT_ ary[(batch_)];                        \
-};                                             \
-                                               \
-struct prefix_##_def {                         \
-  struct prefix_##_node *head;                 \
-  struct prefix_##_node *tail;                 \
-  uint32_t count;                              \
-  extension_                                   \
-};                                             \
-                                               \
-struct prefix_##_iter {                        \
-  struct prefix_##_node *node;                 \
-  uint32_t idx;                                \
-};                                             \
-                                               \
-struct prefix_##_iter_d {                      \
-  struct prefix_##_def *list;                  \
-  struct prefix_##_node *node;                 \
-  struct prefix_##_node *prev;                 \
-  uint32_t idx;                                \
-};
+struct prefix_##_node {                                           \
+  struct prefix_##_node *next;                                    \
+  uint32_t first, lastp1;                                         \
+  elemT_ ary[(batch_)];                                           \
+};                                                                \
+                                                                  \
+struct prefix_ {                                                  \
+  struct prefix_##_node *head;                                    \
+  struct prefix_##_node *tail;                                    \
+  uint32_t count;                                                 \
+  extension_                                                      \
+};                                                                \
+                                                                  \
+struct prefix_##_iter {                                           \
+  struct prefix_##_node *node;                                    \
+  uint32_t idx;                                                   \
+};                                                                \
+                                                                  \
+struct prefix_##_iter_d {                                         \
+  struct prefix_ *list;                                           \
+  struct prefix_##_node *node;                                    \
+  struct prefix_##_node *prev;                                    \
+  uint32_t idx;                                                   \
+};                                                                \
+                                                                  \
+typedef int (*prefix_##_eq_fn)(const elemT_, const elemT_);
 
 #ifndef NDEBUG
 #define DDSI_LIST_TMPL_POISON(x) do { x = (void *)1; } while (0)
@@ -45,32 +47,33 @@ struct prefix_##_iter_d {                      \
 #endif
 
 #define DDSI_LIST_DECLS_TMPL(linkage_, prefix_, elemT_, attrs_) \
-linkage_ void prefix_##_init (struct prefix_##_def *list); \
-linkage_ void prefix_##_free (struct prefix_##_def *list) attrs_; \
-linkage_ elemT_ prefix_##_insert (struct prefix_##_def *list, elemT_ o) attrs_; \
-linkage_ elemT_ prefix_##_append (struct prefix_##_def *list, elemT_ o) attrs_; \
-linkage_ elemT_ prefix_##_iter_first (const struct prefix_##_def *list, struct prefix_##_iter *iter) attrs_; \
+linkage_ void prefix_##_init (struct prefix_ *list) attrs_; \
+linkage_ void prefix_##_free (struct prefix_ *list) attrs_; \
+linkage_ elemT_ prefix_##_insert (struct prefix_ *list, elemT_ o) attrs_; \
+linkage_ elemT_ prefix_##_append (struct prefix_ *list, elemT_ o) attrs_; \
+linkage_ elemT_ prefix_##_iter_first (const struct prefix_ *list, struct prefix_##_iter *iter) attrs_; \
 linkage_ elemT_ prefix_##_iter_next (struct prefix_##_iter *iter) attrs_; \
 linkage_ elemT_ *prefix_##_iter_elem_addr (struct prefix_##_iter *iter) attrs_; \
-linkage_ elemT_ prefix_##_iter_d_first (struct prefix_##_def *list, struct prefix_##_iter_d *iter) attrs_; \
+linkage_ elemT_ prefix_##_iter_d_first (struct prefix_ *list, struct prefix_##_iter_d *iter) attrs_; \
 linkage_ elemT_ prefix_##_iter_d_next (struct prefix_##_iter_d *iter) attrs_; \
 linkage_ void prefix_##_iter_d_remove (struct prefix_##_iter_d *iter) attrs_; \
-linkage_ elemT_ prefix_##_remove (struct prefix_##_def *list, elemT_ o) attrs_; \
-linkage_ elemT_ prefix_##_take_first (struct prefix_##_def *list) attrs_; \
-linkage_ elemT_ prefix_##_take_last (struct prefix_##_def *list) attrs_; \
-linkage_ uint32_t prefix_##_count (const struct prefix_##_def *list) attrs_; \
-linkage_ void prefix_##_append_list (struct prefix_##_def *list, struct prefix_##_def *b) attrs_; \
-linkage_ elemT_ prefix_##_index (struct prefix_##_def *list, uint32_t index) attrs_;
+linkage_ elemT_ prefix_##_remove (struct prefix_ *list, elemT_ o, prefix_##_eq_fn) attrs_; \
+linkage_ elemT_ prefix_##_take_first (struct prefix_ *list) attrs_; \
+linkage_ elemT_ prefix_##_take_last (struct prefix_ *list) attrs_; \
+linkage_ uint32_t prefix_##_count (const struct prefix_ *list) attrs_; \
+linkage_ void prefix_##_append_list (struct prefix_ *list, struct prefix_ *b) attrs_; \
+linkage_ elemT_ *prefix_##_index_addr (struct prefix_ *list, uint32_t index) attrs_; \
+linkage_ elemT_ prefix_##_index (struct prefix_ *list, uint32_t index) attrs_;
 
-#define DDSI_LIST_CODE_TMPL(linkage_, prefix_, elemT_, null_, equals_, malloc_, free_) \
-linkage_ void prefix_##_init (struct prefix_##_def *list)             \
+#define DDSI_LIST_CODE_TMPL(linkage_, prefix_, elemT_, null_, malloc_, free_) \
+linkage_ void prefix_##_init (struct prefix_ *list)                   \
 {                                                                     \
   list->head = NULL;                                                  \
   list->tail = NULL;                                                  \
   list->count = 0;                                                    \
 }                                                                     \
                                                                       \
-linkage_ void prefix_##_free (struct prefix_##_def *list)             \
+linkage_ void prefix_##_free (struct prefix_ *list)                   \
 {                                                                     \
   /* Note: just free, not re-init */                                  \
   struct prefix_##_node *n;                                           \
@@ -81,7 +84,7 @@ linkage_ void prefix_##_free (struct prefix_##_def *list)             \
   }                                                                   \
 }                                                                     \
                                                                       \
-linkage_ elemT_ prefix_##_insert (struct prefix_##_def *list, elemT_ o) \
+linkage_ elemT_ prefix_##_insert (struct prefix_ *list, elemT_ o)     \
 {                                                                     \
   struct prefix_##_node *n;                                           \
   const uint32_t bs = (uint32_t) (sizeof (n->ary) / sizeof (n->ary[0])); \
@@ -102,7 +105,7 @@ linkage_ elemT_ prefix_##_insert (struct prefix_##_def *list, elemT_ o) \
   return o;                                                           \
 }                                                                     \
                                                                       \
-linkage_ elemT_ prefix_##_append (struct prefix_##_def *list, elemT_ o) \
+linkage_ elemT_ prefix_##_append (struct prefix_ *list, elemT_ o)     \
 {                                                                     \
   struct prefix_##_node *n;                                           \
   const uint32_t bs = (uint32_t) (sizeof (n->ary) / sizeof (n->ary[0])); \
@@ -125,7 +128,7 @@ linkage_ elemT_ prefix_##_append (struct prefix_##_def *list, elemT_ o) \
   return o;                                                           \
 }                                                                     \
                                                                       \
-linkage_ elemT_ prefix_##_iter_first (const struct prefix_##_def *list, struct prefix_##_iter *iter) \
+linkage_ elemT_ prefix_##_iter_first (const struct prefix_ *list, struct prefix_##_iter *iter) \
 {                                                                     \
   iter->node = list->head;                                            \
   if (iter->node == NULL)                                             \
@@ -159,7 +162,7 @@ linkage_ elemT_ *prefix_##_iter_elem_addr (struct prefix_##_iter *iter) \
   return &iter->node->ary[iter->idx];                                 \
 }                                                                     \
                                                                       \
-linkage_ elemT_ prefix_##_iter_d_first (struct prefix_##_def *list, struct prefix_##_iter_d *iter) \
+linkage_ elemT_ prefix_##_iter_d_first (struct prefix_ *list, struct prefix_##_iter_d *iter) \
 {                                                                     \
   iter->list = list;                                                  \
   iter->node = list->head;                                            \
@@ -193,7 +196,7 @@ linkage_ elemT_ prefix_##_iter_d_next (struct prefix_##_iter_d *iter) \
                                                                       \
 linkage_ void prefix_##_iter_d_remove (struct prefix_##_iter_d *iter) \
 {                                                                     \
-  struct prefix_##_def * const list = iter->list;                     \
+  struct prefix_ * const list = iter->list;                           \
   struct prefix_##_node * const n = iter->node;                       \
   uint32_t j;                                                         \
   list->count--;                                                      \
@@ -220,13 +223,13 @@ linkage_ void prefix_##_iter_d_remove (struct prefix_##_iter_d *iter) \
   }                                                                   \
 }                                                                     \
                                                                       \
-linkage_ elemT_ prefix_##_remove (struct prefix_##_def *list, elemT_ o) \
+linkage_ elemT_ prefix_##_remove (struct prefix_ *list, elemT_ o, prefix_##_eq_fn equals) \
 {                                                                     \
   struct prefix_##_iter_d iter;                                       \
   elemT_ obj;                                                         \
-  for (obj = prefix_##_iter_d_first (list, &iter); !(equals_ (obj, null_)); obj = prefix_##_iter_d_next (&iter)) \
+  for (obj = prefix_##_iter_d_first (list, &iter); !(equals (obj, null_)); obj = prefix_##_iter_d_next (&iter)) \
   {                                                                   \
-    if (equals_ (obj, o))                                             \
+    if (equals (obj, o))                                              \
     {                                                                 \
       prefix_##_iter_d_remove (&iter);                                \
       return obj;                                                     \
@@ -235,7 +238,7 @@ linkage_ elemT_ prefix_##_remove (struct prefix_##_def *list, elemT_ o) \
   return null_;                                                       \
 }                                                                     \
                                                                       \
-linkage_ elemT_ prefix_##_take_first (struct prefix_##_def *list)     \
+linkage_ elemT_ prefix_##_take_first (struct prefix_ *list)           \
 {                                                                     \
   if (list->count == 0)                                               \
     return null_;                                                     \
@@ -245,7 +248,7 @@ linkage_ elemT_ prefix_##_take_first (struct prefix_##_def *list)     \
   return obj;                                                         \
 }                                                                     \
                                                                       \
-linkage_ elemT_ prefix_##_take_last (struct prefix_##_def *list)      \
+linkage_ elemT_ prefix_##_take_last (struct prefix_ *list)            \
 {                                                                     \
   if (list->count == 0)                                               \
     return null_;                                                     \
@@ -259,12 +262,12 @@ linkage_ elemT_ prefix_##_take_last (struct prefix_##_def *list)      \
   return obj;                                                         \
 }                                                                     \
                                                                       \
-linkage_ uint32_t prefix_##_count (const struct prefix_##_def *list)  \
+linkage_ uint32_t prefix_##_count (const struct prefix_ *list)        \
 {                                                                     \
   return list->count;                                                 \
 }                                                                     \
                                                                       \
-linkage_ void prefix_##_append_list (struct prefix_##_def *list, struct prefix_##_def *b) \
+linkage_ void prefix_##_append_list (struct prefix_ *list, struct prefix_ *b) \
 {                                                                     \
   if (list->head == NULL)                                             \
     *list = *b;                                                       \
@@ -276,7 +279,7 @@ linkage_ void prefix_##_append_list (struct prefix_##_def *list, struct prefix_#
   }                                                                   \
 }                                                                     \
                                                                       \
-linkage_ elemT_ *prefix_##_index_addr (struct prefix_##_def *list, uint32_t index) \
+linkage_ elemT_ *prefix_##_index_addr (struct prefix_ *list, uint32_t index) \
 {                                                                     \
   struct prefix_##_node *n;                                           \
   uint32_t pos = 0;                                                   \
@@ -303,7 +306,7 @@ linkage_ elemT_ *prefix_##_index_addr (struct prefix_##_def *list, uint32_t inde
   return &n->ary[n->first + (index - pos)];                           \
 }                                                                     \
                                                                       \
-linkage_ elemT_ prefix_##_index (struct prefix_##_def *list, uint32_t index) \
+linkage_ elemT_ prefix_##_index (struct prefix_ *list, uint32_t index) \
 {                                                                     \
   elemT_ *p = prefix_##_index_addr (list, index);                     \
   if (p == NULL)                                                      \

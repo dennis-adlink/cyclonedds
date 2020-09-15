@@ -831,7 +831,8 @@ static void free_special_types (struct ddsi_domaingv *gv)
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsi_sertype_unref (gv->tl_svc_request_type);
   ddsi_sertype_unref (gv->tl_svc_reply_type);
-  ddsi_sertype_unref (gv->sedp_topic_type);
+  if (gv->config.enable_topic_discovery_endpoints)
+    ddsi_sertype_unref (gv->sedp_topic_type);
 #endif
   ddsi_sertype_unref (gv->pmd_type);
   ddsi_sertype_unref (gv->spdp_type);
@@ -846,7 +847,8 @@ static void make_special_types (struct ddsi_domaingv *gv)
   gv->sedp_writer_type = make_special_type_plist (gv, "PublicationBuiltinTopicData", PID_ENDPOINT_GUID);
   gv->pmd_type = make_special_type_pserop (gv, "ParticipantMessageData", sizeof (ParticipantMessageData_t), participant_message_data_nops, participant_message_data_ops, participant_message_data_nops_key, participant_message_data_ops_key);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  gv->sedp_topic_type = make_special_type_plist (gv, "TopicBuiltinTopicData", PID_ENDPOINT_GUID);
+  if (gv->config.enable_topic_discovery_endpoints)
+    gv->sedp_topic_type = make_special_type_plist (gv, "TopicBuiltinTopicData", PID_ENDPOINT_GUID);
   gv->tl_svc_request_type = make_special_type_pserop (gv, "TypeLookup_Request", sizeof (type_lookup_request_t), typelookup_service_request_nops, typelookup_service_request_ops, 0, NULL);
   gv->tl_svc_reply_type = make_special_type_pserop (gv, "TypeLookup_Reply", sizeof (type_lookup_reply_t), typelookup_service_reply_nops, typelookup_service_reply_ops, 0, NULL);
 #endif
@@ -865,7 +867,8 @@ static void make_special_types (struct ddsi_domaingv *gv)
   ddsi_sertype_register_locked (gv->sedp_writer_type);
   ddsi_sertype_register_locked (gv->pmd_type);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  ddsi_sertype_register_locked (gv->sedp_topic_type);
+  if (gv->config.enable_topic_discovery_endpoints)
+    ddsi_sertype_register_locked (gv->sedp_topic_type);
   ddsi_sertype_register_locked (gv->tl_svc_request_type);
   ddsi_sertype_register_locked (gv->tl_svc_reply_type);
 #endif

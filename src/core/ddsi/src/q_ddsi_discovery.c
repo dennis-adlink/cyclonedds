@@ -1025,6 +1025,8 @@ static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_
 int sedp_write_topic (struct topic *tp)
 {
   int res = 0;
+  if (!(tp->pp->bes & NN_DISC_BUILTIN_ENDPOINT_TOPICS_ANNOUNCER))
+    return res;
   if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE) && !tp->e.onlylocal)
   {
     unsigned entityid = determine_topic_writer (tp);
@@ -1116,6 +1118,8 @@ int sedp_write_reader (struct reader *rd)
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 int sedp_dispose_unregister_topic (struct topic *tp)
 {
+  if (!(tp->pp->bes & NN_DISC_BUILTIN_ENDPOINT_TOPICS_ANNOUNCER))
+    return 0;
   if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE))
   {
     unsigned entityid = determine_topic_writer (tp);

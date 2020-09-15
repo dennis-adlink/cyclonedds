@@ -684,10 +684,13 @@ static void add_builtin_endpoints(struct participant *pp, ddsi_guid_t *subguid, 
     pp->bes |= NN_BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_WRITER;
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    /* SEDP topic writer: */
-    subguid->entityid = to_entityid (NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER);
-    new_writer_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_TOPIC_NAME, gv->sedp_topic_type, &gv->builtin_endpoint_xqos_wr, whc_new(gv, wrinfo_tl), NULL, NULL);
-    pp->bes |= NN_DISC_BUILTIN_ENDPOINT_TOPICS_ANNOUNCER;
+    if (gv->config.enable_topic_discovery_endpoints)
+    {
+      /* SEDP topic writer: */
+      subguid->entityid = to_entityid (NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER);
+      new_writer_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_TOPIC_NAME, gv->sedp_topic_type, &gv->builtin_endpoint_xqos_wr, whc_new(gv, wrinfo_tl), NULL, NULL);
+      pp->bes |= NN_DISC_BUILTIN_ENDPOINT_TOPICS_ANNOUNCER;
+    }
 
     /* TypeLookup writers */
     struct whc_writer_info *wrinfo_vol = whc_make_wrinfo (NULL, &gv->builtin_volatile_xqos_wr);
@@ -725,10 +728,13 @@ static void add_builtin_endpoints(struct participant *pp, ddsi_guid_t *subguid, 
     pp->bes |= NN_BUILTIN_ENDPOINT_PARTICIPANT_MESSAGE_DATA_READER;
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    /* SEDP topic reader: */
-    subguid->entityid = to_entityid (NN_ENTITYID_SEDP_BUILTIN_TOPIC_READER);
-    new_reader_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_TOPIC_NAME, gv->sedp_topic_type, &gv->builtin_endpoint_xqos_rd, NULL, NULL, NULL);
-    pp->bes |= NN_DISC_BUILTIN_ENDPOINT_TOPICS_DETECTOR;
+    if (gv->config.enable_topic_discovery_endpoints)
+    {
+      /* SEDP topic reader: */
+      subguid->entityid = to_entityid (NN_ENTITYID_SEDP_BUILTIN_TOPIC_READER);
+      new_reader_guid (NULL, subguid, group_guid, pp, DDS_BUILTIN_TOPIC_TOPIC_NAME, gv->sedp_topic_type, &gv->builtin_endpoint_xqos_rd, NULL, NULL, NULL);
+      pp->bes |= NN_DISC_BUILTIN_ENDPOINT_TOPICS_DETECTOR;
+    }
 
     /* TypeLookup readers: */
     subguid->entityid = to_entityid (NN_ENTITYID_TL_SVC_BUILTIN_REQUEST_READER);
@@ -4745,7 +4751,7 @@ dds_return_t new_topic
   entidx_insert_topic_guid (gv->entity_index, tp);
   builtintopic_write (gv->builtin_topic_interface, &tp->e, ddsrt_time_wallclock(), true);
   ddsrt_mutex_unlock (&tp->e.lock);
-  sedp_write_topic (tp);
+  (void) sedp_write_topic (tp);
   return 0;
 }
 

@@ -229,14 +229,23 @@ CU_Test(ddsc_builtin_topics, read_participant_data, .init = setup, .fini = teard
 CU_Test(ddsc_builtin_topics, read_topic_data, .init = setup, .fini = teardown)
 {
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+  const char *exp[] = { "RoundTrip", "DCPSPublication", "DCPSSubscription", "DCPSTopic" };
+  unsigned seen = 0;
   dds_entity_t reader = dds_create_reader(g_participant, DDS_BUILTIN_TOPIC_DCPSTOPIC, NULL, NULL);
   CU_ASSERT_FATAL(reader > 0);
   void * samples[MAX_SAMPLES] = { NULL };
   dds_return_t ret = dds_read(reader, samples, g_info, MAX_SAMPLES, MAX_SAMPLES);
   CU_ASSERT_FATAL(ret >= 0);
-  // CU_ASSERT_EQUAL_FATAL(ret, 1);
-  // dds_builtintopic_endpoint_t *data = samples[0];
-  // CU_ASSERT_STRING_EQUAL_FATAL(data->topic_name, "RoundTrip");
+  for (int i = 0; i < ret; i++)
+  {
+    dds_builtintopic_endpoint_t *data = samples[i];
+    for (size_t j = 0; j < sizeof (exp) / sizeof (exp[0]); j++)
+    {
+      if (strcmp (data->topic_name, exp[j]) == 0)
+        seen |= 1u << j;
+    }
+  }
+  CU_ASSERT_FATAL(seen == 1);
   dds_return_loan(reader, samples, ret);
 #endif
 }

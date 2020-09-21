@@ -145,7 +145,7 @@ static void sertype_default_serialized_size (const struct ddsi_sertype *stc, siz
 static bool sertype_default_serialize (const struct ddsi_sertype *stc, size_t *dst_offset, unsigned char *dst_buf)
 {
   const struct ddsi_sertype_default *st = (const struct ddsi_sertype_default *) stc;
-  return (plist_ser_generic_embeddable ((char *) dst_buf, dst_offset, &st->type, 0, ddsi_sertype_default_desc_ops, false) >= 0);
+  return (plist_ser_generic_embeddable ((char *) dst_buf, dst_offset, &st->type, 0, ddsi_sertype_default_desc_ops, BO_LE) >= 0); // xtypes spec (7.3.4.5) requires LE encoding for type serialization
 }
 
 static bool sertype_default_deserialize (struct ddsi_domaingv *gv, struct ddsi_sertype *stc, size_t src_sz, const unsigned char *src_data, size_t *src_offset)

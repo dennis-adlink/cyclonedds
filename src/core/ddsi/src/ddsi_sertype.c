@@ -129,7 +129,7 @@ bool ddsi_sertype_serialize (const struct ddsi_sertype *tp, size_t *dst_sz, unsi
   plist_ser_generic_size_embeddable (dst_sz, &d, 0, sertype_ser_ops);
   tp->ops->serialized_size (tp, dst_sz);
   *dst_buf = ddsrt_malloc (*dst_sz);
-  if (plist_ser_generic_embeddable ((char *) *dst_buf, &dst_pos, &d, 0, sertype_ser_ops, false) < 0)
+  if (plist_ser_generic_embeddable ((char *) *dst_buf, &dst_pos, &d, 0, sertype_ser_ops, BO_LE) < 0) // xtypes spec (7.3.4.5) requires LE encoding for type serialization
     return false;
   if (!tp->ops->serialize (tp, &dst_pos, *dst_buf))
     return false;

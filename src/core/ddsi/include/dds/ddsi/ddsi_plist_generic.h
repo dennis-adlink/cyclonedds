@@ -17,7 +17,7 @@
 #include <stdbool.h>
 
 #include "dds/export.h"
-
+#include "dds/ddsrt/bswap.h"
 #include "dds/ddsrt/attributes.h"
 #include "dds/ddsrt/retcode.h"
 
@@ -50,7 +50,7 @@ DDS_EXPORT void plist_fini_generic (void * __restrict dst, const enum pserop *de
 DDS_EXPORT void plist_ser_generic_size_embeddable (size_t *dstoff, const void *src, size_t srcoff, const enum pserop * __restrict desc);
 DDS_EXPORT dds_return_t plist_deser_generic (void * __restrict dst, const void * __restrict src, size_t srcsize, bool bswap, const enum pserop * __restrict desc);
 DDS_EXPORT dds_return_t plist_deser_generic_srcoff (void * __restrict dst, const void * __restrict src, size_t srcsize, size_t *srcoff, bool bswap, const enum pserop * __restrict desc);
-DDS_EXPORT dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, const void *src, size_t srcoff, const enum pserop * __restrict desc, bool be);
+DDS_EXPORT dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, const void *src, size_t srcoff, const enum pserop * __restrict desc, enum byte_order bo);
 DDS_EXPORT dds_return_t plist_ser_generic (void **dst, size_t *dstsize, const void *src, const enum pserop * __restrict desc);
 DDS_EXPORT dds_return_t plist_ser_generic_be (void **dst, size_t *dstsize, const void *src, const enum pserop * __restrict desc);
 DDS_EXPORT dds_return_t plist_unalias_generic (void * __restrict dst, const enum pserop * __restrict desc);

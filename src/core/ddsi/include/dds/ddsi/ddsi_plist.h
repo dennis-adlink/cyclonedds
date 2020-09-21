@@ -12,6 +12,7 @@
 #ifndef DDSI_PLIST_H
 #define DDSI_PLIST_H
 
+#include "dds/ddsrt/bswap.h"
 #include "dds/ddsi/q_feature_check.h"
 #include "dds/ddsi/ddsi_xqos.h"
 #include "dds/ddsi/ddsi_keyhash.h"
@@ -411,9 +412,9 @@ DDS_EXPORT void ddsi_plist_addtomsg (struct nn_xmsg *m, const ddsi_plist_t *ps, 
  * @param[in]     ps       source
  * @param[in]     pwanted  subset of non-QoS part of ps (if PP_X is set, add X if present)
  * @param[in]     qwanted  subset of QoS part of ps (if QP_X is set, add X if present)
- * @param[in]     be       use native endianness if false, big-endian if true
+ * @param[in]     bo       byte order
  */
-DDS_EXPORT void ddsi_plist_addtomsg_bo (struct nn_xmsg *m, const ddsi_plist_t *ps, uint64_t pwanted, uint64_t qwanted, bool be);
+DDS_EXPORT void ddsi_plist_addtomsg_bo (struct nn_xmsg *m, const ddsi_plist_t *ps, uint64_t pwanted, uint64_t qwanted, enum byte_order bo);
 
 /**
  * @brief Initialize plist to match default settings for a participant

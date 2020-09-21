@@ -407,21 +407,20 @@ static void suite_preprocess_secure_submsg_fini (void)
     unload_plugins(plugins);
 }
 
-static void create_encoded_submsg(DDS_Security_OctetSeq *msg, DDS_Security_CryptoTransformKeyId key_id, DDS_Security_CryptoTransformKind transform_kind, unsigned char msg_id, bool be)
+static void create_encoded_submsg(DDS_Security_OctetSeq *msg, DDS_Security_CryptoTransformKeyId key_id, DDS_Security_CryptoTransformKind transform_kind, unsigned char msg_id, enum byte_order bo)
 {
     unsigned char *buffer;
     uint32_t length = sizeof(SubMessageHeader) + sizeof(CryptoHeader) + 200;
     SubMessageHeader *submsg;
     CryptoHeader *crpthdr;
-    int swap = be ? (DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN) : (DDSRT_ENDIAN != DDSRT_LITTLE_ENDIAN);
 
     buffer = ddsrt_malloc(length);
     submsg = (SubMessageHeader *) buffer;
     crpthdr = (CryptoHeader *) (submsg + 1);
 
     submsg->kind = msg_id;
-    submsg->flags = be ? 0 : 1;
-    submsg->octetsToNextSubMsg = swap ? ddsrt_bswap2u((uint16_t)(length - 24)) : (uint16_t)(length - 24);
+    submsg->flags = (bo == BO_BE ? 0 : 1);
+    submsg->octetsToNextSubMsg = ddsrt_toBO2u(bo, (uint16_t)(length - 24));
 
     memcpy(crpthdr->key_id, key_id, 4);
     memcpy(crpthdr->transform_id, transform_kind, 4);
@@ -455,7 +454,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, writer_happy_day, .init = suite
     CU_ASSERT_FATAL (crypto->crypto_transform->preprocess_secure_submsg != NULL);
     assert(crypto->crypto_transform->preprocess_secure_submsg != 0);
 
-    create_encoded_submsg(&message, writer_key_message.sender_key_id, writer_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, false);
+    create_encoded_submsg(&message, writer_key_message.sender_key_id, writer_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, BO_NATIVE);
 
     result = crypto->crypto_transform->preprocess_secure_submsg(
                 crypto->crypto_transform,
@@ -481,7 +480,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, writer_happy_day, .init = suite
 
     clear_encoded_submsg(&message);
 
-    create_encoded_submsg(&message, writer_key_message.sender_key_id, writer_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, true);
+    create_encoded_submsg(&message, writer_key_message.sender_key_id, writer_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, BO_BE);
 
     result = crypto->crypto_transform->preprocess_secure_submsg(
                 crypto->crypto_transform,
@@ -524,7 +523,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, reader_happy_day, .init = suite
     CU_ASSERT_FATAL (crypto->crypto_transform->preprocess_secure_submsg != NULL);
     assert(crypto->crypto_transform->preprocess_secure_submsg != 0);
 
-    create_encoded_submsg(&message, reader_key_message.sender_key_id, reader_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, false);
+    create_encoded_submsg(&message, reader_key_message.sender_key_id, reader_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, BO_NATIVE);
 
     result = crypto->crypto_transform->preprocess_secure_submsg(
                 crypto->crypto_transform,
@@ -548,7 +547,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, reader_happy_day, .init = suite
 
     reset_exception(&exception);
     clear_encoded_submsg(&message);
-    create_encoded_submsg(&message, reader_key_message.sender_key_id, reader_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, true);
+    create_encoded_submsg(&message, reader_key_message.sender_key_id, reader_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, BO_BE);
     result = crypto->crypto_transform->preprocess_secure_submsg(
                 crypto->crypto_transform,
                 &writer_crypto,
@@ -590,7 +589,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_args, .init = suite_pre
     CU_ASSERT_FATAL (crypto->crypto_transform->preprocess_secure_submsg != NULL);
     assert(crypto->crypto_transform->preprocess_secure_submsg != 0);
 
-    create_encoded_submsg(&message, writer_key_message.sender_key_id, reader_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, false);
+    create_encoded_submsg(&message, writer_key_message.sender_key_id, reader_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, BO_NATIVE);
 
     /* writer handle = NULL. */
     result = crypto->crypto_transform->preprocess_secure_submsg(
@@ -747,7 +746,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_message, .init = suite_
     assert(crypto->crypto_transform->preprocess_secure_submsg != 0);
 
     /* unknown key id */
-    create_encoded_submsg(&message, writer_key_payload.sender_key_id, writer_key_payload.transformation_kind, VALID_SMID_SEC_PREFIX, false);
+    create_encoded_submsg(&message, writer_key_payload.sender_key_id, writer_key_payload.transformation_kind, VALID_SMID_SEC_PREFIX, BO_NATIVE);
     result = crypto->crypto_transform->preprocess_secure_submsg(
             crypto->crypto_transform,
             &writer_crypto,
@@ -771,7 +770,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_message, .init = suite_
     {
         DDS_Security_CryptoTransformKind kind = {5, 1, 3, 6};
 
-        create_encoded_submsg(&message, writer_key_message.sender_key_id, kind, VALID_SMID_SEC_PREFIX, false);
+        create_encoded_submsg(&message, writer_key_message.sender_key_id, kind, VALID_SMID_SEC_PREFIX, BO_NATIVE);
 
         result = crypto->crypto_transform->preprocess_secure_submsg(
                 crypto->crypto_transform,
@@ -796,7 +795,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, invalid_message, .init = suite_
     /* not expected submessage id */
     {
         DDS_Security_CryptoTransformKind kind = {5, 1, 3, 6};
-        create_encoded_submsg(&message, writer_key_message.sender_key_id, kind, INVALID_SMID_SEC_PREFIX, false);
+        create_encoded_submsg(&message, writer_key_message.sender_key_id, kind, INVALID_SMID_SEC_PREFIX, BO_NATIVE);
         result = crypto->crypto_transform->preprocess_secure_submsg(
                 crypto->crypto_transform,
                 &writer_crypto,
@@ -896,7 +895,7 @@ CU_Test(ddssec_builtin_preprocess_secure_submsg, volatile_secure, .init = suite_
                     &exception);
     CU_ASSERT_FATAL(remote_reader_crypto_vol != 0);
 
-    create_encoded_submsg(&message, key_id, reader_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, false);
+    create_encoded_submsg(&message, key_id, reader_key_message.transformation_kind, VALID_SMID_SEC_PREFIX, BO_NATIVE);
 
     result = crypto->crypto_transform->preprocess_secure_submsg(
                 crypto->crypto_transform,

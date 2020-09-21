@@ -106,7 +106,7 @@ struct piddesc {
     const enum pserop desc[12];
     struct {
       dds_return_t (*deser) (void * __restrict dst, size_t * __restrict dstoff, struct flagset *flagset, uint64_t flag, const struct dd * __restrict dd, size_t * __restrict srcoff);
-      dds_return_t (*ser) (struct nn_xmsg *xmsg, nn_parameterid_t pid, const void *src, size_t srcoff, bool be);
+      dds_return_t (*ser) (struct nn_xmsg *xmsg, nn_parameterid_t pid, const void *src, size_t srcoff, enum byte_order bo);
       dds_return_t (*unalias) (void * __restrict dst, size_t * __restrict dstoff);
       dds_return_t (*fini) (void * __restrict dst, size_t * __restrict dstoff, struct flagset *flagset, uint64_t flag);
       dds_return_t (*valid) (const void *src, size_t srcoff);
@@ -289,19 +289,17 @@ static dds_return_t deser_reliability (void * __restrict dst, size_t * __restric
   return 0;
 }
 
-static dds_return_t ser_reliability (struct nn_xmsg *xmsg, nn_parameterid_t pid, const void *src, size_t srcoff, bool be)
+static dds_return_t ser_reliability (struct nn_xmsg *xmsg, nn_parameterid_t pid, const void *src, size_t srcoff, enum byte_order bo)
 {
-#define BO4U(x) ((be) ? ddsrt_toBE4u((x)) : (x))
   DDSRT_STATIC_ASSERT (DDS_EXTERNAL_RELIABILITY_BEST_EFFORT == 1 && DDS_EXTERNAL_RELIABILITY_RELIABLE == 2 &&
                        DDS_RELIABILITY_BEST_EFFORT == 0 && DDS_RELIABILITY_RELIABLE == 1);
   dds_reliability_qospolicy_t const * const x = deser_generic_src (src, &srcoff, alignof (dds_reliability_qospolicy_t));
   ddsi_duration_t mbt = ddsi_to_ddsi_duration (x->max_blocking_time);
-  uint32_t * const p = nn_xmsg_addpar_bo (xmsg, pid, 3 * sizeof (uint32_t), be);
-  p[0] = BO4U(1 + (uint32_t) x->kind);
-  p[1] = BO4U((uint32_t) mbt.seconds);
-  p[2] = BO4U(mbt.fraction);
+  uint32_t * const p = nn_xmsg_addpar_bo (xmsg, pid, 3 * sizeof (uint32_t), bo);
+  p[0] = ddsrt_toBO4u(bo, 1 + (uint32_t) x->kind);
+  p[1] = ddsrt_toBO4u(bo, (uint32_t) mbt.seconds);
+  p[2] = ddsrt_toBO4u(bo, mbt.fraction);
   return 0;
-#undef BO4U
 }
 
 static dds_return_t valid_reliability (const void *src, size_t srcoff)
@@ -342,10 +340,10 @@ static dds_return_t deser_statusinfo (void * __restrict dst, size_t * __restrict
   return 0;
 }
 
-static dds_return_t ser_statusinfo (struct nn_xmsg *xmsg, nn_parameterid_t pid, const void *src, size_t srcoff, bool be)
+static dds_return_t ser_statusinfo (struct nn_xmsg *xmsg, nn_parameterid_t pid, const void *src, size_t srcoff, enum byte_order bo)
 {
   uint32_t const * const x = deser_generic_src (src, &srcoff, alignof (uint32_t));
-  uint32_t * const p = nn_xmsg_addpar_bo (xmsg, pid, sizeof (uint32_t), be);
+  uint32_t * const p = nn_xmsg_addpar_bo (xmsg, pid, sizeof (uint32_t), bo);
   *p = ddsrt_toBE4u (*x);
   return 0;
 }
@@ -376,14 +374,14 @@ static dds_return_t deser_locator (void * __restrict dst, size_t * __restrict ds
   return 0;
 }
 
-static dds_return_t ser_locator (struct nn_xmsg *xmsg, nn_parameterid_t pid, const void *src, size_t srcoff, bool be)
+static dds_return_t ser_locator (struct nn_xmsg *xmsg, nn_parameterid_t pid, const void *src, size_t srcoff, enum byte_order bo)
 {
   nn_locators_t const * const x = deser_generic_src (src, &srcoff, alignof (nn_locators_t));
   for (const struct nn_locators_one *l = x->first; l != NULL; l = l->next)
   {
-    char * const p = nn_xmsg_addpar_bo (xmsg, pid, 24, be);
-    const int32_t kind = be ? ddsrt_toBE4 (l->loc.kind) : l->loc.kind;
-    const uint32_t port = be ? ddsrt_toBE4u (l->loc.port) : l->loc.port;
+    char * const p = nn_xmsg_addpar_bo (xmsg, pid, 24, bo);
+    const int32_t kind = ddsrt_toBO4 (bo, l->loc.kind);
+    const uint32_t port = ddsrt_toBO4u (bo, l->loc.port);
     memcpy (p, &kind, 4);
     memcpy (p + 4, &port, 4);
     memcpy (p + 8, l->loc.address, 16);
@@ -864,12 +862,8 @@ static uint32_t ser_generic_count (const ddsi_octetseq_t *src, size_t elem_size,
   return count;
 }
 
-dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, const void *src, size_t srcoff, const enum pserop * __restrict desc, bool be)
+dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, const void *src, size_t srcoff, const enum pserop * __restrict desc, enum byte_order bo)
 {
-#define BO4(x)  (be ? ddsrt_toBE4((x)) : (x))
-#define BO4U(x) (be ? ddsrt_toBE4u((x)) : (x))
-#define BO8(x)  (be ? ddsrt_toBE8((x)) : (x))
-
   while (true)
   {
     switch (*desc)
@@ -879,7 +873,7 @@ dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, co
       case XO: { /* octet sequence */
         ddsi_octetseq_t const * const x = deser_generic_src (src, &srcoff, alignof (ddsi_octetseq_t));
         char * const p = ser_generic_align4 (data, dstoff);
-        *((uint32_t *) p) = BO4U(x->length);
+        *((uint32_t *) p) = ddsrt_toBO4u(bo, x->length);
         if (x->length) memcpy (p + 4, x->value, x->length);
         *dstoff += 4 + x->length;
         srcoff += sizeof (*x);
@@ -889,7 +883,7 @@ dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, co
         char const * const * const x = deser_generic_src (src, &srcoff, alignof (char *));
         const uint32_t size = (uint32_t) (strlen (*x) + 1);
         char * const p = ser_generic_align4 (data, dstoff);
-        *((uint32_t *) p) = BO4U(size);
+        *((uint32_t *) p) = ddsrt_toBO4u(bo, size);
         memcpy (p + 4, *x, size);
         *dstoff += 4 + size;
         srcoff += sizeof (*x);
@@ -898,7 +892,7 @@ dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, co
       case XE1: case XE2: case XE3: { /* enum */
         unsigned const * const x = deser_generic_src (src, &srcoff, alignof (unsigned));
         uint32_t * const p = ser_generic_align4 (data, dstoff);
-        *p = BO4U((uint32_t) *x);
+        *p = ddsrt_toBO4u(bo, (uint32_t) *x);
         *dstoff += 4;
         srcoff += sizeof (*x);
         break;
@@ -908,7 +902,7 @@ dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, co
         const uint32_t cnt = 1 + (uint32_t) (*desc - Xi);
         int32_t * const p = ser_generic_align4 (data, dstoff);
         for (uint32_t i = 0; i < cnt; i++)
-          p[i] = BO4(x[i]);
+          p[i] = ddsrt_toBO4(bo, x[i]);
         *dstoff += cnt * sizeof (*x);
         srcoff += cnt * sizeof (*x);
         break;
@@ -918,7 +912,7 @@ dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, co
         const uint32_t cnt = 1 + (uint32_t) (*desc - Xu);
         uint32_t * const p = ser_generic_align4 (data, dstoff);
         for (uint32_t i = 0; i < cnt; i++)
-          p[i] = BO4U(x[i]);
+          p[i] = ddsrt_toBO4u(bo, x[i]);
         *dstoff += cnt * sizeof (*x);
         srcoff += cnt * sizeof (*x);
         break;
@@ -926,7 +920,7 @@ dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, co
       case Xl: { /* int64_t */
         int64_t const * const x = deser_generic_src (src, &srcoff, alignof (int64_t));
         int64_t * const p = ser_generic_align8 (data, dstoff);
-        *p = BO8(*x);
+        *p = ddsrt_toBO8(bo, *x);
         *dstoff += sizeof (*x);
         srcoff += sizeof (*x);
         break;
@@ -938,8 +932,8 @@ dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, co
         for (uint32_t i = 0; i < cnt; i++)
         {
           ddsi_duration_t tmp = ddsi_to_ddsi_duration (x[i]);
-          p[2 * i + 0] = BO4U((uint32_t) tmp.seconds);
-          p[2 * i + 1] = BO4U(tmp.fraction);
+          p[2 * i + 0] = ddsrt_toBO4u(bo, (uint32_t) tmp.seconds);
+          p[2 * i + 1] = ddsrt_toBO4u(bo, tmp.fraction);
         }
         *dstoff += 2 * cnt * sizeof (uint32_t);
         srcoff += cnt * sizeof (*x);
@@ -995,9 +989,9 @@ dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, co
         else
         {
           const size_t elem_size = ser_generic_srcsize (desc + 1);
-          *((uint32_t *) p) = BO4U(ser_generic_count (x, elem_size, desc + 1));
+          *((uint32_t *) p) = ddsrt_toBO4u(bo, ser_generic_count (x, elem_size, desc + 1));
           for (uint32_t i = 0; i < x->length; i++)
-            plist_ser_generic_embeddable (data, dstoff, x->value, i * elem_size, desc + 1, be);
+            plist_ser_generic_embeddable (data, dstoff, x->value, i * elem_size, desc + 1, bo);
         }
         srcoff += sizeof (*x);
         break;
@@ -1007,18 +1001,15 @@ dds_return_t plist_ser_generic_embeddable (char * const data, size_t *dstoff, co
     }
     desc = pserop_advance(desc);
   }
-#undef BO4
-#undef BO4U
-#undef BO8
 }
 
 
 
-static dds_return_t ser_generic (struct nn_xmsg *xmsg, nn_parameterid_t pid, const void *src, size_t srcoff, const enum pserop * __restrict desc, bool be)
+static dds_return_t ser_generic (struct nn_xmsg *xmsg, nn_parameterid_t pid, const void *src, size_t srcoff, const enum pserop * __restrict desc, enum byte_order bo)
 {
-  char * const data = nn_xmsg_addpar_bo (xmsg, pid, ser_generic_size (src, srcoff, desc), be);
+  char * const data = nn_xmsg_addpar_bo (xmsg, pid, ser_generic_size (src, srcoff, desc), bo);
   size_t dstoff = 0;
-  return plist_ser_generic_embeddable (data, &dstoff, src, srcoff, desc, be);
+  return plist_ser_generic_embeddable (data, &dstoff, src, srcoff, desc, bo);
 }
 
 dds_return_t plist_ser_generic (void **dst, size_t *dstsize, const void *src, const enum pserop * __restrict desc)
@@ -1029,7 +1020,7 @@ dds_return_t plist_ser_generic (void **dst, size_t *dstsize, const void *src, co
   *dstsize = ser_generic_size (src, srcoff, desc);
   if ((*dst = ddsrt_malloc (*dstsize == 0 ? 1 : *dstsize)) == NULL)
     return DDS_RETCODE_OUT_OF_RESOURCES;
-  ret = plist_ser_generic_embeddable (*dst, &dstoff, src, srcoff, desc, false);
+  ret = plist_ser_generic_embeddable (*dst, &dstoff, src, srcoff, desc, BO_NATIVE);
   assert (dstoff == *dstsize);
   return ret;
 }
@@ -1042,7 +1033,7 @@ dds_return_t plist_ser_generic_be (void **dst, size_t *dstsize, const void *src,
   *dstsize = ser_generic_size (src, srcoff, desc);
   if ((*dst = ddsrt_malloc (*dstsize == 0 ? 1 : *dstsize)) == NULL)
     return DDS_RETCODE_OUT_OF_RESOURCES;
-  ret = plist_ser_generic_embeddable (*dst, &dstoff, src, srcoff, desc, true);
+  ret = plist_ser_generic_embeddable (*dst, &dstoff, src, srcoff, desc, BO_BE);
   assert (dstoff == *dstsize);
   return ret;
 }
@@ -2041,7 +2032,7 @@ static void plist_or_xqos_mergein_missing (void * __restrict dst, const void * _
   assert ((*qfs_dst.aliased & ~ aliased_dst_inq) == 0);
 }
 
-static void plist_or_xqos_addtomsg (struct nn_xmsg *xmsg, const void * __restrict src, size_t shift, uint64_t pwanted, uint64_t qwanted, bool be)
+static void plist_or_xqos_addtomsg (struct nn_xmsg *xmsg, const void * __restrict src, size_t shift, uint64_t pwanted, uint64_t qwanted, enum byte_order bo)
 {
   /* shift == 0: plist, shift > 0: just qos */
   uint64_t pw, qw;
@@ -2071,9 +2062,9 @@ static void plist_or_xqos_addtomsg (struct nn_xmsg *xmsg, const void * __restric
         assert (shift == 0 || entry->plist_offset - shift < sizeof (dds_qos_t));
         size_t srcoff = entry->plist_offset - shift;
         if (!(entry->flags & PDF_FUNCTION))
-          ser_generic (xmsg, entry->pid, src, srcoff, entry->op.desc, be);
+          ser_generic (xmsg, entry->pid, src, srcoff, entry->op.desc, bo);
         else
-          entry->op.f.ser (xmsg, entry->pid, src, srcoff, be);
+          entry->op.f.ser (xmsg, entry->pid, src, srcoff, bo);
       }
     }
   }
@@ -3449,17 +3440,17 @@ static int partitions_equal (const void *srca, const void *srcb, size_t off)
 
 void ddsi_xqos_addtomsg (struct nn_xmsg *m, const dds_qos_t *xqos, uint64_t wanted)
 {
-  plist_or_xqos_addtomsg (m, xqos, offsetof (struct ddsi_plist, qos), 0, wanted, false);
+  plist_or_xqos_addtomsg (m, xqos, offsetof (struct ddsi_plist, qos), 0, wanted, BO_NATIVE);
 }
 
-void ddsi_plist_addtomsg_bo (struct nn_xmsg *m, const ddsi_plist_t *ps, uint64_t pwanted, uint64_t qwanted, bool be)
+void ddsi_plist_addtomsg_bo (struct nn_xmsg *m, const ddsi_plist_t *ps, uint64_t pwanted, uint64_t qwanted, enum byte_order bo)
 {
-  plist_or_xqos_addtomsg (m, ps, 0, pwanted, qwanted, be);
+  plist_or_xqos_addtomsg (m, ps, 0, pwanted, qwanted, bo);
 }
 
 void ddsi_plist_addtomsg (struct nn_xmsg *m, const ddsi_plist_t *ps, uint64_t pwanted, uint64_t qwanted)
 {
-  plist_or_xqos_addtomsg (m, ps, 0, pwanted, qwanted, false);
+  plist_or_xqos_addtomsg (m, ps, 0, pwanted, qwanted, BO_NATIVE);
 }
 
 /*************************/

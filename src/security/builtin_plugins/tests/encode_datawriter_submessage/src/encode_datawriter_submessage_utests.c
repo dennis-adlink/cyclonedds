@@ -662,23 +662,17 @@ static master_key_material * get_datareader_key_material(DDS_Security_Datareader
   return reader_crypto_impl->writer2reader_key_material_message;
 }
 
-static void initialize_data_submessage(DDS_Security_OctetSeq *submsg, bool be)
+static void initialize_data_submessage(DDS_Security_OctetSeq *submsg, enum byte_order bo)
 {
   size_t length = strlen(sample_test_data) + 1;
   struct submsg_header *header;
-  int swap;
   unsigned char *buffer, *ptr;
-
-  if (be)
-    swap = (DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN);
-  else
-    swap = (DDSRT_ENDIAN != DDSRT_LITTLE_ENDIAN);
 
   buffer = ddsrt_malloc(length + sizeof(struct submsg_header));
   header = (struct submsg_header *)buffer;
   header->id = 0x15;
-  header->flags = be ? 0x00 : 0x01;
-  header->length = swap ? ddsrt_bswap2u((uint16_t)length) : (uint16_t)length;
+  header->flags = (bo == BO_BE ? 0x00 : 0x01);
+  header->length = ddsrt_toBO2u(bo, (uint16_t)length);
   ptr = (unsigned char *)(header + 1);
 
   memcpy((char *)ptr, sample_test_data, length);
@@ -808,7 +802,7 @@ static void encode_datawriter_submessage_not_signed(DDS_Security_CryptoTransform
 
   prepare_endpoint_security_attributes_and_properties(&datawriter_security_attributes, &datawriter_properties, transformation_kind, false);
 
-  initialize_data_submessage(&plain_buffer, false);
+  initialize_data_submessage(&plain_buffer, BO_NATIVE);
 
   writer_crypto = register_local_datawriter(&datawriter_security_attributes, &datawriter_properties);
   CU_ASSERT_FATAL(writer_crypto != 0);
@@ -967,7 +961,7 @@ static void encode_datawriter_submessage_sign(DDS_Security_CryptoTransformKind_E
 
   prepare_endpoint_security_attributes_and_properties(&datawriter_security_attributes, &datawriter_properties, transformation_kind, true);
 
-  initialize_data_submessage(&plain_buffer, false);
+  initialize_data_submessage(&plain_buffer, BO_NATIVE);
 
   writer_crypto = register_local_datawriter(&datawriter_security_attributes, &datawriter_properties);
   CU_ASSERT_FATAL(writer_crypto != 0);
@@ -1121,7 +1115,7 @@ CU_Test(ddssec_builtin_encode_datawriter_submessage, invalid_args, .init = suite
 
   prepare_endpoint_security_attributes_and_properties(&datawriter_security_attributes, &datawriter_properties, CRYPTO_TRANSFORMATION_KIND_AES256_GCM, true);
 
-  initialize_data_submessage(&plain_buffer, false);
+  initialize_data_submessage(&plain_buffer, BO_NATIVE);
   memset(&empty_reader_list, 0, sizeof(empty_reader_list));
 
   writer_crypto = register_local_datawriter(&datawriter_security_attributes, &datawriter_properties);

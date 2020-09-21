@@ -1230,11 +1230,10 @@ static void handle_SEDP_alive (const struct receiver_state *rst, seqno_t seq, dd
              ((xqos->present & QP_PARTITION) && xqos->partition.n > 1) ? "+" : "",
              xqos->topic_name, xqos->type_name);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (vendor_is_eclipse (vendorid) && (xqos->present & QP_CYCLONE_TYPE_INFORMATION))
+  type_identifier_t type_id;
+  if ((xqos->present & QP_CYCLONE_TYPE_INFORMATION) && xqos->type_information.length == sizeof (type_id.hash))
   {
-    type_identifier_t type_id;
-    assert (xqos->type_information.length == sizeof (type_id.hash));
-    memcpy (type_id.hash, xqos->type_information.value, sizeof (type_id));
+    memcpy (type_id.hash, xqos->type_information.value, sizeof (type_id.hash));
     GVLOGDISC (" type-hash "PTYPEIDFMT, PTYPEID(type_id));
   }
 #endif

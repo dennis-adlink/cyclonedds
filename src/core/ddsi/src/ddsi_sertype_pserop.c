@@ -126,8 +126,8 @@ const struct ddsi_sertype_ops ddsi_sertype_ops_pserop = {
   .zero_samples = sertype_pserop_zero_samples,
   .realloc_samples = sertype_pserop_realloc_samples,
   .free_samples = sertype_pserop_free_samples,
-  .serialized_size = NULL,
-  .serialize = NULL,
-  .deserialize = NULL,
-  .assignable_from = NULL
+  .serialized_size = 0,
+  .serialize = 0,
+  .deserialize = 0,
+  .assignable_from = 0
 };

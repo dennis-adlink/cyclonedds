@@ -122,7 +122,7 @@ CycloneDDS configuration</xs:documentation>
       <xs:all>
         <xs:element minOccurs="0" ref="config:DSGracePeriod"/>
         <xs:element minOccurs="0" ref="config:DefaultMulticastAddress"/>
-        <xs:element minOccurs="0" ref="config:EnableTopicDiscovery"/>
+        <xs:element minOccurs="0" ref="config:EnableTopicDiscoveryEndpoints"/>
         <xs:element minOccurs="0" ref="config:ExternalDomainId"/>
         <xs:element minOccurs="0" ref="config:MaxAutoParticipantIndex"/>
         <xs:element minOccurs="0" ref="config:ParticipantIndex"/>
@@ -149,10 +149,10 @@ CycloneDDS configuration</xs:documentation>
 &lt;p&gt;The default value is: "auto".&lt;/p&gt;</xs:documentation>
     </xs:annotation>
   </xs:element>
-  <xs:element name="EnableTopicDiscovery" type="xs:boolean">
+  <xs:element name="EnableTopicDiscoveryEndpoints" type="xs:boolean">
     <xs:annotation>
       <xs:documentation>
-&lt;p&gt;This element controls whether the built-in endpoints for topic discovery are created and used.&lt;/p&gt;
+&lt;p&gt;This element controls whether the built-in endpoints for topic discovery are created and used to exchange topic discovery information.&lt;/p&gt;
 &lt;p&gt;The default value is: "false".&lt;/p&gt;</xs:documentation>
     </xs:annotation>
   </xs:element>

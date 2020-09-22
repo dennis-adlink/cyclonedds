@@ -459,6 +459,7 @@ typedef union Submessage {
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
 #define PID_CYCLONE_TYPE_INFORMATION            (PID_VENDORSPECIFIC_FLAG | 0x1au)
+#define PID_CYCLONE_TOPIC_GUID                  (PID_VENDORSPECIFIC_FLAG | 0x1bu)
 #endif
 
 /* Names of the built-in topics */

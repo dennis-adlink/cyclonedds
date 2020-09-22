@@ -243,14 +243,19 @@ struct participant
 #endif
 };
 
+struct topic_definition {
+  unsigned char key[16]; /* key for this topic definition (MD5 hash of the type_id and qos */
+  type_identifier_t type_id; /* type identifier for this topic */
+  const struct ddsi_sertype * type;
+  struct dds_qos *xqos; /* contains also the topic name and type name */
+  uint32_t refc;
+  struct ddsi_domaingv *gv;
+};
+
 struct topic {
   struct entity_common e;
-  struct participant *pp;
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  type_identifier_t type_id;
-#endif
-  const struct ddsi_sertype * type;
-  struct dds_qos *xqos;
+  struct topic_definition *definition; /* ref to (shared) topic definition */
+  struct participant *pp; /* backref to the participant */
 };
 
 struct endpoint_common {
@@ -414,16 +419,8 @@ struct proxy_participant
 
 struct proxy_topic
 {
-  struct entity_common e;
-  struct proxy_participant *proxypp; /* counted backref to proxy participant */
-  struct dds_qos *xqos; /* proxy endpoint QoS lives here; FIXME: local ones should have it moved to common as well */
-  uint32_t refc;
-  seqno_t seq; /* sequence number of most recent SEDP message */
-  nn_vendorid_t vendor; /* cached from proxypp->vendor */
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  type_identifier_t type_id; /* type identifier for for type used by this proxy endpoint */
-  const struct ddsi_sertype * type; /* sertype for data this proxy topic */
-#endif
+  ddsi_entityid_t entityid;
+  struct topic_definition *definition; /* ref to (shared) topic definition */
 };
 
 /* Representing proxy subscriber & publishers as "groups": until DDSI2
@@ -529,6 +526,7 @@ bool is_null_guid (const ddsi_guid_t *guid);
 ddsi_entityid_t to_entityid (unsigned u);
 int is_builtin_entityid (ddsi_entityid_t id, nn_vendorid_t vendorid);
 int is_builtin_endpoint (ddsi_entityid_t id, nn_vendorid_t vendorid);
+int is_builtin_topic (ddsi_entityid_t id, nn_vendorid_t vendorid);
 bool is_local_orphan_endpoint (const struct entity_common *e);
 int is_topic_entityid (ddsi_entityid_t id);
 int is_writer_entityid (ddsi_entityid_t id);
@@ -697,7 +695,7 @@ void writer_clear_retransmitting (struct writer *wr);
 dds_return_t writer_wait_for_acks (struct writer *wr, const ddsi_guid_t *rdguid, dds_time_t abstimeout);
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-dds_return_t new_topic (struct topic **tp_out, struct ddsi_guid *tpguid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos);
+dds_return_t new_topic (struct topic **tp_out, struct ddsi_guid *tpguid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, bool is_builtin);
 dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
 #endif
 
@@ -749,10 +747,9 @@ void proxy_participant_reassign_lease (struct proxy_participant *proxypp, struct
 void purge_proxy_participants (struct ddsi_domaingv *gv, const nn_locator_t *loc, bool delete_from_as_disc);
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-int proxy_topic_equal (const struct proxy_topic *proxytp_a, const struct proxy_topic *proxytp_b);
-uint32_t proxy_topic_hash (const struct proxy_topic *proxytp);
-int new_proxy_topic (struct ddsi_domaingv *gv, struct proxy_participant *proxypp, const struct ddsi_guid *guid, const ddsi_plist_t *plist, ddsrt_wctime_t timestamp, seqno_t seq);
-void update_proxy_topic (struct proxy_participant *proxypp, struct proxy_topic *proxytp, seqno_t seq, const struct dds_qos *xqos, ddsrt_wctime_t timestamp);
+int topic_definition_equal (const struct topic_definition *tp_def_a, const struct topic_definition *tp_def_b);
+uint32_t topic_definition_hash (const struct topic_definition *tp_def);
+bool proxy_participant_ref_topic_definition (struct proxy_participant *proxypp, const ddsi_guid_t *guid, const type_identifier_t *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp);
 #endif
 
 /* To create a new proxy writer or reader; the proxy participant is

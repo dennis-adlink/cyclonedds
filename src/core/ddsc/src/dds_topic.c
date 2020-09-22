@@ -305,7 +305,14 @@ static uint32_t ktopic_type_guid_hash (const void *ktp_guid)
 }
 #endif
 
-dds_entity_t dds_create_topic_impl (dds_entity_t participant, const char * name, struct ddsi_sertype **sertype, const dds_qos_t *qos, const dds_listener_t *listener, const ddsi_plist_t *sedp_plist)
+dds_entity_t dds_create_topic_impl (
+    dds_entity_t participant,
+    const char * name,
+    struct ddsi_sertype **sertype,
+    const dds_qos_t *qos,
+    const dds_listener_t *listener,
+    const ddsi_plist_t *sedp_plist,
+    bool is_builtin)
 {
   dds_return_t rc;
   dds_participant *pp;
@@ -426,7 +433,7 @@ dds_entity_t dds_create_topic_impl (dds_entity_t participant, const char * name,
     m = ddsrt_malloc (sizeof (*m));
     m->type_id = tid;
     m->refc = 1;
-    rc = new_topic (&m->tp, &m->guid, pp_ddsi, ktp->name, sertype_registered, ktp->qos);
+    rc = new_topic (&m->tp, &m->guid, pp_ddsi, ktp->name, sertype_registered, ktp->qos, is_builtin);
     assert (rc == DDS_RETCODE_OK); /* FIXME: can be out-of-resources at the very least */
     ddsrt_hh_add (ktp->topic_guid_map, m);
     thread_state_asleep (lookup_thread_state ());
@@ -460,7 +467,7 @@ dds_entity_t dds_create_topic_generic (dds_entity_t participant, const char *nam
     return DDS_RETCODE_BAD_PARAMETER;
   if (!strncmp(name, "DCPS", 4))
     return DDS_RETCODE_BAD_PARAMETER;
-  return dds_create_topic_impl (participant, name, sertype, qos, listener, sedp_plist);
+  return dds_create_topic_impl (participant, name, sertype, qos, listener, sedp_plist, false);
 }
 
 dds_entity_t dds_create_topic_arbitrary (dds_entity_t participant, const char *name, struct ddsi_sertype *sertype, const dds_qos_t *qos, const dds_listener_t *listener, const ddsi_plist_t *sedp_plist)

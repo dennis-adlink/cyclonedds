@@ -26,12 +26,26 @@
 
 /* FIXME: sertopic /= ddstopic so a lot of stuff needs to be moved here from dds_topic.c and the free function needs to be implemented properly */
 
-struct ddsi_sertype *new_sertype_builtintopic (struct ddsi_domaingv *gv, enum ddsi_sertype_builtintopic_entity_kind entity_kind, const char *typename)
+static struct ddsi_sertype *new_sertype_builtintopic_impl (
+    struct ddsi_domaingv *gv,
+    enum ddsi_sertype_builtintopic_entity_kind entity_kind,
+    const char *typename,
+    const struct ddsi_serdata_ops *serdata_ops)
 {
   struct ddsi_sertype_builtintopic *tp = ddsrt_malloc (sizeof (*tp));
-  ddsi_sertype_init (gv, &tp->c, typename, &ddsi_sertype_ops_builtintopic, &ddsi_serdata_ops_builtintopic, false);
+  ddsi_sertype_init (gv, &tp->c, typename, &ddsi_sertype_ops_builtintopic, serdata_ops, false);
   tp->entity_kind = entity_kind;
   return &tp->c;
+}
+
+struct ddsi_sertype *new_sertype_builtintopic (struct ddsi_domaingv *gv, enum ddsi_sertype_builtintopic_entity_kind entity_kind, const char *typename)
+{
+  return new_sertype_builtintopic_impl (gv, entity_kind, typename, &ddsi_serdata_ops_builtintopic);
+}
+
+struct ddsi_sertype *new_sertype_builtintopic_topic (struct ddsi_domaingv *gv, enum ddsi_sertype_builtintopic_entity_kind entity_kind, const char *typename)
+{
+  return new_sertype_builtintopic_impl (gv, entity_kind, typename, &ddsi_serdata_ops_builtintopic_topic);
 }
 
 static void sertype_builtin_free (struct ddsi_sertype *tp)
@@ -69,6 +83,16 @@ static void free_pp (void *vsample)
   sample->qos = NULL;
 }
 
+static void free_topic (void *vsample)
+{
+  dds_builtintopic_topic_t *sample = vsample;
+  dds_free (sample->topic_name);
+  dds_free (sample->type_name);
+  dds_delete_qos (sample->qos);
+  sample->topic_name = sample->type_name = NULL;
+  sample->qos = NULL;
+}
+
 static void free_endpoint (void *vsample)
 {
   dds_builtintopic_endpoint_t *sample = vsample;
@@ -86,6 +110,7 @@ static size_t get_size (enum ddsi_sertype_builtintopic_entity_kind entity_kind)
     case DSBT_PARTICIPANT:
       return sizeof (dds_builtintopic_participant_t);
     case DSBT_TOPIC:
+      return sizeof (dds_builtintopic_topic_t);
     case DSBT_READER:
     case DSBT_WRITER:
       return sizeof (dds_builtintopic_endpoint_t);
@@ -135,6 +160,8 @@ static void sertype_builtin_free_samples (const struct ddsi_sertype *sertype_com
           f = free_pp;
           break;
         case DSBT_TOPIC:
+          f = free_topic;
+          break;
         case DSBT_READER:
         case DSBT_WRITER:
           f = free_endpoint;
@@ -167,3 +194,4 @@ const struct ddsi_sertype_ops ddsi_sertype_ops_builtintopic = {
   .deserialize = 0,
   .assignable_from = 0
 };
+

@@ -848,7 +848,7 @@ static void make_special_types (struct ddsi_domaingv *gv)
   gv->pmd_type = make_special_type_pserop (gv, "ParticipantMessageData", sizeof (ParticipantMessageData_t), participant_message_data_nops, participant_message_data_ops, participant_message_data_nops_key, participant_message_data_ops_key);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   if (gv->config.enable_topic_discovery_endpoints)
-    gv->sedp_topic_type = make_special_type_plist (gv, "TopicBuiltinTopicData", PID_ENDPOINT_GUID);
+    gv->sedp_topic_type = make_special_type_plist (gv, "TopicBuiltinTopicData", PID_CYCLONE_TOPIC_GUID);
   gv->tl_svc_request_type = make_special_type_pserop (gv, "TypeLookup_Request", sizeof (type_lookup_request_t), typelookup_service_request_nops, typelookup_service_request_ops, 0, NULL);
   gv->tl_svc_reply_type = make_special_type_pserop (gv, "TypeLookup_Reply", sizeof (type_lookup_reply_t), typelookup_service_reply_nops, typelookup_service_reply_ops, 0, NULL);
 #endif
@@ -1018,14 +1018,14 @@ static uint32_t tl_meta_hash_wrap (const void *tlm)
   return ddsi_tl_meta_hash (tlm);
 }
 
-static int proxy_topic_equal_wrap (const void *proxytp_a, const void *proxytp_b)
+static int topic_definition_equal_wrap (const void *tpd_a, const void *tpd_b)
 {
-  return proxy_topic_equal (proxytp_a, proxytp_b);
+  return topic_definition_equal (tpd_a, tpd_b);
 }
 
-static uint32_t proxy_topic_hash_wrap (const void *proxytp)
+static uint32_t topic_definition_hash_wrap (const void *tpd)
 {
-  return proxy_topic_hash (proxytp);
+  return topic_definition_hash (tpd);
 }
 #endif
 
@@ -1256,8 +1256,8 @@ int rtps_init (struct ddsi_domaingv *gv)
   ddsrt_mutex_init (&gv->tl_admin_lock);
   ddsrt_cond_init (&gv->tl_resolved_cond);
   gv->tl_admin = ddsrt_hh_new (1, tl_meta_hash_wrap, tl_meta_equal_wrap);
-  ddsrt_mutex_init (&gv->proxy_topics_lock);
-  gv->proxy_topics = ddsrt_hh_new (1, proxy_topic_hash_wrap, proxy_topic_equal_wrap);
+  ddsrt_mutex_init (&gv->topic_defs_lock);
+  gv->topic_defs = ddsrt_hh_new (1, topic_definition_hash_wrap, topic_definition_equal_wrap);
 #endif
   make_special_types (gv);
 
@@ -1619,8 +1619,8 @@ err_unicast_sockets:
   ddsrt_hh_free (gv->tl_admin);
   ddsrt_mutex_destroy (&gv->tl_admin_lock);
   ddsrt_cond_destroy (&gv->tl_resolved_cond);
-  ddsrt_hh_free (gv->proxy_topics);
-  ddsrt_mutex_destroy (&gv->proxy_topics_lock);
+  ddsrt_hh_free (gv->topic_defs);
+  ddsrt_mutex_destroy (&gv->topic_defs_lock);
 #endif
 #ifdef DDSI_INCLUDE_SECURITY
   q_omg_security_stop (gv); // should be a no-op as it starts lazily
@@ -2007,14 +2007,14 @@ void rtps_fini (struct ddsi_domaingv *gv)
 #ifndef NDEBUG
   {
     struct ddsrt_hh_iter it;
-    assert (ddsrt_hh_iter_first (gv->proxy_topics, &it) == NULL);
+    assert (ddsrt_hh_iter_first (gv->topic_defs, &it) == NULL);
     assert (ddsrt_hh_iter_first (gv->tl_admin, &it) == NULL);
   }
 #endif
   ddsrt_hh_free (gv->tl_admin);
   ddsrt_mutex_destroy (&gv->tl_admin_lock);
-  ddsrt_hh_free (gv->proxy_topics);
-  ddsrt_mutex_destroy (&gv->proxy_topics_lock);
+  ddsrt_hh_free (gv->topic_defs);
+  ddsrt_mutex_destroy (&gv->topic_defs_lock);
 #endif
 #ifdef DDSI_INCLUDE_SECURITY
   q_omg_security_free (gv);

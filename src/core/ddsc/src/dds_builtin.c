@@ -86,7 +86,7 @@ dds_entity_t dds__get_builtin_topic (dds_entity_t entity, dds_entity_t topic)
   }
 
   dds_qos_t *qos = dds__create_builtin_qos ();
-  if ((tp = dds_create_topic_impl (par->m_entity.m_hdllink.hdl, topic_name, &sertype, qos, NULL, NULL)) > 0)
+  if ((tp = dds_create_topic_impl (par->m_entity.m_hdllink.hdl, topic_name, &sertype, qos, NULL, NULL, true)) > 0)
   {
     /* keep ownership for built-in sertypes because there are re-used, lifetime for these
        sertypes is bound to domain */
@@ -187,7 +187,7 @@ static bool dds__builtin_is_builtintopic (const struct ddsi_sertype *tp, void *v
 static bool dds__builtin_is_visible (const ddsi_guid_t *guid, nn_vendorid_t vendorid, void *vdomain)
 {
   (void) vdomain;
-  if (is_builtin_endpoint (guid->entityid, vendorid))
+  if (is_builtin_endpoint (guid->entityid, vendorid) || is_builtin_topic (guid->entityid, vendorid))
     return false;
   return true;
 }
@@ -224,7 +224,7 @@ struct ddsi_serdata *dds__builtin_make_sample (const struct entity_common *e, dd
       break;
     case EK_TOPIC:
     case EK_PROXY_TOPIC:
-      type = dom->builtin_topic_type;
+      abort ();
       break;
     case EK_WRITER:
     case EK_PROXY_WRITER:
@@ -237,6 +237,19 @@ struct ddsi_serdata *dds__builtin_make_sample (const struct entity_common *e, dd
   }
   assert (type != NULL);
   x.guid = nn_hton_guid (e->guid);
+  serdata = ddsi_serdata_from_keyhash (type, &x.keyhash);
+  serdata->timestamp = timestamp;
+  serdata->statusinfo = alive ? 0 : NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER;
+  return serdata;
+}
+
+struct ddsi_serdata *dds__builtin_make_sample_topic (const struct topic_definition *tpd, ddsrt_wctime_t timestamp, bool alive)
+{
+  struct dds_domain *dom = tpd->gv->builtin_topic_interface->arg;
+  struct ddsi_sertype *type = dom->builtin_topic_type;
+  struct ddsi_serdata *serdata;
+  union { unsigned char key[16]; struct ddsi_keyhash keyhash; } x;
+  memcpy (x.key, tpd->key, sizeof (x.key));
   serdata = ddsi_serdata_from_keyhash (type, &x.keyhash);
   serdata->timestamp = timestamp;
   serdata->statusinfo = alive ? 0 : NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER;
@@ -260,7 +273,7 @@ static void dds__builtin_write (const struct entity_common *e, ddsrt_wctime_t ti
         break;
       case EK_TOPIC:
       case EK_PROXY_TOPIC:
-        bwr = dom->builtintopic_writer_topics;
+        abort ();
         break;
       case EK_WRITER:
       case EK_PROXY_WRITER:
@@ -273,6 +286,14 @@ static void dds__builtin_write (const struct entity_common *e, ddsrt_wctime_t ti
     }
     dds_writecdr_impl_lowlevel (&bwr->wr, NULL, serdata, true);
   }
+}
+
+static void dds__builtin_write_topic (const struct topic_definition *tpd, ddsrt_wctime_t timestamp, bool alive, void *vdomain)
+{
+  struct dds_domain *dom = vdomain;
+  struct local_orphan_writer *bwr = dom->builtintopic_writer_topics;
+  struct ddsi_serdata *serdata = dds__builtin_make_sample_topic (tpd, timestamp, alive);
+  dds_writecdr_impl_lowlevel (&bwr->wr, NULL, serdata, true);
 }
 
 static void unref_builtin_types (struct dds_domain *dom)
@@ -292,10 +313,11 @@ void dds__builtin_init (struct dds_domain *dom)
   dom->btif.builtintopic_is_builtintopic = dds__builtin_is_builtintopic;
   dom->btif.builtintopic_is_visible = dds__builtin_is_visible;
   dom->btif.builtintopic_write = dds__builtin_write;
+  dom->btif.builtintopic_write_topic = dds__builtin_write_topic;
   dom->gv.builtin_topic_interface = &dom->btif;
 
   dom->builtin_participant_type = new_sertype_builtintopic (&dom->gv, DSBT_PARTICIPANT, "org::eclipse::cyclonedds::builtin::DCPSParticipant");
-  dom->builtin_topic_type = new_sertype_builtintopic (&dom->gv, DSBT_TOPIC, "org::eclipse::cyclonedds::builtin::DCPSTopic");
+  dom->builtin_topic_type = new_sertype_builtintopic_topic (&dom->gv, DSBT_TOPIC, "org::eclipse::cyclonedds::builtin::DCPSTopic");
   dom->builtin_reader_type = new_sertype_builtintopic (&dom->gv, DSBT_READER, "org::eclipse::cyclonedds::builtin::DCPSSubscription");
   dom->builtin_writer_type = new_sertype_builtintopic (&dom->gv, DSBT_WRITER, "org::eclipse::cyclonedds::builtin::DCPSPublication");
 

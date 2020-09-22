@@ -341,8 +341,8 @@ struct ddsi_domaingv {
   struct ddsrt_hh *tl_admin;
   ddsrt_cond_t tl_resolved_cond;
 
-  ddsrt_mutex_t proxy_topics_lock;
-  struct ddsrt_hh *proxy_topics;
+  ddsrt_mutex_t topic_defs_lock;
+  struct ddsrt_hh *topic_defs;
 #endif
 
   /* security globals */

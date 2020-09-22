@@ -204,6 +204,15 @@ typedef struct dds_builtintopic_participant
 }
 dds_builtintopic_participant_t;
 
+typedef struct dds_builtintopic_topic
+{
+  unsigned char key[16];
+  char *topic_name;
+  char *type_name;
+  dds_qos_t *qos;
+}
+dds_builtintopic_topic_t;
+
 typedef struct dds_builtintopic_endpoint
 {
   dds_guid_t key;

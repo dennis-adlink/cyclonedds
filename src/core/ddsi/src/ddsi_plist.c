@@ -1513,7 +1513,6 @@ static dds_return_t dvx_endpoint_guid (void * __restrict dst, const struct dd * 
     case NN_ENTITYID_KIND_WRITER_NO_KEY:
     case NN_ENTITYID_KIND_READER_NO_KEY:
     case NN_ENTITYID_KIND_READER_WITH_KEY:
-    case NN_ENTITYID_KIND_TOPIC:
       return 0;
     default:
       return (protocol_version_is_newer (dd->protocol_version) ? 0 : DDS_RETCODE_BAD_PARAMETER);
@@ -1639,6 +1638,7 @@ static const struct piddesc piddesc_eclipse[] = {
     { .desc = { XE2, XSTOP } }, 0 },
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   QP  (CYCLONE_TYPE_INFORMATION,         type_information, XO),
+  PP  (CYCLONE_TOPIC_GUID,               topic_guid, XG),
 #endif
   PP  (ADLINK_PARTICIPANT_VERSION_INFO,  adlink_participant_version_info, Xux5, XS),
   PP  (ADLINK_TYPE_DESCRIPTION,          type_description, XS),
@@ -1713,7 +1713,7 @@ struct piddesc_index {
 
 static const struct piddesc *piddesc_omg_index[DEFAULT_OMG_PIDS_ARRAY_SIZE + SECURITY_OMG_PIDS_ARRAY_SIZE];
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-static const struct piddesc *piddesc_eclipse_index[27];
+static const struct piddesc *piddesc_eclipse_index[28];
 #else
 static const struct piddesc *piddesc_eclipse_index[19];
 #endif

@@ -197,7 +197,7 @@ static void tlm_ref_impl (struct ddsi_domaingv *gv, const type_identifier_t *typ
     resolved = true;
   }
   tlm->refc++;
-  GVTRACE (" state %d refc %u", tlm->state, tlm->refc);
+  GVTRACE (" state %d refc %u\n", tlm->state, tlm->refc);
 
   if (resolved)
     ddsrt_cond_broadcast (&gv->tl_resolved_cond);
@@ -403,14 +403,6 @@ static void tlm_register_with_proxy_endpoints_locked (struct ddsi_domaingv *gv, 
         if (gpe->c.type == NULL)
           gpe->c.type = ddsi_sertype_ref (tlm->sertype);
         ddsrt_mutex_unlock (&gpe->e.lock);
-      }
-      else if (ec->kind == EK_PROXY_TOPIC)
-      {
-        struct proxy_topic *ptp = (struct proxy_topic *) ec;
-        ddsrt_mutex_lock (&ptp->e.lock);
-        if (ptp->type == NULL)
-          ptp->type = ddsi_sertype_ref (tlm->sertype);
-        ddsrt_mutex_unlock (&ptp->e.lock);
       }
       else
         assert (false);

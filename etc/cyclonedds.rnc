@@ -64,9 +64,9 @@ CycloneDDS configuration""" ] ]
           text
         }?
         & [ a:documentation [ xml:lang="en" """
-<p>This element controls whether the built-in endpoints for topic discovery are created and used.</p>
+<p>This element controls whether the built-in endpoints for topic discovery are created and used to exchange topic discovery information.</p>
 <p>The default value is: "false".</p>""" ] ]
-        element EnableTopicDiscovery {
+        element EnableTopicDiscoveryEndpoints {
           xsd:boolean
         }?
         & [ a:documentation [ xml:lang="en" """

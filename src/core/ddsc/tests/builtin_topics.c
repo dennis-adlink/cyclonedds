@@ -238,14 +238,14 @@ CU_Test(ddsc_builtin_topics, read_topic_data, .init = setup, .fini = teardown)
   CU_ASSERT_FATAL(ret >= 0);
   for (int i = 0; i < ret; i++)
   {
-    dds_builtintopic_endpoint_t *data = samples[i];
+    dds_builtintopic_topic_t *data = samples[i];
     for (size_t j = 0; j < sizeof (exp) / sizeof (exp[0]); j++)
     {
       if (strcmp (data->topic_name, exp[j]) == 0)
         seen |= 1u << j;
     }
   }
-  CU_ASSERT_FATAL(seen == 1);
+  CU_ASSERT_FATAL(seen == 1); // built-in topics should not be reported as DCPSTopic samples
   dds_return_loan(reader, samples, ret);
 #endif
 }

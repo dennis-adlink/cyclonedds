@@ -28,7 +28,9 @@
 
 struct match_entities_range_key {
   union {
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
     struct topic tp;
+#endif
     struct writer wr;
     struct reader rd;
     struct entity_common e;
@@ -99,6 +101,7 @@ static int all_entities_compare (const void *va, const void *vb)
       break;
 
     case EK_TOPIC: {
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
       const struct topic *tpa = va;
       const struct topic *tpb = vb;
       assert ((tpa->definition->xqos->present & QP_TOPIC_NAME) && tpa->definition->xqos->topic_name);
@@ -106,11 +109,7 @@ static int all_entities_compare (const void *va, const void *vb)
       tp_a = tpa->definition->xqos->topic_name;
       tp_b = tpb->definition->xqos->topic_name;
       break;
-    }
-
-    case EK_PROXY_TOPIC: {
-      abort();
-      break;
+#endif
     }
 
     case EK_WRITER: {
@@ -167,8 +166,10 @@ static void match_endpoint_range (enum entity_kind kind, const char *tp, struct 
     case EK_PROXY_PARTICIPANT:
       break;
     case EK_TOPIC:
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
       min->entity.tp.definition->xqos = &min->xqos;
       max->entity.tp.definition->xqos = &max->xqos;
+#endif
       break;
     case EK_WRITER:
       min->entity.wr.xqos = &min->xqos;
@@ -177,9 +178,6 @@ static void match_endpoint_range (enum entity_kind kind, const char *tp, struct 
     case EK_READER:
       min->entity.rd.xqos = &min->xqos;
       max->entity.rd.xqos = &max->xqos;
-      break;
-    case EK_PROXY_TOPIC:
-      abort ();
       break;
     case EK_PROXY_WRITER:
     case EK_PROXY_READER:
@@ -205,7 +203,9 @@ static void match_entity_kind_min (enum entity_kind kind, struct match_entities_
     case EK_PROXY_PARTICIPANT:
       break;
     case EK_TOPIC:
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
       min->entity.tp.definition->xqos = &min->xqos;
+#endif
       break;
     case EK_WRITER:
       min->entity.wr.xqos = &min->xqos;
@@ -213,13 +213,13 @@ static void match_entity_kind_min (enum entity_kind kind, struct match_entities_
     case EK_READER:
       min->entity.rd.xqos = &min->xqos;
       break;
-    case EK_PROXY_TOPIC:
-      abort ();
-      break;
     case EK_PROXY_WRITER:
     case EK_PROXY_READER:
       min->entity.gpe.c.vendor = NN_VENDORID_ECLIPSE;
       min->entity.gpe.c.xqos = &min->xqos;
+      break;
+    default:
+      assert (0);
       break;
   }
 }
@@ -350,11 +350,6 @@ void entidx_insert_proxy_reader_guid (struct entity_index *ei, struct proxy_read
   entity_index_insert (ei, &prd->e);
 }
 
-void entidx_insert_topic_guid (struct entity_index *ei, struct topic *tp)
-{
-  entity_index_insert (ei, &tp->e);
-}
-
 void entidx_remove_participant_guid (struct entity_index *ei, struct participant *pp)
 {
   entity_index_remove (ei, &pp->e);
@@ -385,11 +380,6 @@ void entidx_remove_proxy_reader_guid (struct entity_index *ei, struct proxy_read
   entity_index_remove (ei, &prd->e);
 }
 
-void entidx_remove_topic_guid (struct entity_index *ei, struct topic *tp)
-{
-  entity_index_remove (ei, &tp->e);
-}
-
 struct participant *entidx_lookup_participant_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
 {
   DDSRT_STATIC_ASSERT (offsetof (struct participant, e) == 0);
@@ -418,13 +408,6 @@ struct reader *entidx_lookup_reader_guid (const struct entity_index *ei, const s
   return entidx_lookup_guid_int (ei, guid, EK_READER);
 }
 
-struct topic *entidx_lookup_topic_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
-{
-  DDSRT_STATIC_ASSERT (offsetof (struct topic, e) == 0);
-  assert (is_topic_entityid (guid->entityid));
-  return entidx_lookup_guid_int (ei, guid, EK_TOPIC);
-}
-
 struct proxy_writer *entidx_lookup_proxy_writer_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
 {
   DDSRT_STATIC_ASSERT (offsetof (struct proxy_writer, e) == 0);
@@ -444,13 +427,17 @@ struct match_entities_range_key *entidx_minmax_new ()
 {
   struct match_entities_range_key *minmax;
   minmax = ddsrt_malloc (sizeof (*minmax));
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   minmax->entity.tp.definition = ddsrt_malloc (sizeof (*minmax->entity.tp.definition));
+#endif
   return minmax;
 }
 
 void entidx_minmax_fini (struct match_entities_range_key *minmax)
 {
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   ddsrt_free (minmax->entity.tp.definition);
+#endif
   ddsrt_free (minmax);
 }
 
@@ -526,11 +513,6 @@ void entidx_enum_proxy_reader_init (struct entidx_enum_proxy_reader *st, const s
   entidx_enum_init (&st->st, ei, EK_PROXY_READER);
 }
 
-void entidx_enum_topic_init (struct entidx_enum_topic *st, const struct entity_index *ei)
-{
-  entidx_enum_init (&st->st, ei, EK_TOPIC);
-}
-
 void entidx_enum_participant_init (struct entidx_enum_participant *st, const struct entity_index *ei)
 {
   entidx_enum_init (&st->st, ei, EK_PARTICIPANT);
@@ -592,12 +574,6 @@ struct proxy_reader *entidx_enum_proxy_reader_next (struct entidx_enum_proxy_rea
   return entidx_enum_next (&st->st);
 }
 
-struct topic *entidx_enum_topic_next (struct entidx_enum_topic *st)
-{
-  DDSRT_STATIC_ASSERT (offsetof (struct topic, e) == 0);
-  return entidx_enum_next (&st->st);
-}
-
 struct participant *entidx_enum_participant_next (struct entidx_enum_participant *st)
 {
   DDSRT_STATIC_ASSERT (offsetof (struct participant, e) == 0);
@@ -636,11 +612,6 @@ void entidx_enum_proxy_reader_fini (struct entidx_enum_proxy_reader *st)
   entidx_enum_fini (&st->st);
 }
 
-void entidx_enum_topic_fini (struct entidx_enum_topic *st)
-{
-  entidx_enum_fini (&st->st);
-}
-
 void entidx_enum_participant_fini (struct entidx_enum_participant *st)
 {
   entidx_enum_fini (&st->st);
@@ -650,3 +621,40 @@ void entidx_enum_proxy_participant_fini (struct entidx_enum_proxy_participant *s
 {
   entidx_enum_fini (&st->st);
 }
+
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+
+void entidx_insert_topic_guid (struct entity_index *ei, struct topic *tp)
+{
+  entity_index_insert (ei, &tp->e);
+}
+
+void entidx_remove_topic_guid (struct entity_index *ei, struct topic *tp)
+{
+  entity_index_remove (ei, &tp->e);
+}
+
+struct topic *entidx_lookup_topic_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
+{
+  DDSRT_STATIC_ASSERT (offsetof (struct topic, e) == 0);
+  assert (is_topic_entityid (guid->entityid));
+  return entidx_lookup_guid_int (ei, guid, EK_TOPIC);
+}
+
+void entidx_enum_topic_init (struct entidx_enum_topic *st, const struct entity_index *ei)
+{
+  entidx_enum_init (&st->st, ei, EK_TOPIC);
+}
+
+struct topic *entidx_enum_topic_next (struct entidx_enum_topic *st)
+{
+  DDSRT_STATIC_ASSERT (offsetof (struct topic, e) == 0);
+  return entidx_enum_next (&st->st);
+}
+
+void entidx_enum_topic_fini (struct entidx_enum_topic *st)
+{
+  entidx_enum_fini (&st->st);
+}
+
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */

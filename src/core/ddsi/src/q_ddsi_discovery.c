@@ -990,7 +990,7 @@ static int sedp_write_endpoint_impl
   return write_and_fini_plist (wr, &ps, alive);
 }
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 
 static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_t *guid, const dds_qos_t *xqos, type_identifier_t *type_id)
 {
@@ -1037,7 +1037,20 @@ int sedp_write_topic (struct topic *tp)
   return res;
 }
 
-#endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
+int sedp_dispose_unregister_topic (struct topic *tp)
+{
+  if (!(tp->pp->bes & NN_DISC_BUILTIN_ENDPOINT_TOPICS_ANNOUNCER))
+    return 0;
+  if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE))
+  {
+    unsigned entityid = determine_topic_writer (tp);
+    struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
+    return sedp_write_topic_impl (sedp_wr, 0, &tp->e.guid, tp->definition->xqos, &tp->definition->type_id);
+  }
+  return 0;
+}
+
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 
 int sedp_write_writer (struct writer *wr)
 {
@@ -1094,21 +1107,6 @@ int sedp_write_reader (struct reader *rd)
   }
   return 0;
 }
-
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-int sedp_dispose_unregister_topic (struct topic *tp)
-{
-  if (!(tp->pp->bes & NN_DISC_BUILTIN_ENDPOINT_TOPICS_ANNOUNCER))
-    return 0;
-  if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE))
-  {
-    unsigned entityid = determine_topic_writer (tp);
-    struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
-    return sedp_write_topic_impl (sedp_wr, 0, &tp->e.guid, tp->definition->xqos, &tp->definition->type_id);
-  }
-  return 0;
-}
-#endif
 
 int sedp_dispose_unregister_writer (struct writer *wr)
 {
@@ -1430,7 +1428,7 @@ err:
 #undef E
 }
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 
 static void handle_SEDP_alive_topic (const struct receiver_state *rst, ddsi_plist_t *datap /* note: potentially modifies datap */, const ddsi_guid_prefix_t *src_guid_prefix, nn_vendorid_t vendorid, ddsrt_wctime_t timestamp)
 {
@@ -1486,7 +1484,7 @@ static void handle_SEDP_alive_topic (const struct receiver_state *rst, ddsi_plis
   }
 
   // FIXME: check compatibility with known topic definitions
-  if (proxy_participant_ref_topic_definition (proxypp, &datap->topic_guid, &type_id, xqos, timestamp))
+  if (new_proxy_topic (proxypp, &datap->topic_guid, &type_id, xqos, timestamp))
     GVLOGDISC (" NEW");
   else
     GVLOGDISC (" known%s\n", vendor_is_cloud (vendorid) ? "-DS" : "");
@@ -1500,7 +1498,7 @@ err:
   return;
 #undef E
 }
-#endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 
 static void handle_SEDP_dead (const struct receiver_state *rst, ddsi_plist_t *datap, ddsrt_wctime_t timestamp)
 {
@@ -1525,12 +1523,16 @@ static void handle_SEDP (const struct receiver_state *rst, seqno_t seq, struct d
     switch (serdata->statusinfo & (NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER))
     {
       case 0:
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
         if (is_topic)
+        {
           handle_SEDP_alive_topic (rst, &decoded_data, &rst->src_guid_prefix, rst->vendor, serdata->timestamp);
+        }
         else
 #endif
+        {
           handle_SEDP_alive (rst, seq, &decoded_data, &rst->src_guid_prefix, rst->vendor, serdata->timestamp);
+        }
         break;
       case NN_STATUSINFO_DISPOSE:
       case NN_STATUSINFO_UNREGISTER:
@@ -1661,9 +1663,11 @@ int builtins_dqueue_handler (const struct nn_rsample_info *sampleinfo, const str
     case NN_ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_WRITER:
       type = gv->sedp_reader_type;
       break;
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
     case NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER:
       type = gv->sedp_topic_type;
       break;
+#endif
     case NN_ENTITYID_P2P_BUILTIN_PARTICIPANT_MESSAGE_WRITER:
       type = gv->pmd_type;
       break;

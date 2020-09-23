@@ -204,6 +204,7 @@ typedef struct dds_builtintopic_participant
 }
 dds_builtintopic_participant_t;
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 typedef struct dds_builtintopic_topic
 {
   unsigned char key[16];
@@ -212,6 +213,7 @@ typedef struct dds_builtintopic_topic
   dds_qos_t *qos;
 }
 dds_builtintopic_topic_t;
+#endif
 
 typedef struct dds_builtintopic_endpoint
 {
@@ -3452,6 +3454,7 @@ dds_get_matched_publication_data (
   dds_instance_handle_t ih);
 
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+
 /**
  * @brief Gets the type identifier from endpoint information that was
  * retrieved by dds_get_matched_subscription_data or
@@ -3466,6 +3469,7 @@ dds_builtintopic_get_endpoint_typeid (
   dds_builtintopic_endpoint_t * builtintopic_endpoint,
   unsigned char **type_identifier,
   size_t *size);
+
 #endif
 
 /**

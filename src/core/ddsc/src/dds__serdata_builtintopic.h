@@ -39,13 +39,13 @@ struct ddsi_serdata_builtintopic_participant {
   dds_instance_handle_t pphandle;
 };
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 struct ddsi_serdata_builtintopic_topic {
   struct ddsi_serdata_builtintopic common;
   unsigned char key[16];
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   type_identifier_t type_id;
-#endif
 };
+#endif
 
 struct ddsi_serdata_builtintopic_endpoint {
   struct ddsi_serdata_builtintopic common;
@@ -63,10 +63,12 @@ struct ddsi_sertype_builtintopic {
 
 extern const struct ddsi_sertype_ops ddsi_sertype_ops_builtintopic;
 extern const struct ddsi_serdata_ops ddsi_serdata_ops_builtintopic;
-extern const struct ddsi_serdata_ops ddsi_serdata_ops_builtintopic_topic;
-
 struct ddsi_sertype *new_sertype_builtintopic (struct ddsi_domaingv *gv, enum ddsi_sertype_builtintopic_entity_kind entity_kind, const char *typename);
+
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+extern const struct ddsi_serdata_ops ddsi_serdata_ops_builtintopic_topic;
 struct ddsi_sertype *new_sertype_builtintopic_topic (struct ddsi_domaingv *gv, enum ddsi_sertype_builtintopic_entity_kind entity_kind, const char *typename);
+#endif
 
 #if defined (__cplusplus)
 }

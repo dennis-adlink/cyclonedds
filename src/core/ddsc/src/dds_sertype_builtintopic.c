@@ -43,11 +43,6 @@ struct ddsi_sertype *new_sertype_builtintopic (struct ddsi_domaingv *gv, enum dd
   return new_sertype_builtintopic_impl (gv, entity_kind, typename, &ddsi_serdata_ops_builtintopic);
 }
 
-struct ddsi_sertype *new_sertype_builtintopic_topic (struct ddsi_domaingv *gv, enum ddsi_sertype_builtintopic_entity_kind entity_kind, const char *typename)
-{
-  return new_sertype_builtintopic_impl (gv, entity_kind, typename, &ddsi_serdata_ops_builtintopic_topic);
-}
-
 static void sertype_builtin_free (struct ddsi_sertype *tp)
 {
   ddsi_sertype_fini (tp);
@@ -83,6 +78,13 @@ static void free_pp (void *vsample)
   sample->qos = NULL;
 }
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+
+struct ddsi_sertype *new_sertype_builtintopic_topic (struct ddsi_domaingv *gv, enum ddsi_sertype_builtintopic_entity_kind entity_kind, const char *typename)
+{
+  return new_sertype_builtintopic_impl (gv, entity_kind, typename, &ddsi_serdata_ops_builtintopic_topic);
+}
+
 static void free_topic (void *vsample)
 {
   dds_builtintopic_topic_t *sample = vsample;
@@ -92,6 +94,8 @@ static void free_topic (void *vsample)
   sample->topic_name = sample->type_name = NULL;
   sample->qos = NULL;
 }
+
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 
 static void free_endpoint (void *vsample)
 {
@@ -110,7 +114,11 @@ static size_t get_size (enum ddsi_sertype_builtintopic_entity_kind entity_kind)
     case DSBT_PARTICIPANT:
       return sizeof (dds_builtintopic_participant_t);
     case DSBT_TOPIC:
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
       return sizeof (dds_builtintopic_topic_t);
+#else
+      break;
+#endif
     case DSBT_READER:
     case DSBT_WRITER:
       return sizeof (dds_builtintopic_endpoint_t);
@@ -160,7 +168,9 @@ static void sertype_builtin_free_samples (const struct ddsi_sertype *sertype_com
           f = free_pp;
           break;
         case DSBT_TOPIC:
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
           f = free_topic;
+#endif
           break;
         case DSBT_READER:
         case DSBT_WRITER:

@@ -59,12 +59,11 @@ typedef void (*ddsi2direct_directread_cb_t) (const struct nn_rsample_info *sampl
 enum entity_kind {
   EK_PARTICIPANT,
   EK_PROXY_PARTICIPANT,
+  EK_TOPIC,
   EK_WRITER,
   EK_PROXY_WRITER,
   EK_READER,
-  EK_PROXY_READER,
-  EK_TOPIC,
-  EK_PROXY_TOPIC
+  EK_PROXY_READER
 };
 
 /* Liveliness changed is more complicated than just add/remove. Encode the event
@@ -243,6 +242,7 @@ struct participant
 #endif
 };
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 struct topic_definition {
   unsigned char key[16]; /* key for this topic definition (MD5 hash of the type_id and qos */
   type_identifier_t type_id; /* type identifier for this topic */
@@ -257,6 +257,7 @@ struct topic {
   struct topic_definition *definition; /* ref to (shared) topic definition */
   struct participant *pp; /* backref to the participant */
 };
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 
 struct endpoint_common {
   struct participant *pp;
@@ -383,7 +384,9 @@ struct reader
 #endif
 };
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 DDSI_LIST_GENERIC_PTR_TYPES(proxy_topic_list)
+#endif
 
 struct proxy_participant
 {
@@ -401,7 +404,9 @@ struct proxy_participant
   struct addrset *as_default; /* default address set to use for user data traffic */
   struct addrset *as_meta; /* default address set to use for discovery traffic */
   struct proxy_endpoint_common *endpoints; /* all proxy endpoints can be reached from here */
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   proxy_topic_list_t topics;
+#endif
   ddsrt_avl_tree_t groups; /* table of all groups (publisher, subscriber), see struct proxy_group */
   seqno_t seq; /* sequence number of most recent SPDP message */
   unsigned implicitly_created : 1; /* participants are implicitly created for Cloud/Fog discovered endpoints */
@@ -417,11 +422,13 @@ struct proxy_participant
 #endif
 };
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 struct proxy_topic
 {
   ddsi_entityid_t entityid;
   struct topic_definition *definition; /* ref to (shared) topic definition */
 };
+#endif
 
 /* Representing proxy subscriber & publishers as "groups": until DDSI2
    gets a reason to care about these other than for the generation of
@@ -694,11 +701,6 @@ void writer_set_retransmitting (struct writer *wr);
 void writer_clear_retransmitting (struct writer *wr);
 dds_return_t writer_wait_for_acks (struct writer *wr, const ddsi_guid_t *rdguid, dds_time_t abstimeout);
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-dds_return_t new_topic (struct topic **tp_out, struct ddsi_guid *tpguid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, bool is_builtin);
-dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
-#endif
-
 dds_return_t unblock_throttled_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
 dds_return_t delete_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
 dds_return_t delete_writer_nolinger (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
@@ -746,10 +748,13 @@ void proxy_participant_reassign_lease (struct proxy_participant *proxypp, struct
 
 void purge_proxy_participants (struct ddsi_domaingv *gv, const nn_locator_t *loc, bool delete_from_as_disc);
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+dds_return_t new_topic (struct topic **tp_out, struct ddsi_guid *tpguid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, bool is_builtin);
+dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
+
 int topic_definition_equal (const struct topic_definition *tp_def_a, const struct topic_definition *tp_def_b);
 uint32_t topic_definition_hash (const struct topic_definition *tp_def);
-bool proxy_participant_ref_topic_definition (struct proxy_participant *proxypp, const ddsi_guid_t *guid, const type_identifier_t *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp);
+bool new_proxy_topic (struct proxy_participant *proxypp, const ddsi_guid_t *guid, const type_identifier_t *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp);
 #endif
 
 /* To create a new proxy writer or reader; the proxy participant is

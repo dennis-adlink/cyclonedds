@@ -368,8 +368,11 @@ static dds_entity_t dds_create_reader_int (dds_entity_t participant_or_subscribe
 
   switch (topic)
   {
-    case DDS_BUILTIN_TOPIC_DCPSPARTICIPANT:
     case DDS_BUILTIN_TOPIC_DCPSTOPIC:
+#ifndef DDSI_INCLUDE_TOPIC_DISCOVERY
+      return DDS_RETCODE_UNSUPPORTED;
+#endif
+    case DDS_BUILTIN_TOPIC_DCPSPARTICIPANT:
     case DDS_BUILTIN_TOPIC_DCPSPUBLICATION:
     case DDS_BUILTIN_TOPIC_DCPSSUBSCRIPTION:
       /* translate provided pseudo-topic to a real one */

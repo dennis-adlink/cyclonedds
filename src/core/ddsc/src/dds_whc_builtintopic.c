@@ -102,66 +102,67 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
           break;
       if (entity)
       {
-        if (kind != EK_TOPIC)
-          sample->serdata = dds__builtin_make_sample (entity, entity->tupdate, true);
-        else
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+        if (kind == EK_TOPIC)
         {
-          struct topic_definition *tpd = ((struct topic *)entity)->definition;
-          sample->serdata = dds__builtin_make_sample_topic (tpd, entity->tupdate, true);
+          sample->serdata = dds__builtin_make_sample_topic (((struct topic *)entity)->definition, entity->tupdate, true);
+        }
+        else
+#endif
+        {
+          sample->serdata = dds__builtin_make_sample (entity, entity->tupdate, true);
         }
         it->have_sample = true;
         return true;
       }
-      else
-      {
-        entidx_enum_fini (&it->it);
-        it->st = BIS_INIT_PROXY;
-      }
+      entidx_enum_fini (&it->it);
+      it->st = BIS_INIT_PROXY;
       /* FALLS THROUGH */
     case BIS_INIT_PROXY:
-      switch (whc->entity_kind)
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+      if (whc->entity_kind == DSBT_TOPIC)
       {
-        case DSBT_PARTICIPANT: kind = EK_PROXY_PARTICIPANT; break;
-        case DSBT_TOPIC:       kind = EK_PROXY_TOPIC; break;
-        case DSBT_WRITER:      kind = EK_PROXY_WRITER; break;
-        case DSBT_READER:      kind = EK_PROXY_READER; break;
+        /* FIXME: for proxy topics loop over all proxy participants and iterate all proxy topics */
       }
-      assert (kind != EK_PARTICIPANT);
-      /* proxy topics are not stored in entity index as these are not entities
-         with a guid that is related to a proxy participant */
-      if (kind != EK_PROXY_TOPIC)
-        entidx_enum_init (&it->it, whc->entidx, kind);
       else
+#endif
       {
-        /* FIXME: for proxy topics loop over all proxy participants and iterate all
-           proxy topics */
+        switch (whc->entity_kind)
+        {
+          case DSBT_PARTICIPANT: kind = EK_PROXY_PARTICIPANT; break;
+          case DSBT_TOPIC:       assert (0); break;
+          case DSBT_WRITER:      kind = EK_PROXY_WRITER; break;
+          case DSBT_READER:      kind = EK_PROXY_READER; break;
+        }
+        assert (kind != EK_PARTICIPANT);
+        /* proxy topics are not stored in entity index as these are not entities
+          with a guid that is related to a proxy participant */
+        entidx_enum_init (&it->it, whc->entidx, kind);
       }
 
       it->st = BIS_PROXY;
       /* FALLS THROUGH */
     case BIS_PROXY:
-      if (kind != EK_PROXY_TOPIC)
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+      if (whc->entity_kind == DSBT_TOPIC)
+      {
+        /* FIXME: for proxy topics loop over all proxy participants and iterate all proxy topics */
+        return false;
+      }
+      else
+#endif
       {
         while ((entity = entidx_enum_next (&it->it)) != NULL)
           if (is_visible (entity))
             break;
-      }
-      if (entity)
-      {
-        if (kind != EK_PROXY_TOPIC)
-          sample->serdata = dds__builtin_make_sample (entity, entity->tupdate, true);
-        else
+        if (!entity)
         {
-          struct topic_definition *tpd = ((struct proxy_topic *)entity)->definition;
-          sample->serdata = dds__builtin_make_sample_topic (tpd, entity->tupdate, true);
+          entidx_enum_fini (&it->it);
+          return false;
         }
+        sample->serdata = dds__builtin_make_sample (entity, entity->tupdate, true);
         it->have_sample = true;
         return true;
-      }
-      else
-      {
-        entidx_enum_fini (&it->it);
-        return false;
       }
   }
   assert (0);

@@ -219,14 +219,18 @@ typedef struct dds_domain {
   struct cfgst *cfgst;
 
   struct ddsi_sertype *builtin_participant_type;
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   struct ddsi_sertype *builtin_topic_type;
+#endif
   struct ddsi_sertype *builtin_reader_type;
   struct ddsi_sertype *builtin_writer_type;
 
   struct local_orphan_writer *builtintopic_writer_participant;
   struct local_orphan_writer *builtintopic_writer_publications;
   struct local_orphan_writer *builtintopic_writer_subscriptions;
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   struct local_orphan_writer *builtintopic_writer_topics;
+#endif
 
   struct ddsi_builtin_topic_interface btif;
   struct ddsi_domaingv gv;
@@ -241,7 +245,8 @@ typedef struct dds_publisher {
 } dds_publisher;
 
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+/* type_id -> <topic guid, ddsi topic> mapping for ktopics */
 struct ktopic_type_guid {
   const type_identifier_t *type_id;
   uint32_t refc;
@@ -264,8 +269,8 @@ typedef struct dds_ktopic {
   dds_qos_t *qos;
   char *name; /* [constant] */
   char *type_name; /* [constant] */
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  struct ddsrt_hh *topic_guid_map;
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  struct ddsrt_hh *topic_guid_map; /* mapping of this ktopic to ddsi topics */
 #endif
 } dds_ktopic;
 

@@ -159,7 +159,7 @@ static dds_return_t dds_topic_delete (dds_entity *e)
 
   ddsrt_mutex_lock (&pp->m_entity.m_mutex);
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   // unref ktopic/type to guid mapping
   struct ktopic_type_guid templ;
   type_identifier_t *tid = ddsi_typeid_from_sertype (tp->m_stype);
@@ -186,7 +186,7 @@ static dds_return_t dds_topic_delete (dds_entity *e)
     dds_delete_qos (ktp->qos);
     ddsrt_free (ktp->name);
     ddsrt_free (ktp->type_name);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
     ddsrt_hh_free (ktp->topic_guid_map);
 #endif
     dds_free (ktp);
@@ -290,7 +290,7 @@ static dds_entity_t create_topic_pp_locked (struct dds_participant *pp, struct d
   return hdl;
 }
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 static int ktopic_type_guid_equal (const void *ktp_guid_a, const void *ktp_guid_b)
 {
   struct ktopic_type_guid *a = (struct ktopic_type_guid *) ktp_guid_a;
@@ -384,7 +384,7 @@ dds_entity_t dds_create_topic_impl (
     ktp->name = ddsrt_strdup (name);
     /* have to copy these because the ktopic can outlast any specific sertype */
     ktp->type_name = ddsrt_strdup ((*sertype)->type_name);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
     ktp->topic_guid_map = ddsrt_hh_new (1, ktopic_type_guid_hash, ktopic_type_guid_equal);
 #endif
 
@@ -417,7 +417,7 @@ dds_entity_t dds_create_topic_impl (
   ddsi_sertype_unref (*sertype);
   *sertype = sertype_registered;
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   /* create or reference ktopic-sertype meta-data entry */
   struct ktopic_type_guid templ, *m;
   type_identifier_t *tid = ddsi_typeid_from_sertype (sertype_registered);
@@ -444,6 +444,8 @@ dds_entity_t dds_create_topic_impl (
     m->refc++;
     ddsrt_free (tid);
   }
+#else
+  DDSRT_UNUSED_ARG (is_builtin);
 #endif
 
   ddsrt_mutex_unlock (&pp->m_entity.m_mutex);
@@ -580,7 +582,7 @@ dds_entity_t dds_find_topic (dds_entity_t participant, const char *name)
     struct dds_ktopic * const ktp = tp->m_ktopic;
     ktp->refc++;
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
     struct ktopic_type_guid templ;
     type_identifier_t *tid = ddsi_typeid_from_sertype (sertype);
     memset (&templ, 0, sizeof (templ));

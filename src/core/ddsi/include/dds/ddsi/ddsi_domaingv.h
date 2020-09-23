@@ -335,12 +335,12 @@ struct ddsi_domaingv {
   ddsrt_mutex_t sertypes_lock;
   struct ddsrt_hh *sertypes;
 
-  /* type and topic discovery globals */
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsrt_mutex_t tl_admin_lock;
   struct ddsrt_hh *tl_admin;
   ddsrt_cond_t tl_resolved_cond;
-
+#endif
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   ddsrt_mutex_t topic_defs_lock;
   struct ddsrt_hh *topic_defs;
 #endif

@@ -1726,6 +1726,7 @@ static struct cfgelem discovery_cfgelems[] = {
       "specified by the DDSI 2.1 specification and rarely need to be "
       "changed.</p>"
     )),
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   BOOL("EnableTopicDiscoveryEndpoints", NULL, 0, "false",
     MEMBER(enable_topic_discovery_endpoints),
     FUNCTIONS(0, uf_boolean, 0, pf_boolean),
@@ -1733,6 +1734,7 @@ static struct cfgelem discovery_cfgelems[] = {
       "<p>This element controls whether the built-in endpoints for topic "
       "discovery are created and used to exchange topic discovery information.</p>"
     )),
+#endif
   END_MARKER
 };
 

@@ -828,11 +828,13 @@ static void free_special_types (struct ddsi_domaingv *gv)
   ddsi_sertype_unref (gv->sedp_reader_secure_type);
   ddsi_sertype_unref (gv->sedp_writer_secure_type);
 #endif
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  if (gv->config.enable_topic_discovery_endpoints)
+    ddsi_sertype_unref (gv->sedp_topic_type);
+#endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsi_sertype_unref (gv->tl_svc_request_type);
   ddsi_sertype_unref (gv->tl_svc_reply_type);
-  if (gv->config.enable_topic_discovery_endpoints)
-    ddsi_sertype_unref (gv->sedp_topic_type);
 #endif
   ddsi_sertype_unref (gv->pmd_type);
   ddsi_sertype_unref (gv->spdp_type);
@@ -847,10 +849,12 @@ static void make_special_types (struct ddsi_domaingv *gv)
   gv->sedp_writer_type = make_special_type_plist (gv, "PublicationBuiltinTopicData", PID_ENDPOINT_GUID);
   gv->pmd_type = make_special_type_pserop (gv, "ParticipantMessageData", sizeof (ParticipantMessageData_t), participant_message_data_nops, participant_message_data_ops, participant_message_data_nops_key, participant_message_data_ops_key);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (gv->config.enable_topic_discovery_endpoints)
-    gv->sedp_topic_type = make_special_type_plist (gv, "TopicBuiltinTopicData", PID_CYCLONE_TOPIC_GUID);
   gv->tl_svc_request_type = make_special_type_pserop (gv, "TypeLookup_Request", sizeof (type_lookup_request_t), typelookup_service_request_nops, typelookup_service_request_ops, 0, NULL);
   gv->tl_svc_reply_type = make_special_type_pserop (gv, "TypeLookup_Reply", sizeof (type_lookup_reply_t), typelookup_service_reply_nops, typelookup_service_reply_ops, 0, NULL);
+#endif
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  if (gv->config.enable_topic_discovery_endpoints)
+    gv->sedp_topic_type = make_special_type_plist (gv, "TopicBuiltinTopicData", PID_CYCLONE_TOPIC_GUID);
 #endif
 #ifdef DDSI_INCLUDE_SECURITY
   gv->spdp_secure_type = make_special_type_plist (gv, "ParticipantBuiltinTopicDataSecure", PID_PARTICIPANT_GUID);
@@ -867,10 +871,12 @@ static void make_special_types (struct ddsi_domaingv *gv)
   ddsi_sertype_register_locked (gv->sedp_writer_type);
   ddsi_sertype_register_locked (gv->pmd_type);
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-  if (gv->config.enable_topic_discovery_endpoints)
-    ddsi_sertype_register_locked (gv->sedp_topic_type);
   ddsi_sertype_register_locked (gv->tl_svc_request_type);
   ddsi_sertype_register_locked (gv->tl_svc_reply_type);
+#endif
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  if (gv->config.enable_topic_discovery_endpoints)
+    ddsi_sertype_register_locked (gv->sedp_topic_type);
 #endif
 #ifdef DDSI_INCLUDE_SECURITY
   ddsi_sertype_register_locked (gv->spdp_secure_type);
@@ -1012,22 +1018,22 @@ static int tl_meta_equal_wrap (const void *tlm_a, const void *tlm_b)
 {
   return ddsi_tl_meta_equal (tlm_a, tlm_b);
 }
-
 static uint32_t tl_meta_hash_wrap (const void *tlm)
 {
   return ddsi_tl_meta_hash (tlm);
 }
+#endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 static int topic_definition_equal_wrap (const void *tpd_a, const void *tpd_b)
 {
   return topic_definition_equal (tpd_a, tpd_b);
 }
-
 static uint32_t topic_definition_hash_wrap (const void *tpd)
 {
   return topic_definition_hash (tpd);
 }
-#endif
+#endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
 
 static void reset_deaf_mute (struct xevent *xev, void *varg, UNUSED_ARG (ddsrt_mtime_t tnow))
 {
@@ -1256,6 +1262,8 @@ int rtps_init (struct ddsi_domaingv *gv)
   ddsrt_mutex_init (&gv->tl_admin_lock);
   ddsrt_cond_init (&gv->tl_resolved_cond);
   gv->tl_admin = ddsrt_hh_new (1, tl_meta_hash_wrap, tl_meta_equal_wrap);
+#endif
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   ddsrt_mutex_init (&gv->topic_defs_lock);
   gv->topic_defs = ddsrt_hh_new (1, topic_definition_hash_wrap, topic_definition_equal_wrap);
 #endif
@@ -1615,12 +1623,14 @@ err_unicast_sockets:
 #endif
   ddsrt_hh_free (gv->sertypes);
   ddsrt_mutex_destroy (&gv->sertypes_lock);
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  ddsrt_hh_free (gv->topic_defs);
+  ddsrt_mutex_destroy (&gv->topic_defs_lock);
+#endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsrt_hh_free (gv->tl_admin);
   ddsrt_mutex_destroy (&gv->tl_admin_lock);
   ddsrt_cond_destroy (&gv->tl_resolved_cond);
-  ddsrt_hh_free (gv->topic_defs);
-  ddsrt_mutex_destroy (&gv->topic_defs_lock);
 #endif
 #ifdef DDSI_INCLUDE_SECURITY
   q_omg_security_stop (gv); // should be a no-op as it starts lazily
@@ -1828,10 +1838,6 @@ void rtps_stop (struct ddsi_domaingv *gv)
     struct participant *pp;
     struct writer *wr;
     struct reader *rd;
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    struct entidx_enum_topic est_tp;
-    struct topic *tp;
-#endif
     /* Delete readers, writers and participants, relying on
        delete_participant to schedule the deletion of the built-in
        rwriters to get all SEDP and SPDP dispose+unregister messages
@@ -1854,12 +1860,12 @@ void rtps_stop (struct ddsi_domaingv *gv)
     }
     entidx_enum_reader_fini (&est_rd);
     thread_state_awake_to_awake_no_nest (ts1);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+    struct entidx_enum_topic est_tp;
+    struct topic *tp;
     entidx_enum_topic_init (&est_tp, gv->entity_index);
     while ((tp = entidx_enum_topic_next (&est_tp)) != NULL)
-    {
       delete_topic (gv, &tp->e.guid);
-    }
     entidx_enum_topic_fini (&est_tp);
     thread_state_awake_to_awake_no_nest (ts1);
 #endif
@@ -2007,15 +2013,22 @@ void rtps_fini (struct ddsi_domaingv *gv)
 #ifndef NDEBUG
   {
     struct ddsrt_hh_iter it;
-    assert (ddsrt_hh_iter_first (gv->topic_defs, &it) == NULL);
     assert (ddsrt_hh_iter_first (gv->tl_admin, &it) == NULL);
   }
 #endif
   ddsrt_hh_free (gv->tl_admin);
   ddsrt_mutex_destroy (&gv->tl_admin_lock);
+#endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+#ifndef NDEBUG
+  {
+    struct ddsrt_hh_iter it;
+    assert (ddsrt_hh_iter_first (gv->topic_defs, &it) == NULL);
+  }
+#endif
   ddsrt_hh_free (gv->topic_defs);
   ddsrt_mutex_destroy (&gv->topic_defs_lock);
-#endif
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 #ifdef DDSI_INCLUDE_SECURITY
   q_omg_security_free (gv);
   ddsi_xqos_fini (&gv->builtin_stateless_xqos_wr);

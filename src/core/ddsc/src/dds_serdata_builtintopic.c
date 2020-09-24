@@ -456,7 +456,7 @@ static struct ddsi_serdata *ddsi_serdata_builtin_from_keyhash_topic (const struc
   struct topic_definition *tpd = ddsrt_hh_lookup (gv->topic_defs, &templ);
 
   struct ddsi_serdata_builtintopic_topic *d = (struct ddsi_serdata_builtintopic_topic *) serdata_builtin_new (tp, tpd != NULL ? SDK_DATA : SDK_KEY);
-  memcpy (d->key, x.key, sizeof (*d->key));
+  memcpy (&d->key, &x.key, sizeof (d->key));
   if (tpd != NULL)
   {
     d->type_id = tpd->type_id;

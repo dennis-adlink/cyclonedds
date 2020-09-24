@@ -137,8 +137,8 @@ static int delete_topic_definition (struct topic_definition *tpd, ddsrt_wctime_t
 static void delete_proxy_topic (struct proxy_participant *proxypp, struct topic_definition *tpd, ddsrt_wctime_t timestamp);
 
 int proxy_topic_equal (const struct proxy_topic *proxy_tp_a, const struct proxy_topic *proxy_tp_b);
-DDSI_LIST_GENERIC_PTR_DECL(extern inline, proxy_topic_list, struct proxy_topic *, ddsrt_attribute_unused);
-DDSI_LIST_GENERIC_PTR_CODE(extern inline, proxy_topic_list, struct proxy_topic *, proxy_topic_equal)
+DDSI_LIST_GENERIC_PTR_DECL(inline, proxy_topic_list, struct proxy_topic *, ddsrt_attribute_unused);
+DDSI_LIST_GENERIC_PTR_CODE(inline, proxy_topic_list, struct proxy_topic *, proxy_topic_equal)
 #endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 
 extern inline bool builtintopic_is_visible (const struct ddsi_builtin_topic_interface *btif, const struct ddsi_guid *guid, nn_vendorid_t vendorid);
@@ -4805,14 +4805,14 @@ static void topic_ref_topic_definition (struct topic *tp, const struct ddsi_sert
 {
   assert (tp != NULL);
   struct ddsi_domaingv *gv = tp->e.gv;
-  ddsrt_mutex_lock (&gv->topic_defs_lock);
   type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
   assert (type_id != NULL);
   bool new_tpd = false;
   struct topic_definition *tpd = lookup_topic_definition (gv, qos, type_id, type, &new_tpd);
+  ddsrt_mutex_lock (&gv->topic_defs_lock);
   tpd->refc++;
-  tp->definition = tpd;
   ddsrt_mutex_unlock (&gv->topic_defs_lock);
+  tp->definition = tpd;
   if (new_tpd)
     builtintopic_write_topic (gv->builtin_topic_interface, tpd, ddsrt_time_wallclock (), true);
   ddsrt_free (type_id);
@@ -5732,7 +5732,7 @@ int topic_definition_equal (const struct topic_definition *tpd_a, const struct t
 uint32_t topic_definition_hash (const struct topic_definition *tpd)
 {
   assert (tpd != NULL);
-  return (uint32_t) *tpd->key;
+  return (uint32_t) tpd->key;
 }
 
 static void set_topic_definition_hash (struct topic_definition *tpd)
@@ -5750,7 +5750,7 @@ static void set_topic_definition_hash (struct topic_definition *tpd)
   assert (sqos_sz <= UINT32_MAX);
   ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) sqos, (uint32_t) sqos_sz);
   nn_xmsg_free (mqos);
-  ddsrt_md5_finish (&md5st, (ddsrt_md5_byte_t *) tpd->key);
+  ddsrt_md5_finish (&md5st, (ddsrt_md5_byte_t *) &tpd->key);
 }
 
 static struct topic_definition * new_topic_definition (struct ddsi_domaingv *gv, const struct ddsi_sertype *type, const struct dds_qos *qos)
@@ -5758,12 +5758,11 @@ static struct topic_definition * new_topic_definition (struct ddsi_domaingv *gv,
   assert ((qos->present & (QP_TOPIC_NAME | QP_TYPE_NAME)) == (QP_TOPIC_NAME | QP_TYPE_NAME));
   struct topic_definition *tpd = ddsrt_malloc (sizeof (*tpd));
   tpd->xqos = ddsi_xqos_dup (qos);
-  assert (type != NULL);
-  tpd->type = ddsi_sertype_ref (type);
   tpd->refc = 0;
   tpd->gv = gv;
   if (type != NULL)
   {
+    tpd->type = ddsi_sertype_ref (type);
     type_identifier_t *type_id = ddsi_typeid_from_sertype (type);
     memcpy (&tpd->type_id, type_id, sizeof (tpd->type_id));
     ddsrt_free (type_id);
@@ -5771,23 +5770,25 @@ static struct topic_definition * new_topic_definition (struct ddsi_domaingv *gv,
     if (qos->present & QP_CYCLONE_TYPE_INFORMATION)
     {
       assert (qos->type_information.length == sizeof (tpd->type_id));
-      assert (!memcmp (&tpd->type_id, qos->type_information.value, sizeof (tpd->type_id)));
+      assert (!memcmp (&tpd->type_id, &qos->type_information.value, sizeof (tpd->type_id)));
     }
 #endif
   }
   else
   {
+    tpd->type = NULL;
     assert (qos->present & QP_CYCLONE_TYPE_INFORMATION);
     assert (qos->type_information.length == sizeof (tpd->type_id));
-    memcpy (&tpd->type_id, qos->type_information.value, sizeof (tpd->type_id));
+    memcpy (&tpd->type_id, &qos->type_information.value, sizeof (tpd->type_id));
   }
-  ddsi_tl_meta_proxy_ref (gv, &tpd->type_id, NULL);
   set_topic_definition_hash (tpd);
 
+  ddsrt_mutex_lock (&gv->topic_defs_lock);
 #ifndef NDEBUG
   assert (ddsrt_hh_lookup (gv->topic_defs, tpd) == NULL);
 #endif
   (void) ddsrt_hh_add (gv->topic_defs, tpd);
+  ddsrt_mutex_unlock (&gv->topic_defs_lock);
   return tpd;
 }
 
@@ -5797,10 +5798,12 @@ static struct topic_definition *lookup_topic_definition (struct ddsi_domaingv *g
   struct topic_definition templ;
   memset (&templ, 0, sizeof (templ));
   templ.xqos = qos;
-  templ.type_id = *type_id;
+  memcpy (&templ.type_id, type_id, sizeof (templ.type_id));
   templ.gv = gv;
   set_topic_definition_hash (&templ);
+  ddsrt_mutex_lock (&gv->topic_defs_lock);
   struct topic_definition *tpd = ddsrt_hh_lookup (gv->topic_defs, &templ);
+  ddsrt_mutex_unlock (&gv->topic_defs_lock);
   if (tpd == NULL)
   {
     tpd = new_topic_definition (gv, type, qos);
@@ -5818,8 +5821,6 @@ static void gc_delete_topic_definition (struct gcreq *gcreq)
   struct ddsi_domaingv *gv = tpd->gv;
   GVLOGDISC ("gcreq_delete_topic_definition(%p)\n", (void *) gcreq);
   gcreq_free (gcreq);
-  if (!ddsi_typeid_none (&tpd->type_id))
-    ddsi_tl_meta_proxy_unref (tpd->gv, &tpd->type_id, NULL);
   if (tpd->type != NULL)
     ddsi_sertype_unref ((struct ddsi_sertype *) tpd->type);
   ddsi_xqos_fini (tpd->xqos);
@@ -5860,22 +5861,20 @@ bool new_proxy_topic (struct proxy_participant *proxypp, const ddsi_guid_t *guid
   struct ddsi_domaingv *gv = proxypp->e.gv;
   bool new_tpd = false, found_proxytp = false;
   proxy_topic_list_iter_t it;
-  ddsrt_mutex_lock (&gv->topic_defs_lock);
   struct topic_definition *tpd = lookup_topic_definition (gv, qos, type_id, NULL, &new_tpd);
   ddsrt_mutex_lock (&proxypp->e.lock);
   for (struct proxy_topic *proxytp = proxy_topic_list_iter_first (&proxypp->topics, &it); proxytp != NULL && !found_proxytp; proxytp = proxy_topic_list_iter_next (&it))
     found_proxytp = topic_definition_equal (proxytp->definition, tpd);
-  assert (new_tpd || found_proxytp);
   if (!found_proxytp)
   {
-    struct proxy_topic *proxytp = ddsrt_malloc (sizeof (proxytp));
+    struct proxy_topic *proxytp = ddsrt_malloc (sizeof (*proxytp));
     proxytp->entityid = guid->entityid;
     proxytp->definition = tpd;
+    proxytp->tupdate = timestamp;
     proxy_topic_list_insert (&proxypp->topics, proxytp);
     tpd->refc++;
   }
   ddsrt_mutex_unlock (&proxypp->e.lock);
-  ddsrt_mutex_unlock (&gv->topic_defs_lock);
   if (new_tpd)
     builtintopic_write_topic (gv->builtin_topic_interface, tpd, timestamp, true);
   return !found_proxytp;

@@ -385,7 +385,8 @@ struct reader
 };
 
 #ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
-DDSI_LIST_GENERIC_PTR_TYPES(proxy_topic_list)
+DDSI_LIST_GENERIC_PTR_TYPES(proxy_topic_list);
+DDSI_LIST_GENERIC_PTR_DECL(extern, proxy_topic_list, struct proxy_topic *, ddsrt_attribute_unused);
 #endif
 
 struct proxy_participant
@@ -427,6 +428,7 @@ struct proxy_topic
 {
   ddsi_entityid_t entityid;
   struct topic_definition *definition; /* ref to (shared) topic definition */
+  ddsrt_wctime_t tupdate; /* timestamp of last update */
 };
 #endif
 

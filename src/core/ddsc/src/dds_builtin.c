@@ -253,7 +253,7 @@ struct ddsi_serdata *dds__builtin_make_sample_topic (const struct topic_definiti
   struct ddsi_sertype *type = dom->builtin_topic_type;
   struct ddsi_serdata *serdata;
   union { unsigned char key[16]; struct ddsi_keyhash keyhash; } x;
-  memcpy (x.key, tpd->key, sizeof (x.key));
+  memcpy (&x.key, &tpd->key, sizeof (x.key));
   serdata = ddsi_serdata_from_keyhash (type, &x.keyhash);
   serdata->timestamp = timestamp;
   serdata->statusinfo = alive ? 0 : NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER;

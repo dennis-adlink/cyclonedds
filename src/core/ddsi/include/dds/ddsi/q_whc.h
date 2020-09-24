@@ -58,6 +58,7 @@ struct whc_sample_iter {
     double y;
     void *p;
   } opaque;
+  uint8_t pad; /* so that bwhc_iter fits in */
 };
 
 typedef seqno_t (*whc_next_seq_t)(const struct whc *whc, seqno_t seq);

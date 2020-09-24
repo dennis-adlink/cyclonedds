@@ -43,6 +43,10 @@ struct bwhc_iter {
   enum bwhc_iter_state st;
   bool have_sample;
   struct entidx_enum it;
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  struct proxy_participant *cur_proxypp;
+  proxy_topic_list_iter_t proxytp_it;
+#endif
 };
 
 /* check that our definition of whc_sample_iter fits in the type that callers allocate */
@@ -122,7 +126,11 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
 #ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
       if (whc->entity_kind == DSBT_TOPIC)
       {
-        /* FIXME: for proxy topics loop over all proxy participants and iterate all proxy topics */
+        /* proxy topics are not stored in entity index as these are not real
+           entities. For proxy topics loop over all proxy participants and
+           iterate all proxy topics for each proxy participant*/
+        entidx_enum_init (&it->it, whc->entidx, EK_PROXY_PARTICIPANT);
+        it->cur_proxypp = NULL;
       }
       else
 #endif
@@ -135,8 +143,6 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
           case DSBT_READER:      kind = EK_PROXY_READER; break;
         }
         assert (kind != EK_PARTICIPANT);
-        /* proxy topics are not stored in entity index as these are not entities
-          with a guid that is related to a proxy participant */
         entidx_enum_init (&it->it, whc->entidx, kind);
       }
 
@@ -146,7 +152,29 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
 #ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
       if (whc->entity_kind == DSBT_TOPIC)
       {
-        /* FIXME: for proxy topics loop over all proxy participants and iterate all proxy topics */
+        struct proxy_topic *proxytp = NULL;
+        if (it->cur_proxypp != NULL)
+        {
+          ddsrt_mutex_lock (&it->cur_proxypp->e.lock);
+          proxytp = proxy_topic_list_iter_next (&it->proxytp_it);
+        }
+        if (proxytp == NULL)
+        {
+          if (it->cur_proxypp != NULL)
+            ddsrt_mutex_unlock (&it->cur_proxypp->e.lock);
+          if ((it->cur_proxypp = (struct proxy_participant *) entidx_enum_next (&it->it)) == NULL)
+            return false;
+          ddsrt_mutex_lock (&it->cur_proxypp->e.lock);
+          proxytp = proxy_topic_list_iter_first (&it->cur_proxypp->topics, &it->proxytp_it);
+        }
+        if (proxytp != NULL)
+        {
+          sample->serdata = dds__builtin_make_sample_topic (proxytp->definition, proxytp->tupdate, true);
+          it->have_sample = true;
+          ddsrt_mutex_unlock (&it->cur_proxypp->e.lock);
+          return true;
+        }
+        ddsrt_mutex_unlock (&it->cur_proxypp->e.lock);
         return false;
       }
       else

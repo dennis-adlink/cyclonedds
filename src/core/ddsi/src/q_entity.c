@@ -5874,6 +5874,7 @@ bool new_proxy_topic (struct proxy_participant *proxypp, const ddsi_guid_t *guid
     tpd->refc++;
   }
   ddsrt_mutex_unlock (&proxypp->e.lock);
+  ddsi_tl_meta_proxy_ref (gv, &tpd->type_id, guid);
   if (new_tpd)
     builtintopic_write_topic (gv->builtin_topic_interface, tpd, timestamp, true);
   return !found_proxytp;
@@ -5885,17 +5886,20 @@ static void delete_proxy_topic (struct proxy_participant *proxypp, struct topic_
   ddsrt_mutex_lock (&gv->topic_defs_lock);
   ddsrt_mutex_lock (&proxypp->e.lock);
   proxy_topic_list_iter_t it;
+  ddsi_guid_t proxytp_guid = { .prefix = proxypp->e.guid.prefix, .entityid = { 0 } };
   for (struct proxy_topic *proxytp = proxy_topic_list_iter_first (&proxypp->topics, &it); proxytp != NULL; proxytp = proxy_topic_list_iter_next (&it))
   {
     if (topic_definition_equal (proxytp->definition, tpd))
     {
       proxy_topic_list_remove (&proxypp->topics, proxytp);
+      proxytp_guid.entityid.u = proxytp->entityid.u;
       ddsrt_free (proxytp);
       break;
     }
   }
   bool delete = !--tpd->refc;
   ddsrt_mutex_unlock (&proxypp->e.lock);
+  ddsi_tl_meta_proxy_unref (gv, &tpd->type_id, &proxytp_guid);
   ddsrt_mutex_unlock (&gv->topic_defs_lock);
   if (delete)
     (void) delete_topic_definition (tpd, timestamp);

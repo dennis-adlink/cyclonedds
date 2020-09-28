@@ -66,7 +66,7 @@ struct tl_meta {
   const struct ddsi_sertype *sertype;   /* sertype associated with the type identifier, NULL if type is unresolved */
   enum tl_meta_state state;             /* state of this record */
   seqno_t request_seqno;                /* sequence number of the last type lookup request message */
-  struct tlm_proxy_guid_list proxy_endpoints; /* administration for proxy endpoints that are using this type */
+  struct tlm_proxy_guid_list proxy_guids; /* administration for proxy endpoints and proxy topics that are using this type */
   uint32_t refc;                        /* refcount for this record */
 };
 

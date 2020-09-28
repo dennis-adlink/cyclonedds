@@ -394,6 +394,7 @@ static void print_key(FILE *fp, const char *label, const dds_guid_t *key)
   fprintf(fp, "\n");
 }
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 static void print_key_topic(FILE *fp, const char *label, const unsigned char *key)
 {
   fprintf(fp, "%s", label);
@@ -430,6 +431,7 @@ static void print_dcps_topic (FILE *fp, dds_entity_t pp)
   }
   dds_delete (rd);
 }
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 
 static void print_dcps_participant (FILE *fp, dds_entity_t pp)
 {

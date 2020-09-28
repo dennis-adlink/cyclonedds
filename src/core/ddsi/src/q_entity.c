@@ -5732,7 +5732,7 @@ int topic_definition_equal (const struct topic_definition *tpd_a, const struct t
 uint32_t topic_definition_hash (const struct topic_definition *tpd)
 {
   assert (tpd != NULL);
-  return (uint32_t) tpd->key;
+  return *(uint32_t *) tpd->key;
 }
 
 static void set_topic_definition_hash (struct topic_definition *tpd)

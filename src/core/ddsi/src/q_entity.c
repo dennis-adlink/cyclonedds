@@ -5742,7 +5742,6 @@ static void set_topic_definition_hash (struct topic_definition *tpd)
   ddsrt_md5_state_t md5st;
   ddsrt_md5_init (&md5st);
   ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) &tpd->type_id, sizeof (tpd->type_id));
-  const ddsi_guid_t nullguid = { .prefix = { .u = { 0,0,0 } }, .entityid = { .u = 0 } };
   struct nn_xmsg *mqos = nn_xmsg_new (tpd->gv->xmsgpool, &nullguid, NULL, 0, NN_XMSG_KIND_DATA);
   ddsi_xqos_addtomsg (mqos, tpd->xqos, ~(uint64_t)0);
   size_t sqos_sz;

@@ -131,7 +131,7 @@ static int gcreq_topic (struct topic *tp);
 static int gcreq_topic_definition (struct topic_definition *tpd);
 
 static struct topic_definition *lookup_topic_definition (struct ddsi_domaingv *gv, struct dds_qos *qos, const type_identifier_t *type_id, const struct ddsi_sertype *type, bool *new_tpd);
-static void topic_ref_topic_definition (struct topic *tp, const struct ddsi_sertype *type, struct dds_qos *qos);
+static void topic_ref_topic_definition (struct topic *tp, const struct ddsi_sertype *type, const type_identifier_t *type_id, struct dds_qos *qos);
 static void topic_unref_topic_definition (struct topic_definition *tpd, ddsrt_wctime_t timestamp);
 static int delete_topic_definition (struct topic_definition *tpd, ddsrt_wctime_t timestamp);
 static void delete_proxy_topic (struct proxy_participant *proxypp, struct topic_definition *tpd, ddsrt_wctime_t timestamp);
@@ -4753,6 +4753,13 @@ dds_return_t new_topic
   ddsi_xqos_copy (tp_qos, xqos);
   ddsi_xqos_mergein_missing (tp_qos, &gv->default_xqos_tp, ~(uint64_t)0);
   assert (tp_qos->aliased == 0);
+
+  /* Set topic name, type name and type id in qos */
+  type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
+  assert (type_id != NULL);
+  tp_qos->present |= QP_CYCLONE_TYPE_INFORMATION;
+  tp_qos->type_information.length = (uint32_t) sizeof (*type_id);
+  tp_qos->type_information.value = ddsrt_memdup (&type_id->hash, tp_qos->type_information.length);
   set_topic_type_name (tp_qos, topic_name, type->type_name);
 
   if (gv->logconfig.c.mask & DDS_LC_DISCOVERY)
@@ -4762,9 +4769,10 @@ dds_return_t new_topic
     ELOGDISC (tp, "}\n");
   }
 
-  topic_ref_topic_definition (tp, type, tp_qos);
+  topic_ref_topic_definition (tp, type, type_id, tp_qos);
   ddsi_xqos_fini (tp_qos);
   ddsrt_free (tp_qos);
+  ddsrt_free (type_id);
 
   ddsrt_mutex_lock (&tp->e.lock);
   entidx_insert_topic_guid (gv->entity_index, tp);
@@ -4801,12 +4809,10 @@ dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *gui
   return 0;
 }
 
-static void topic_ref_topic_definition (struct topic *tp, const struct ddsi_sertype *type, struct dds_qos *qos)
+static void topic_ref_topic_definition (struct topic *tp, const struct ddsi_sertype *type, const type_identifier_t *type_id, struct dds_qos *qos)
 {
   assert (tp != NULL);
   struct ddsi_domaingv *gv = tp->e.gv;
-  type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
-  assert (type_id != NULL);
   bool new_tpd = false;
   struct topic_definition *tpd = lookup_topic_definition (gv, qos, type_id, type, &new_tpd);
   ddsrt_mutex_lock (&gv->topic_defs_lock);
@@ -4815,7 +4821,6 @@ static void topic_ref_topic_definition (struct topic *tp, const struct ddsi_sert
   tp->definition = tpd;
   if (new_tpd)
     builtintopic_write_topic (gv->builtin_topic_interface, tpd, ddsrt_time_wallclock (), true);
-  ddsrt_free (type_id);
 }
 
 static void topic_unref_topic_definition (struct topic_definition *tpd, ddsrt_wctime_t timestamp)
@@ -5769,7 +5774,7 @@ static struct topic_definition * new_topic_definition (struct ddsi_domaingv *gv,
     if (qos->present & QP_CYCLONE_TYPE_INFORMATION)
     {
       assert (qos->type_information.length == sizeof (tpd->type_id));
-      assert (!memcmp (&tpd->type_id, &qos->type_information.value, sizeof (tpd->type_id)));
+      assert (!memcmp (&tpd->type_id, qos->type_information.value, sizeof (tpd->type_id)));
     }
 #endif
   }
@@ -5781,6 +5786,14 @@ static struct topic_definition * new_topic_definition (struct ddsi_domaingv *gv,
     memcpy (&tpd->type_id, &qos->type_information.value, sizeof (tpd->type_id));
   }
   set_topic_definition_hash (tpd);
+  if (gv->logconfig.c.mask & DDS_LC_DISCOVERY)
+  {
+    GVLOGDISC (" TOPIC-DEFINITION 0x%p: key 0x", tpd);
+    for (size_t i = 0; i < sizeof (tpd->key); i++)
+      GVLOGDISC ("%02x", tpd->key[i]);
+    ddsi_xqos_log (DDS_LC_DISCOVERY, &gv->logconfig, tpd->xqos);
+    GVLOGDISC ("\n");
+  }
 
   ddsrt_mutex_lock (&gv->topic_defs_lock);
 #ifndef NDEBUG

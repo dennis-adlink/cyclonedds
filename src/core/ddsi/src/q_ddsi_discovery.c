@@ -1482,12 +1482,13 @@ static void handle_SEDP_alive_topic (const struct receiver_state *rst, ddsi_plis
     memcpy (type_id.hash, xqos->type_information.value, sizeof (type_id.hash));
     GVLOGDISC (" type-hash "PTYPEIDFMT, PTYPEID(type_id));
   }
+  GVLOGDISC ("\n ");
 
   // FIXME: check compatibility with known topic definitions
   if (new_proxy_topic (proxypp, &datap->topic_guid, &type_id, xqos, timestamp))
-    GVLOGDISC (" NEW");
+    GVLOGDISC (" NEW proxy-topic");
   else
-    GVLOGDISC (" known%s\n", vendor_is_cloud (vendorid) ? "-DS" : "");
+    GVLOGDISC (" known proxy-topic%s\n", vendor_is_cloud (vendorid) ? "-DS" : "");
 
   GVLOGDISC (" QOS={");
   ddsi_xqos_log (DDS_LC_DISCOVERY, &gv->logconfig, xqos);

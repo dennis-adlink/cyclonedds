@@ -3486,6 +3486,21 @@ DDS_EXPORT void
 dds_builtintopic_free_endpoint (
   dds_builtintopic_endpoint_t * builtintopic_endpoint);
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+/**
+ * @brief Free the provided topic information
+ *
+ * This operation deallocates the memory of the fields in a
+ * dds_builtintopic_topic_t struct and deallocates the
+ * struct itself.
+ *
+ * @param[in] builtintopic_topic  The builtintopic topic struct
+ */
+DDS_EXPORT void
+dds_builtintopic_free_topic (
+  dds_builtintopic_topic_t * builtintopic_topic);
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
+
 /**
  * @brief Free the provided participant information
  *

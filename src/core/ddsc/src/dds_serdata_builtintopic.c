@@ -50,7 +50,7 @@ static struct ddsi_serdata *fix_serdata_builtin(struct ddsi_serdata_builtintopic
     d->c.hash = hash_guid (&((struct ddsi_serdata_builtintopic_endpoint *) d)->key) ^ basehash;
   else if (kind == DSBT_TOPIC)
 #ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
-    d->c.hash = ((uint32_t) *((struct ddsi_serdata_builtintopic_topic *) d)->key) ^ basehash;
+    d->c.hash = (* (uint32_t *) ((struct ddsi_serdata_builtintopic_topic *) d)->key) ^ basehash;
 #else
     assert (0);
 #endif
@@ -59,32 +59,31 @@ static struct ddsi_serdata *fix_serdata_builtin(struct ddsi_serdata_builtintopic
 
 static bool serdata_builtin_eqkey(const struct ddsi_serdata *acmn, const struct ddsi_serdata *bcmn)
 {
-  const void *key_a = NULL, *key_b = NULL;
-  size_t key_sz = 0;
+#define BUILTINTOPIC_KEYEQ(type_, acmn_, bcmn_) \
+    { \
+      const void *key_a = NULL, *key_b = NULL; \
+      size_t sz = 0; \
+      key_a = &((const type_ *) acmn_)->key; \
+      key_b = &((const type_ *) bcmn_)->key; \
+      sz = sizeof (((const type_ *) acmn_)->key); \
+      return memcmp (key_a, key_b, sz) == 0; \
+    }
+
   switch (((struct ddsi_sertype_builtintopic *)acmn->type)->entity_kind)
   {
     case DSBT_PARTICIPANT:
-      key_a = &((const struct ddsi_serdata_builtintopic_participant *) acmn)->key;
-      key_b = &((const struct ddsi_serdata_builtintopic_participant *) bcmn)->key;
-      key_sz = sizeof (((const struct ddsi_serdata_builtintopic_participant *) acmn)->key);
-      break;
+      BUILTINTOPIC_KEYEQ (struct ddsi_serdata_builtintopic_participant, acmn, bcmn)
     case DSBT_READER:
     case DSBT_WRITER:
-      key_a = &((const struct ddsi_serdata_builtintopic_endpoint *) acmn)->key;
-      key_b = &((const struct ddsi_serdata_builtintopic_endpoint *) bcmn)->key;
-      key_sz = sizeof (((const struct ddsi_serdata_builtintopic_endpoint *) acmn)->key);
-      break;
+      BUILTINTOPIC_KEYEQ (struct ddsi_serdata_builtintopic_endpoint, acmn, bcmn)
 #ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
     case DSBT_TOPIC:
-      key_a = ((const struct ddsi_serdata_builtintopic_topic *) acmn)->key;
-      key_b = ((const struct ddsi_serdata_builtintopic_topic *) bcmn)->key;
-      key_sz = sizeof (*((const struct ddsi_serdata_builtintopic_topic *) acmn)->key);
-      break;
+      BUILTINTOPIC_KEYEQ (struct ddsi_serdata_builtintopic_topic, acmn, bcmn)
 #endif
     default:
       abort ();
   }
-  return memcmp (key_a, key_b, key_sz) == 0;
+#undef BUILTINTOPIC_KEYEQ
 }
 
 static void serdata_builtin_free(struct ddsi_serdata *dcmn)

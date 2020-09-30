@@ -77,7 +77,7 @@ static void msg (const char *msg, ...)
 }
 
 CU_TheoryDataPoints(ddsc_topic_discovery, remote_topics) = {
-    CU_DataPoints(uint32_t,     1,     1,     5,     5,   100,     1,     1,     5,     5,   100,    1,    5), /* number of participants */
+    CU_DataPoints(uint32_t,     1,     1,     5,     5,    30,     1,     1,     5,     5,    30,    1,    5), /* number of participants */
     CU_DataPoints(uint32_t,     1,     5,     1,    64,     3,     1,     5,     1,    64,     3,    1,   30), /* number of topics per participant */
     CU_DataPoints(bool,      true,  true,  true,  true,  true, false, false, false, false, false, true, true), /* test historical data for topic discovery */
     CU_DataPoints(bool,     false, false, false, false, false,  true,  true,  true,  true,  true, true, true), /* test live topic discovery */
@@ -107,7 +107,6 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
   if (hist_data)
   {
     for (uint32_t p = 0; p < num_pp; p++)
-    {
       for (uint32_t t = 0; t < num_tp; t++)
       {
         topic_names[p * num_tp + t] = ddsrt_malloc (101);
@@ -115,7 +114,6 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
         dds_entity_t topic = dds_create_topic (participant_remote[p], &Space_Type1_desc, topic_names[p * num_tp + t], NULL, NULL);
         CU_ASSERT_FATAL (topic > 0);
       }
-    }
 
     /* sleep for some time so that deliver_historical_data will be used for (at least some of)
        the sedp samples for the created topics */
@@ -124,16 +122,13 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
 
   /* create reader for DCPSTopic */
   dds_entity_t topic_rd = dds_create_reader (g_participant1, DDS_BUILTIN_TOPIC_DCPSTOPIC, NULL, NULL);
-  dds_set_status_mask (topic_rd, DDS_DATA_AVAILABLE_STATUS);
-  dds_entity_t ws = dds_create_waitset (g_participant1);
-  dds_waitset_attach (ws, topic_rd, topic_rd);
+  CU_ASSERT_FATAL (topic_rd > 0);
 
   /* create more topics after reader has been created */
   if (live_data)
   {
     uint32_t offs = num_pp * num_tp;
     for (uint32_t p = 0; p < num_pp; p++)
-    {
       for (uint32_t t = 0; t < num_tp; t++)
       {
         topic_names[offs + p * num_tp + t] = ddsrt_malloc (101);
@@ -141,46 +136,35 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
         dds_entity_t topic = dds_create_topic (participant_remote[p], &Space_Type1_desc, topic_names[offs + p * num_tp + t], NULL, NULL);
         CU_ASSERT_FATAL (topic > 0);
       }
-    }
   }
 
   /* read DCPSTopic and check if all topics seen */
   dds_time_t t_exp = dds_time () + DDS_SECS (10);
   do
   {
-    dds_return_t ret = dds_waitset_wait_until (ws, NULL, 0, t_exp);
-    if (ret > 0)
+    void *raw[1] = { 0 };
+    dds_sample_info_t sample_info[1];
+    dds_return_t n;
+    while ((n = dds_take (topic_rd, raw, sample_info, 1, 1)) > 0)
     {
-      void *raw[1] = { 0 };
-      dds_sample_info_t sample_info[1];
-      dds_return_t n;
-      while ((n = dds_take (topic_rd, raw, sample_info, 1, 1)) > 0)
+      CU_ASSERT_EQUAL_FATAL (n, 1);
+      if (sample_info[0].valid_data)
       {
-        CU_ASSERT_EQUAL_FATAL (n, 1);
         dds_builtintopic_topic_t *sample = raw[0];
         // msg ("read topic: %s", sample->topic_name);
         for (uint32_t p = 0; p < 2 * num_pp; p++)
           for (uint32_t t = 0; t < num_tp; t++)
-            if ((hist_data && p < num_pp) || (live_data && p >= num_pp))
-              if (!strcmp (sample->topic_name, topic_names[p * num_tp + t]))
-                seen[p] |= 1lu << t;
-        dds_return_loan (topic_rd, raw, n);
+            if (((hist_data && p < num_pp) || (live_data && p >= num_pp)) && !strcmp (sample->topic_name, topic_names[p * num_tp + t]))
+              seen[p] |= UINT64_C (1) << t;
       }
-    }
-    else
-    {
-      CU_ASSERT_EQUAL_FATAL (ret, 0);
-      msg ("timeout");
-      break;
+      dds_return_loan (topic_rd, raw, n);
     }
     all_seen = true;
     for (uint32_t p = 0; p < 2 * num_pp && all_seen; p++)
-    {
-      if ((hist_data && p < num_pp) || (live_data && p >= num_pp))
-        if (seen[p] != (2lu << (num_tp - 1)) - 1)
-          all_seen = false;
-    }
-  } while (!all_seen);
+      if (((hist_data && p < num_pp) || (live_data && p >= num_pp)) && (seen[p] != (UINT64_C (2) << (num_tp - 1)) - 1))
+        all_seen = false;
+    dds_sleepfor (DDS_MSECS (10));
+  } while (!all_seen && dds_time () < t_exp);
   CU_ASSERT_FATAL (all_seen);
 
   /* clean up */
@@ -208,12 +192,9 @@ CU_Test (ddsc_topic_discovery, single_topic_def, .init = topic_discovery_init, .
 
   /* create reader for DCPSTopic and for the application topic */
   dds_entity_t topic_rd = dds_create_reader (g_participant1, DDS_BUILTIN_TOPIC_DCPSTOPIC, NULL, NULL);
-  dds_set_status_mask (topic_rd, DDS_DATA_AVAILABLE_STATUS);
+  CU_ASSERT_FATAL (topic_rd > 0);
   dds_entity_t app_rd = dds_create_reader (g_participant1, topic, NULL, NULL);
-  dds_set_status_mask (app_rd, DDS_DATA_AVAILABLE_STATUS);
-  dds_entity_t ws = dds_create_waitset (g_participant1);
-  dds_waitset_attach (ws, topic_rd, topic_rd);
-  dds_waitset_attach (ws, app_rd, app_rd);
+  CU_ASSERT_FATAL (app_rd > 0);
 
   /* create 'remote' topic and a reader and writer using this topic */
   dds_entity_t topic_remote = dds_create_topic (participant_remote, &Space_Type1_desc, topic_name, NULL, NULL);
@@ -228,31 +209,23 @@ CU_Test (ddsc_topic_discovery, single_topic_def, .init = topic_discovery_init, .
   bool topic_seen = false;
   do
   {
-    dds_return_t ret = dds_waitset_wait_until (ws, NULL, 0, t_exp);
-    if (ret > 0)
+    void *raw[1] = { 0 };
+    dds_sample_info_t sample_info[1];
+    dds_return_t n;
+    while ((n = dds_take (topic_rd, raw, sample_info, 1, 1)) > 0)
     {
-      void *raw[1] = { 0 };
-      dds_sample_info_t sample_info[1];
-      dds_return_t n;
-      while ((n = dds_take (topic_rd, raw, sample_info, 1, 1)) > 0)
+      CU_ASSERT_EQUAL_FATAL (n, 1);
+      dds_builtintopic_topic_t *sample = raw[0];
+      msg ("read topic: %s", sample->topic_name);
+      if (!strcmp (sample->topic_name, topic_name))
       {
-        CU_ASSERT_EQUAL_FATAL (n, 1);
-        dds_builtintopic_topic_t *sample = raw[0];
-        msg ("read topic: %s", sample->topic_name);
-        if (!strcmp (sample->topic_name, topic_name))
-        {
-          CU_ASSERT_FATAL (!topic_seen);
-          topic_seen = true;
-        }
-        dds_return_loan (topic_rd, raw, n);
+        CU_ASSERT_FATAL (!topic_seen);
+        topic_seen = true;
       }
+      dds_return_loan (topic_rd, raw, n);
     }
-    else
-    {
-      CU_ASSERT_EQUAL_FATAL (ret, 0);
-      break;
-    }
-  } while (1);
+    dds_sleepfor (DDS_MSECS (10));
+  } while (dds_time () < t_exp);
   CU_ASSERT_FATAL (topic_seen);
 }
 
@@ -271,9 +244,7 @@ CU_Test (ddsc_topic_discovery, different_type, .init = topic_discovery_init, .fi
 
   /* create reader for DCPSTopic */
   dds_entity_t topic_rd = dds_create_reader (g_participant1, DDS_BUILTIN_TOPIC_DCPSTOPIC, NULL, NULL);
-  dds_set_status_mask (topic_rd, DDS_DATA_AVAILABLE_STATUS);
-  dds_entity_t ws = dds_create_waitset (g_participant1);
-  dds_waitset_attach (ws, topic_rd, topic_rd);
+  CU_ASSERT_FATAL (topic_rd > 0);
 
   /* create 'remote' topic with different type */
   dds_entity_t topic_remote = dds_create_topic (participant_remote, &Space_Type3_desc, topic_name, NULL, NULL);
@@ -285,33 +256,25 @@ CU_Test (ddsc_topic_discovery, different_type, .init = topic_discovery_init, .fi
   unsigned char key[16];
   do
   {
-    dds_return_t ret = dds_waitset_wait_until (ws, NULL, 0, t_exp);
-    if (ret > 0)
+    void *raw[1] = { 0 };
+    dds_sample_info_t sample_info[1];
+    dds_return_t n;
+    while ((n = dds_take (topic_rd, raw, sample_info, 1, 1)) > 0)
     {
-      void *raw[1] = { 0 };
-      dds_sample_info_t sample_info[1];
-      dds_return_t n;
-      while ((n = dds_take (topic_rd, raw, sample_info, 1, 1)) > 0)
+      CU_ASSERT_EQUAL_FATAL (n, 1);
+      dds_builtintopic_topic_t *sample = raw[0];
+      msg ("read topic: %s", sample->topic_name);
+      if (!strcmp (sample->topic_name, topic_name))
       {
-        CU_ASSERT_EQUAL_FATAL (n, 1);
-        dds_builtintopic_topic_t *sample = raw[0];
-        msg ("read topic: %s", sample->topic_name);
-        if (!strcmp (sample->topic_name, topic_name))
-        {
-          topic_seen++;
-          if (topic_seen == 0)
-            memcpy (&key, &sample->key, sizeof (key));
-          else
-            CU_ASSERT_FATAL (memcmp (&key, &sample->key, sizeof (key)) != 0);
-        }
-        dds_return_loan (topic_rd, raw, n);
+        topic_seen++;
+        if (topic_seen == 0)
+          memcpy (&key, &sample->key, sizeof (key));
+        else
+          CU_ASSERT_FATAL (memcmp (&key, &sample->key, sizeof (key)) != 0);
       }
+      dds_return_loan (topic_rd, raw, n);
     }
-    else
-    {
-      CU_ASSERT_EQUAL_FATAL (ret, 0);
-      break;
-    }
-  } while (1);
+    dds_sleepfor (DDS_MSECS (10));
+  } while (dds_time () < t_exp);
   CU_ASSERT_EQUAL_FATAL (topic_seen, 2);
 }

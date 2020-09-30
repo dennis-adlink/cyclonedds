@@ -158,7 +158,7 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
           ddsrt_mutex_lock (&it->cur_proxypp->e.lock);
           proxytp = proxy_topic_list_iter_next (&it->proxytp_it);
         }
-        if (proxytp == NULL)
+        while (proxytp == NULL)
         {
           if (it->cur_proxypp != NULL)
             ddsrt_mutex_unlock (&it->cur_proxypp->e.lock);

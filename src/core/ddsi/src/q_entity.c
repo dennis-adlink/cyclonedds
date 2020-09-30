@@ -5451,6 +5451,9 @@ static void unref_proxy_participant (struct proxy_participant *proxypp, struct p
     struct ddsi_domaingv * const gv = proxypp->e.gv;
     const ddsi_guid_t pp_guid = proxypp->e.guid;
     assert (proxypp->endpoints == NULL);
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+    assert (proxy_topic_list_count (&proxypp->topics) == 0);
+#endif
     ddsrt_mutex_unlock (&proxypp->e.lock);
     ELOGDISC (proxypp, "unref_proxy_participant("PGUIDFMT"): refc=0, freeing\n", PGUID (proxypp->e.guid));
     free_proxy_participant (proxypp);
@@ -5748,7 +5751,7 @@ static void set_topic_definition_hash (struct topic_definition *tpd)
   ddsrt_md5_init (&md5st);
   ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) &tpd->type_id, sizeof (tpd->type_id));
   struct nn_xmsg *mqos = nn_xmsg_new (tpd->gv->xmsgpool, &nullguid, NULL, 0, NN_XMSG_KIND_DATA);
-  ddsi_xqos_addtomsg (mqos, tpd->xqos, ~(uint64_t)0);
+  ddsi_xqos_addtomsg (mqos, tpd->xqos, ~(QP_CYCLONE_TYPE_INFORMATION));
   size_t sqos_sz;
   void * sqos = nn_xmsg_payload (&sqos_sz, mqos);
   assert (sqos_sz <= UINT32_MAX);
@@ -5783,7 +5786,7 @@ static struct topic_definition * new_topic_definition (struct ddsi_domaingv *gv,
     tpd->type = NULL;
     assert (qos->present & QP_CYCLONE_TYPE_INFORMATION);
     assert (qos->type_information.length == sizeof (tpd->type_id));
-    memcpy (&tpd->type_id, &qos->type_information.value, sizeof (tpd->type_id));
+    memcpy (&tpd->type_id, qos->type_information.value, sizeof (tpd->type_id));
   }
   set_topic_definition_hash (tpd);
   if (gv->logconfig.c.mask & DDS_LC_DISCOVERY)
@@ -5791,16 +5794,15 @@ static struct topic_definition * new_topic_definition (struct ddsi_domaingv *gv,
     GVLOGDISC (" TOPIC-DEFINITION 0x%p: key 0x", tpd);
     for (size_t i = 0; i < sizeof (tpd->key); i++)
       GVLOGDISC ("%02x", tpd->key[i]);
+    GVLOGDISC (" QOS={");
     ddsi_xqos_log (DDS_LC_DISCOVERY, &gv->logconfig, tpd->xqos);
-    GVLOGDISC ("\n");
+    GVLOGDISC ("}\n");
   }
 
-  ddsrt_mutex_lock (&gv->topic_defs_lock);
 #ifndef NDEBUG
   assert (ddsrt_hh_lookup (gv->topic_defs, tpd) == NULL);
 #endif
   (void) ddsrt_hh_add (gv->topic_defs, tpd);
-  ddsrt_mutex_unlock (&gv->topic_defs_lock);
   return tpd;
 }
 
@@ -5815,7 +5817,6 @@ static struct topic_definition *lookup_topic_definition (struct ddsi_domaingv *g
   set_topic_definition_hash (&templ);
   ddsrt_mutex_lock (&gv->topic_defs_lock);
   struct topic_definition *tpd = ddsrt_hh_lookup (gv->topic_defs, &templ);
-  ddsrt_mutex_unlock (&gv->topic_defs_lock);
   if (tpd == NULL)
   {
     tpd = new_topic_definition (gv, type, qos);
@@ -5824,6 +5825,7 @@ static struct topic_definition *lookup_topic_definition (struct ddsi_domaingv *g
   }
   if (new_tpd != NULL)
     *new_tpd = new;
+  ddsrt_mutex_unlock (&gv->topic_defs_lock);
   return tpd;
 }
 
@@ -5887,7 +5889,8 @@ bool new_proxy_topic (struct proxy_participant *proxypp, const ddsi_guid_t *guid
     tpd->refc++;
   }
   ddsrt_mutex_unlock (&proxypp->e.lock);
-  ddsi_tl_meta_proxy_ref (gv, &tpd->type_id, guid);
+  if (!found_proxytp)
+    ddsi_tl_meta_proxy_ref (gv, &tpd->type_id, guid);
   if (new_tpd)
     builtintopic_write_topic (gv->builtin_topic_interface, tpd, timestamp, true);
   return !found_proxytp;

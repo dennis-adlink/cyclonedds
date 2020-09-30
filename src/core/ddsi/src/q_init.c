@@ -2001,6 +2001,16 @@ void rtps_fini (struct ddsi_domaingv *gv)
   ddsrt_cond_destroy (&gv->participant_set_cond);
   free_special_types (gv);
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+#ifndef NDEBUG
+  {
+    struct ddsrt_hh_iter it;
+    assert (ddsrt_hh_iter_first (gv->topic_defs, &it) == NULL);
+  }
+#endif
+  ddsrt_hh_free (gv->topic_defs);
+  ddsrt_mutex_destroy (&gv->topic_defs_lock);
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 #ifndef NDEBUG
   {
     struct ddsrt_hh_iter it;
@@ -2019,16 +2029,6 @@ void rtps_fini (struct ddsi_domaingv *gv)
   ddsrt_hh_free (gv->tl_admin);
   ddsrt_mutex_destroy (&gv->tl_admin_lock);
 #endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
-#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
-#ifndef NDEBUG
-  {
-    struct ddsrt_hh_iter it;
-    assert (ddsrt_hh_iter_first (gv->topic_defs, &it) == NULL);
-  }
-#endif
-  ddsrt_hh_free (gv->topic_defs);
-  ddsrt_mutex_destroy (&gv->topic_defs_lock);
-#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 #ifdef DDSI_INCLUDE_SECURITY
   q_omg_security_free (gv);
   ddsi_xqos_fini (&gv->builtin_stateless_xqos_wr);

@@ -75,6 +75,9 @@ if(ENABLE_TYPE_DISCOVERY)
   list(APPEND ddsc_test_sources "typelookup.c")
 endif()
 
+if(ENABLE_TOPIC_DISCOVERY)
+  list(APPEND ddsc_test_sources "topic_discovery.c")
+endif()
 
 add_cunit_executable(cunit_ddsc ${ddsc_test_sources})
 target_include_directories(

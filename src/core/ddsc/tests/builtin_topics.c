@@ -141,21 +141,20 @@ check_default_qos_of_builtin_entity(dds_entity_t entity, bool isread)
 
 CU_Test(ddsc_builtin_topics, availability_builtin_topics, .init = setup, .fini = teardown)
 {
-/* FIXME: Successful lookup doesn't rhyme with them not being returned when looking at the children of the participant ... */
   dds_entity_t topic;
 
-  topic = dds_find_topic(g_participant, "DCPSParticipant");
-  CU_ASSERT_FATAL(topic < 0);
-  //dds_delete(topic);
-  topic = dds_find_topic(g_participant, "DCPSTopic");
-  CU_ASSERT_FATAL(topic < 0);
-  //dds_delete(topic);
-  topic = dds_find_topic(g_participant, "DCPSSubscription");
-  CU_ASSERT_FATAL(topic < 0);
-  //dds_delete(topic);
-  topic = dds_find_topic(g_participant, "DCPSPublication");
-  CU_ASSERT_FATAL(topic < 0);
-  //dds_delete(topic);
+  topic = dds_find_topic_locally (g_participant, "DCPSParticipant", 0);
+  CU_ASSERT_FATAL (topic < 0);
+  dds_delete (topic);
+  topic = dds_find_topic_locally (g_participant, "DCPSTopic", 0);
+  CU_ASSERT_FATAL (topic < 0);
+  dds_delete (topic);
+  topic = dds_find_topic_locally (g_participant, "DCPSSubscription", 0);
+  CU_ASSERT_FATAL (topic < 0);
+  dds_delete (topic);
+  topic = dds_find_topic_locally (g_participant, "DCPSPublication", 0);
+  CU_ASSERT_FATAL (topic < 0);
+  dds_delete (topic);
 }
 
 CU_Test(ddsc_builtin_topics, read_publication_data, .init = setup, .fini = teardown)

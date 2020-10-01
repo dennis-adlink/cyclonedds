@@ -32,7 +32,6 @@ static dds_entity_t g_domain1 = 0;
 static dds_entity_t g_participant1 = 0;
 static dds_entity_t g_subscriber1  = 0;
 static dds_entity_t g_publisher1   = 0;
-static dds_qos_t *g_qos;
 static dds_entity_t g_domain_remote      = 0;
 
 static void topic_discovery_init (void)
@@ -46,9 +45,6 @@ static void topic_discovery_init (void)
   g_domain_remote = dds_create_domain (DDS_DOMAINID2, conf2);
   dds_free (conf1);
   dds_free (conf2);
-
-  g_qos = dds_create_qos ();
-  CU_ASSERT_PTR_NOT_NULL_FATAL (g_qos);
 
   g_participant1 = dds_create_participant (DDS_DOMAINID1, NULL, NULL);
   CU_ASSERT_FATAL (g_participant1 > 0);

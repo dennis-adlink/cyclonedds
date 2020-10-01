@@ -345,6 +345,9 @@ struct ddsi_domaingv {
   struct ddsrt_hh *topic_defs;
 #endif
 
+  ddsrt_mutex_t new_topic_lock;
+  ddsrt_cond_t new_topic_cond;
+
   /* security globals */
 #ifdef DDSI_INCLUDE_SECURITY
   struct dds_security_context *security_context;

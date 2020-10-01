@@ -48,6 +48,7 @@ set(ddsc_test_sources
     "take_instance.c"
     "time.c"
     "topic.c"
+    "topic_find.c"
     "transientlocal.c"
     "types.c"
     "unregister.c"

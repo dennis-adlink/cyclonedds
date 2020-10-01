@@ -1112,7 +1112,7 @@ dds_create_topic_arbitrary (
 /**
  * @brief Finds a named topic.
  *
- * The returned topic should be released with dds_delete.
+ * Finds a locally created topic based on the topic name.
  *
  * @param[in]  participant  The participant on which to find the topic.
  * @param[in]  name         The name of the topic to find.
@@ -1126,8 +1126,65 @@ dds_create_topic_arbitrary (
  * @retval DDS_RETCODE_PRECONDITION_NOT_MET
  *             No topic of this name existed yet in the participant
  */
-DDS_EXPORT dds_entity_t
+DDS_DEPRECATED_EXPORT dds_entity_t
 dds_find_topic(dds_entity_t participant, const char *name);
+
+/**
+ * @brief Finds a locally created topic by topic name
+ *
+ * Finds a locally created topic based on the topic name.
+ * In case the topic is not found, this function will wait for
+ * the topic to become available until the provided time out.
+ *
+ * The returned topic should be released with dds_delete.
+ *
+ * @param[in]  entity       The entity (scope) in which to find the topic, this can be a participant handle, domain handle or DDS_CYCLONEDDS_HANDLE
+ * @param[in]  name         The name of the topic to find.
+ * @param[in]  timeout      The timeout for waiting for the topic to become available
+ *
+ * @returns A valid topic handle or an error code.
+ *
+ * @retval >0
+ *             A valid topic handle.
+ * @retval DDS_RETCODE_BAD_PARAMETER
+ *             Participant was invalid.
+ * @retval DDS_RETCODE_PRECONDITION_NOT_MET
+ *             No topic of this name existed yet in the given scope
+ */
+DDS_EXPORT dds_entity_t
+dds_find_topic_locally (dds_entity_t entity, const char *name, dds_duration_t timeout);
+
+/**
+ * @brief Finds a locally created or discovered remote topic by topic name
+ *
+ * Finds a locally created topic or a discovered remote topic based on the topic
+ * name. In case the topic is not found, this function will wait for
+ * the topic to become available until the provided time out.
+ *
+ * In case multiple (discovered) topics are found with the provided name,
+ * this function will return an error code. The caller can decide to
+ * read DCPSTopic data itself and select one of the topic definitions
+ * to create the topic.
+ *
+ * The returned topic should be released with dds_delete.
+ *
+ * @param[in]  entity       The entity (scope) in which to find the topic, this can be a participant handle, domain handle or DDS_CYCLONEDDS_HANDLE
+ * @param[in]  name         The name of the topic to find.
+ * @param[in]  timeout      The timeout for waiting for the topic to become available
+ *
+ * @returns A valid topic handle or an error code.
+ *
+ * @retval >0
+ *             A valid topic handle.
+ * @retval 0
+ *             No topic of this name existed yet
+ * @retval DDS_RETCODE_BAD_PARAMETER
+ *             Participant was invalid.
+ * @retval DDS_RETCODE_PRECONDITION_NOT_MET
+ *             Multiple topics with the provided name were found.
+ */
+DDS_EXPORT dds_entity_t
+dds_find_topic_globally (dds_entity_t entity, const char *name, dds_duration_t timeout);
 
 /**
  * @brief Returns the name of a given topic.

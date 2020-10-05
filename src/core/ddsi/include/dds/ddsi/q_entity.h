@@ -751,11 +751,12 @@ void proxy_participant_reassign_lease (struct proxy_participant *proxypp, struct
 void purge_proxy_participants (struct ddsi_domaingv *gv, const nn_locator_t *loc, bool delete_from_as_disc);
 
 #ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
-dds_return_t new_topic (struct topic **tp_out, struct ddsi_guid *tpguid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, bool is_builtin);
+dds_return_t new_topic (struct topic **tp_out, struct ddsi_guid *tpguid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, bool is_builtin, bool *new_topic_def);
 dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
 
 int topic_definition_equal (const struct topic_definition *tp_def_a, const struct topic_definition *tp_def_b);
 uint32_t topic_definition_hash (const struct topic_definition *tp_def);
+struct topic_definition *lookup_topic_definition_by_name (struct ddsi_domaingv *gv, const char * topic_name);
 bool new_proxy_topic (struct proxy_participant *proxypp, const ddsi_guid_t *guid, const type_identifier_t *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp);
 #endif
 

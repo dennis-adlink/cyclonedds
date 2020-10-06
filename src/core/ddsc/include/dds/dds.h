@@ -1154,6 +1154,7 @@ dds_find_topic(dds_entity_t participant, const char *name);
 DDS_EXPORT dds_entity_t
 dds_find_topic_locally (dds_entity_t entity, const char *name, dds_duration_t timeout);
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 /**
  * @brief Finds a locally created or discovered remote topic by topic name
  *
@@ -1185,6 +1186,7 @@ dds_find_topic_locally (dds_entity_t entity, const char *name, dds_duration_t ti
  */
 DDS_EXPORT dds_entity_t
 dds_find_topic_globally (dds_entity_t entity, const char *name, dds_duration_t timeout);
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 
 /**
  * @brief Returns the name of a given topic.

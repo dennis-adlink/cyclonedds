@@ -196,7 +196,7 @@ static dds_return_t dds_topic_delete (dds_entity *e)
 
   ddsrt_mutex_lock (&pp->m_entity.m_mutex);
 
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   topic_guid_map_unref (&e->m_domain->gv, ktp, tp->m_stype);
 #endif
 
@@ -661,6 +661,9 @@ err:
   return ret;
 }
 
+
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+
 static dds_entity_t find_remote_topic_impl (dds_entity_t entity, const char *name, dds_duration_t timeout)
 {
   dds_entity *e;
@@ -712,6 +715,9 @@ err:
   return hdl;
 }
 
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
+
+
 static dds_entity_t find_topic_impl (dds_entity_t entity, const char *name, bool only_local, dds_duration_t timeout)
 {
   dds_entity_t hdl;
@@ -730,7 +736,11 @@ static dds_entity_t find_topic_impl (dds_entity_t entity, const char *name, bool
   do
   {
     if ((hdl = find_local_topic_impl (entity, name)) == DDS_RETCODE_PRECONDITION_NOT_MET && !only_local)
+    {
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
       hdl = find_remote_topic_impl (entity, name, timeout);
+#endif
+    }
     if (hdl == DDS_RETCODE_PRECONDITION_NOT_MET && timeout > 0)
       if (!ddsrt_cond_waituntil (&gv->new_topic_cond, &gv->new_topic_lock, abstimeout))
         hdl = DDS_RETCODE_TIMEOUT;
@@ -745,10 +755,12 @@ dds_entity_t dds_find_topic_locally (dds_entity_t entity, const char *name, dds_
   return find_topic_impl (entity, name, true, timeout);
 }
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 dds_entity_t dds_find_topic_globally (dds_entity_t entity, const char *name, dds_duration_t timeout)
 {
   return find_topic_impl (entity, name, false, timeout);
 }
+#endif
 
 static bool dds_topic_chaining_filter (const void *sample, void *ctx)
 {

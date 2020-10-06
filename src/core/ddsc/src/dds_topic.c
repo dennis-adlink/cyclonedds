@@ -664,7 +664,6 @@ err:
 static dds_entity_t find_remote_topic_impl (dds_entity_t entity, const char *name, dds_duration_t timeout)
 {
   dds_entity *e;
-  dds_participant *pp;
   dds_return_t ret;
   dds_entity_t hdl = DDS_RETCODE_PRECONDITION_NOT_MET;
 
@@ -675,11 +674,10 @@ static dds_entity_t find_remote_topic_impl (dds_entity_t entity, const char *nam
     switch (dds_entity_kind (e))
     {
       case DDS_KIND_CYCLONEDDS:
-      case DDS_KIND_DOMAIN:
         hdl = DDS_RETCODE_UNSUPPORTED;
         goto err;
+      case DDS_KIND_DOMAIN:
       case DDS_KIND_PARTICIPANT:
-        pp = (dds_participant *) e;
         break;
       default:
         hdl = DDS_RETCODE_ILLEGAL_OPERATION;

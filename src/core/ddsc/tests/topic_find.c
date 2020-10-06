@@ -71,12 +71,20 @@ static void topic_find_fini (void)
   dds_delete (g_domain_remote);
 }
 
-CU_Test(ddsc_topic_find_local, valid, .init = topic_find_init, .fini = topic_find_fini)
+CU_Test(ddsc_topic_find_local, domain, .init = topic_find_init, .fini = topic_find_fini)
 {
-  dds_entity_t topic = dds_find_topic_locally (g_participant1, g_topic_name1, 0);
+  dds_entity_t topic = dds_find_topic_locally (g_domain1, g_topic_name1, 0);
+  CU_ASSERT_FATAL (topic > 0);
   CU_ASSERT_NOT_EQUAL_FATAL (topic, g_topic1);
   dds_return_t ret = dds_delete (topic);
   CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
+}
+
+CU_Test(ddsc_topic_find_local, participant, .init = topic_find_init, .fini = topic_find_fini)
+{
+  dds_entity_t topic = dds_find_topic_locally (g_participant1, g_topic_name1, 0);
+  CU_ASSERT_FATAL (topic > 0);
+  CU_ASSERT_NOT_EQUAL_FATAL (topic, g_topic1);
 }
 
 CU_Test(ddsc_topic_find_local, non_participants, .init = topic_find_init, .fini = topic_find_fini)
@@ -106,22 +114,38 @@ CU_Test(ddsc_topic_find_local, deleted, .init = topic_find_init, .fini = topic_f
   CU_ASSERT_EQUAL_FATAL (topic, DDS_RETCODE_PRECONDITION_NOT_MET);
 }
 
-
-CU_Test(ddsc_topic_find_global, basic, .init = topic_find_init, .fini = topic_find_fini)
+static void create_remote_topic (char * topic_name_remote)
 {
-#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   dds_entity_t participant_remote = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
   CU_ASSERT_FATAL (participant_remote > 0);
 
-  char topic_name_remote[MAX_NAME_SIZE];
-  create_unique_topic_name ("ddsc_topic_find_remote1", topic_name_remote, MAX_NAME_SIZE);
+  create_unique_topic_name ("ddsc_topic_find_remote", topic_name_remote, MAX_NAME_SIZE);
   dds_entity_t topic_remote = dds_create_topic (participant_remote, &Space_Type1_desc, topic_name_remote, NULL, NULL);
   CU_ASSERT_FATAL (topic_remote > 0);
+}
 
-  dds_entity_t topic = dds_find_topic_globally (g_participant1, topic_name_remote, DDS_SECS (5));
+CU_Test(ddsc_topic_find_global, domain, .init = topic_find_init, .fini = topic_find_fini)
+{
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  char topic_name_remote[MAX_NAME_SIZE];
+  create_remote_topic (topic_name_remote);
+
+  dds_entity_t topic = dds_find_topic_globally (g_domain1, topic_name_remote, DDS_SECS (3));
   CU_ASSERT_FATAL (topic > 0);
+
   dds_return_t ret = dds_delete (topic);
   CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
+#endif
+}
+
+CU_Test(ddsc_topic_find_global, participant, .init = topic_find_init, .fini = topic_find_fini)
+{
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  char topic_name_remote[MAX_NAME_SIZE];
+  create_remote_topic (topic_name_remote);
+
+  dds_entity_t topic = dds_find_topic_globally (g_participant1, topic_name_remote, DDS_SECS (3));
+  CU_ASSERT_FATAL (topic > 0);
 #endif
 }
 
@@ -152,6 +176,7 @@ struct create_topic_thread_arg
   uint32_t num_tp;
   dds_entity_t pp;
   char topic_name_prefix[MAX_NAME_SIZE];
+  const dds_topic_descriptor_t *topic_desc;
 };
 
 static void set_topic_name (char *name, const char *prefix, uint32_t index)
@@ -162,7 +187,6 @@ static void set_topic_name (char *name, const char *prefix, uint32_t index)
 static uint32_t topics_thread (void *a)
 {
   char topic_name[MAX_NAME_SIZE + 10];
-  dds_return_t ret;
   struct create_topic_thread_arg *arg = (struct create_topic_thread_arg *) a;
   dds_entity_t *topics = ddsrt_malloc (arg->num_tp * sizeof (*topics));
 
@@ -171,11 +195,10 @@ static uint32_t topics_thread (void *a)
   for (uint32_t t = 0; t < arg->num_tp; t++)
   {
     set_topic_name (topic_name, arg->topic_name_prefix, t);
-    topics[t] = dds_create_topic (arg->pp, &Space_Type1_desc, topic_name, NULL, NULL);
+    topics[t] = dds_create_topic (arg->pp, arg->topic_desc, topic_name, NULL, NULL);
     CU_ASSERT_FATAL (topics[t] > 0);
   }
   ddsrt_atomic_st32 (&arg->state, DONE);
-  msg ("%s topics thread: finished creating %u topics with prefix %s", arg->remote ? "remote" : "local", arg->num_tp, arg->topic_name_prefix);
 
   /* wait for stop signal */
   while (!ddsrt_atomic_ld32 (&g_stop))
@@ -184,23 +207,21 @@ static uint32_t topics_thread (void *a)
   /* delete topics */
   for (uint32_t t = 0; t < arg->num_tp; t++)
   {
-    ret = dds_delete (topics[t]);
-    dds_sleepfor (DDS_MSECS (1));
+    dds_return_t ret = dds_delete (topics[t]);
     CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
+    dds_sleepfor (DDS_MSECS (1));
   }
   ddsrt_atomic_st32 (&arg->state, STOPPED);
   ddsrt_free (topics);
   return 0;
 }
 
-static dds_return_t topics_thread_state (struct create_topic_thread_arg *arg, uint32_t desired_state, int32_t msec)
+static dds_return_t topics_thread_state (struct create_topic_thread_arg *arg, uint32_t desired_state, dds_duration_t timeout)
 {
-    while (msec > 0 && ddsrt_atomic_ld32 (&arg->state) != desired_state)
-    {
-      dds_sleepfor (DDS_MSECS (10));
-      msec -= 10;
-    }
-    return ddsrt_atomic_ld32 (&arg->state) == desired_state ? DDS_RETCODE_OK : DDS_RETCODE_TIMEOUT;
+  const dds_time_t abstimeout = dds_time () + timeout;
+  while (dds_time () < abstimeout && ddsrt_atomic_ld32 (&arg->state) != desired_state)
+    dds_sleepfor (DDS_MSECS (10));
+  return ddsrt_atomic_ld32 (&arg->state) == desired_state ? DDS_RETCODE_OK : DDS_RETCODE_TIMEOUT;
 }
 #endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 
@@ -214,11 +235,7 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
 {
 #ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   msg("ddsc_topic_find_global.remote_topics: %u/%u local/remote participants, %u topics", num_local_pp, num_remote_pp, num_tp);
-
-  ddsrt_thread_t thread_id;
-  ddsrt_threadattr_t thread_attr;
   dds_return_t ret;
-
   dds_entity_t participant_remote = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
   CU_ASSERT_FATAL (participant_remote > 0);
   ddsrt_atomic_st32 (&g_stop, 0);
@@ -234,7 +251,10 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
     create_args[n].num_tp = num_tp;
     create_args[n].pp = remote ? participant_remote : g_participant1;
     create_unique_topic_name ("ddsc_topic_find_remote", create_args[n].topic_name_prefix, MAX_NAME_SIZE);
+    create_args[n].topic_desc = n % 3 ? (n % 3 == 1 ? &Space_Type2_desc : &Space_Type3_desc) : &Space_Type1_desc;
 
+    ddsrt_thread_t thread_id;
+    ddsrt_threadattr_t thread_attr;
     ddsrt_threadattr_init (&thread_attr);
     ret = ddsrt_thread_create (&thread_id, "create_topic", &thread_attr, topics_thread, &create_args[n]);
     CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
@@ -244,7 +264,7 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
   msg ("find topics");
   for (uint32_t n = 0; n < num_local_pp + num_remote_pp; n++)
   {
-    ret = topics_thread_state (&create_args[n], DONE, 5000);
+    ret = topics_thread_state (&create_args[n], DONE, DDS_MSECS (5000));
     CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
 
     for (uint32_t t = 0; t < create_args[n].num_tp; t++)
@@ -252,11 +272,11 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
       set_topic_name (topic_name, create_args->topic_name_prefix, t);
       dds_entity_t topic = dds_find_topic_globally (g_participant1, topic_name, DDS_SECS (5));
       CU_ASSERT_FATAL (topic > 0);
-      // msg ("found topic %s", topic_name);
     }
   }
 
-  /* Stop threads (which will delete their topics) and keep finding topics */
+  /* Stop threads (which will delete their topics) and keep looking
+     for these topics (we're not interested in the result) */
   ddsrt_atomic_st32 (&g_stop, 1);
   const dds_time_t abstimeout = dds_time () + DDS_MSECS (500);
   uint32_t t = 0;
@@ -264,6 +284,7 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
   {
     set_topic_name (topic_name, create_args->topic_name_prefix, t);
     (void) dds_find_topic_locally (g_participant1, topic_name, 0);
+    (void) dds_find_topic_locally (g_participant1, topic_name, DDS_MSECS (1));
     (void) dds_find_topic_globally (g_participant1, topic_name, 0);
     (void) dds_find_topic_globally (g_participant1, topic_name, DDS_MSECS (1));
     dds_sleepfor (DDS_MSECS (1));
@@ -274,7 +295,7 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
   /* Cleanup */
   for (uint32_t n = 0; n < num_local_pp + num_remote_pp; n++)
   {
-    ret = topics_thread_state (&create_args[n], STOPPED, 5000);
+    ret = topics_thread_state (&create_args[n], STOPPED, DDS_MSECS (5000));
     CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
   }
   ddsrt_free (create_args);

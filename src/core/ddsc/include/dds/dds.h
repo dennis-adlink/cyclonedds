@@ -205,6 +205,17 @@ typedef struct dds_builtintopic_participant
 }
 dds_builtintopic_participant_t;
 
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+typedef struct dds_builtintopic_topic
+{
+  unsigned char key[16];
+  char *topic_name;
+  char *type_name;
+  dds_qos_t *qos;
+}
+dds_builtintopic_topic_t;
+#endif
+
 typedef struct dds_builtintopic_endpoint
 {
   dds_guid_t key;
@@ -1176,7 +1187,7 @@ dds_create_topic_arbitrary (
 /**
  * @brief Finds a named topic.
  *
- * The returned topic should be released with dds_delete.
+ * Finds a locally created topic based on the topic name.
  *
  * @param[in]  participant  The participant on which to find the topic.
  * @param[in]  name         The name of the topic to find.
@@ -1190,8 +1201,67 @@ dds_create_topic_arbitrary (
  * @retval DDS_RETCODE_PRECONDITION_NOT_MET
  *             No topic of this name existed yet in the participant
  */
-DDS_EXPORT dds_entity_t
+DDS_DEPRECATED_EXPORT dds_entity_t
 dds_find_topic(dds_entity_t participant, const char *name);
+
+/**
+ * @brief Finds a locally created topic by topic name
+ *
+ * Finds a locally created topic based on the topic name.
+ * In case the topic is not found, this function will wait for
+ * the topic to become available until the provided time out.
+ *
+ * The returned topic should be released with dds_delete.
+ *
+ * @param[in]  entity       The entity (scope) in which to find the topic, this can be a participant handle, domain handle or DDS_CYCLONEDDS_HANDLE
+ * @param[in]  name         The name of the topic to find.
+ * @param[in]  timeout      The timeout for waiting for the topic to become available
+ *
+ * @returns A valid topic handle or an error code.
+ *
+ * @retval >0
+ *             A valid topic handle.
+ * @retval 0
+ *             No topic of this name existed yet in the given scope
+ * @retval DDS_RETCODE_BAD_PARAMETER
+ *             Participant was invalid.
+ */
+DDS_EXPORT dds_entity_t
+dds_find_topic_locally (dds_entity_t entity, const char *name, dds_duration_t timeout);
+
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+/**
+ * @brief Finds a locally created or discovered remote topic by topic name
+ *
+ * Finds a locally created topic or a discovered remote topic based on the topic
+ * name. In case the topic is not found, this function will wait for
+ * the topic to become available until the provided time out.
+ *
+ * In case multiple (discovered) topics are found with the provided name,
+ * this function will return an error code. The caller can decide to
+ * read DCPSTopic data itself and select one of the topic definitions
+ * to create the topic.
+ *
+ * The returned topic should be released with dds_delete.
+ *
+ * @param[in]  entity       The entity (scope) in which to find the topic, this can be a participant handle, domain handle or DDS_CYCLONEDDS_HANDLE
+ * @param[in]  name         The name of the topic to find.
+ * @param[in]  timeout      The timeout for waiting for the topic to become available
+ *
+ * @returns A valid topic handle or an error code.
+ *
+ * @retval >0
+ *             A valid topic handle.
+ * @retval 0
+ *             No topic of this name existed yet
+ * @retval DDS_RETCODE_BAD_PARAMETER
+ *             Participant was invalid.
+ * @retval DDS_RETCODE_PRECONDITION_NOT_MET
+ *             Multiple topics with the provided name were found.
+ */
+DDS_EXPORT dds_entity_t
+dds_find_topic_globally (dds_entity_t entity, const char *name, dds_duration_t timeout);
+#endif /* DDS_HAS_TOPIC_DISCOVERY */
 
 /**
  * @brief Returns the name of a given topic.
@@ -3712,6 +3782,21 @@ dds_builtintopic_get_endpoint_typeid (
 DDS_EXPORT void
 dds_builtintopic_free_endpoint (
   dds_builtintopic_endpoint_t * builtintopic_endpoint);
+
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+/**
+ * @brief Free the provided topic information
+ *
+ * This operation deallocates the memory of the fields in a
+ * dds_builtintopic_topic_t struct and deallocates the
+ * struct itself.
+ *
+ * @param[in] builtintopic_topic  The builtintopic topic struct
+ */
+DDS_EXPORT void
+dds_builtintopic_free_topic (
+  dds_builtintopic_topic_t * builtintopic_topic);
+#endif /* DDS_HAS_TOPIC_DISCOVERY */
 
 /**
  * @brief Free the provided participant information

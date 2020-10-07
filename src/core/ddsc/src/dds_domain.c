@@ -462,17 +462,12 @@ dds_return_t dds_domain_resolve_type (dds_entity_t entity, unsigned char *type_i
     const dds_time_t abstimeout = (DDS_INFINITY - timeout <= tnow) ? DDS_NEVER : (tnow + timeout);
     *sertype = NULL;
     ddsrt_mutex_lock (&gv->tl_admin_lock);
-    // type may already be resolved at this point, which means we
-    // shouldn't wait for the condition to be triggered
+    while (tlm->state != TL_META_RESOLVED && dds_time () < abstimeout)
+      ddsrt_cond_waituntil (&gv->tl_resolved_cond, &gv->tl_admin_lock, abstimeout);
     if (tlm->state == TL_META_RESOLVED)
-      *sertype = ddsi_sertype_ref (tlm->sertype);
-    while (*sertype == NULL && dds_time () < abstimeout)
     {
-      if (ddsrt_cond_waituntil (&gv->tl_resolved_cond, &gv->tl_admin_lock, abstimeout))
-      {
-        if (tlm->state == TL_META_RESOLVED)
-          *sertype = ddsi_sertype_ref (tlm->sertype);
-      }
+      assert (tlm->sertype != NULL);
+      *sertype = ddsi_sertype_ref (tlm->sertype);
     }
     ddsrt_mutex_unlock (&gv->tl_admin_lock);
     if (*sertype == NULL)

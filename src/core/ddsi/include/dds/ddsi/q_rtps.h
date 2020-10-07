@@ -74,6 +74,8 @@ typedef int64_t seqno_t;
 #define NN_ENTITYID_KIND_WRITER_NO_KEY 0x03
 #define NN_ENTITYID_KIND_READER_NO_KEY 0x04
 #define NN_ENTITYID_KIND_READER_WITH_KEY 0x07
+#define NN_ENTITYID_KIND_CYCLONE_TOPIC_BUILTIN 0x0c // Vendor specific
+#define NN_ENTITYID_KIND_CYCLONE_TOPIC_USER 0x0d // Vendor specific
 #define NN_ENTITYID_ALLOCSTEP 0x100
 
 struct cfgst;

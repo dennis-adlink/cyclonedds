@@ -26,6 +26,19 @@
 #include "dds/ddsi/q_rtps.h" /* guid_t */
 #include "dds/ddsi/q_thread.h" /* for assert(thread is awake) */
 
+struct match_entities_range_key {
+  union {
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+    struct topic tp;
+#endif
+    struct writer wr;
+    struct reader rd;
+    struct entity_common e;
+    struct generic_proxy_endpoint gpe;
+  } entity;
+  struct dds_qos xqos;
+};
+
 struct entity_index {
   struct ddsrt_chh *guid_hash;
   ddsrt_mutex_t all_entities_lock;
@@ -87,6 +100,18 @@ static int all_entities_compare (const void *va, const void *vb)
     case EK_PROXY_PARTICIPANT:
       break;
 
+    case EK_TOPIC: {
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+      const struct topic *tpa = va;
+      const struct topic *tpb = vb;
+      assert ((tpa->definition->xqos->present & QP_TOPIC_NAME) && tpa->definition->xqos->topic_name);
+      assert ((tpb->definition->xqos->present & QP_TOPIC_NAME) && tpb->definition->xqos->topic_name);
+      tp_a = tpa->definition->xqos->topic_name;
+      tp_b = tpb->definition->xqos->topic_name;
+      break;
+#endif
+    }
+
     case EK_WRITER: {
       const struct writer *wra = va;
       const struct writer *wrb = vb;
@@ -140,6 +165,12 @@ static void match_endpoint_range (enum entity_kind kind, const char *tp, struct 
     case EK_PARTICIPANT:
     case EK_PROXY_PARTICIPANT:
       break;
+    case EK_TOPIC:
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+      min->entity.tp.definition->xqos = &min->xqos;
+      max->entity.tp.definition->xqos = &max->xqos;
+#endif
+      break;
     case EK_WRITER:
       min->entity.wr.xqos = &min->xqos;
       max->entity.wr.xqos = &max->xqos;
@@ -171,6 +202,11 @@ static void match_entity_kind_min (enum entity_kind kind, struct match_entities_
     case EK_PARTICIPANT:
     case EK_PROXY_PARTICIPANT:
       break;
+    case EK_TOPIC:
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+      min->entity.tp.definition->xqos = &min->xqos;
+#endif
+      break;
     case EK_WRITER:
       min->entity.wr.xqos = &min->xqos;
       break;
@@ -181,6 +217,9 @@ static void match_entity_kind_min (enum entity_kind kind, struct match_entities_
     case EK_PROXY_READER:
       min->entity.gpe.c.vendor = NN_VENDORID_ECLIPSE;
       min->entity.gpe.c.xqos = &min->xqos;
+      break;
+    default:
+      assert (0);
       break;
   }
 }
@@ -384,6 +423,23 @@ struct proxy_reader *entidx_lookup_proxy_reader_guid (const struct entity_index 
 }
 
 /* Enumeration */
+struct match_entities_range_key *entidx_minmax_new ()
+{
+  struct match_entities_range_key *minmax;
+  minmax = ddsrt_malloc (sizeof (*minmax));
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+  minmax->entity.tp.definition = ddsrt_malloc (sizeof (*minmax->entity.tp.definition));
+#endif
+  return minmax;
+}
+
+void entidx_minmax_fini (struct match_entities_range_key *minmax)
+{
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+  ddsrt_free (minmax->entity.tp.definition);
+#endif
+  ddsrt_free (minmax);
+}
 
 static void entidx_enum_init_minmax_int (struct entidx_enum *st, const struct entity_index *ei, struct match_entities_range_key *min)
 {
@@ -406,32 +462,35 @@ static void entidx_enum_init_minmax_int (struct entidx_enum *st, const struct en
 void entidx_enum_init_topic (struct entidx_enum *st, const struct entity_index *ei, enum entity_kind kind, const char *topic, struct match_entities_range_key *max)
 {
   assert (kind == EK_READER || kind == EK_WRITER || kind == EK_PROXY_READER || kind == EK_PROXY_WRITER);
-  struct match_entities_range_key min;
-  match_endpoint_range (kind, topic, &min, max);
-  entidx_enum_init_minmax_int (st, ei, &min);
+  struct match_entities_range_key *min = entidx_minmax_new ();
+  match_endpoint_range (kind, topic, min, max);
+  entidx_enum_init_minmax_int (st, ei, min);
   if (st->cur && all_entities_compare (st->cur, &max->entity) > 0)
     st->cur = NULL;
+  entidx_minmax_fini (min);
 }
 
 void entidx_enum_init_topic_w_prefix (struct entidx_enum *st, const struct entity_index *ei, enum entity_kind kind, const char *topic, const ddsi_guid_prefix_t *prefix, struct match_entities_range_key *max)
 {
   assert (kind == EK_READER || kind == EK_WRITER || kind == EK_PROXY_READER || kind == EK_PROXY_WRITER);
-  struct match_entities_range_key min;
-  match_endpoint_range (kind, topic, &min, max);
-  min.entity.e.guid.prefix = *prefix;
+  struct match_entities_range_key *min = entidx_minmax_new ();
+  match_endpoint_range (kind, topic, min, max);
+  min->entity.e.guid.prefix = *prefix;
   max->entity.e.guid.prefix = *prefix;
-  entidx_enum_init_minmax_int (st, ei, &min);
+  entidx_enum_init_minmax_int (st, ei, min);
   if (st->cur && all_entities_compare (st->cur, &max->entity) > 0)
     st->cur = NULL;
+  entidx_minmax_fini (min);
 }
 
 void entidx_enum_init (struct entidx_enum *st, const struct entity_index *ei, enum entity_kind kind)
 {
-  struct match_entities_range_key min;
-  match_entity_kind_min (kind, &min);
-  entidx_enum_init_minmax_int (st, ei, &min);
+  struct match_entities_range_key *min = entidx_minmax_new ();
+  match_entity_kind_min (kind, min);
+  entidx_enum_init_minmax_int (st, ei, min);
   if (st->cur && st->cur->kind != st->kind)
     st->cur = NULL;
+  entidx_minmax_fini (min);
 }
 
 void entidx_enum_writer_init (struct entidx_enum_writer *st, const struct entity_index *ei)
@@ -562,3 +621,40 @@ void entidx_enum_proxy_participant_fini (struct entidx_enum_proxy_participant *s
 {
   entidx_enum_fini (&st->st);
 }
+
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+
+void entidx_insert_topic_guid (struct entity_index *ei, struct topic *tp)
+{
+  entity_index_insert (ei, &tp->e);
+}
+
+void entidx_remove_topic_guid (struct entity_index *ei, struct topic *tp)
+{
+  entity_index_remove (ei, &tp->e);
+}
+
+struct topic *entidx_lookup_topic_guid (const struct entity_index *ei, const struct ddsi_guid *guid)
+{
+  DDSRT_STATIC_ASSERT (offsetof (struct topic, e) == 0);
+  assert (is_topic_entityid (guid->entityid));
+  return entidx_lookup_guid_int (ei, guid, EK_TOPIC);
+}
+
+void entidx_enum_topic_init (struct entidx_enum_topic *st, const struct entity_index *ei)
+{
+  entidx_enum_init (&st->st, ei, EK_TOPIC);
+}
+
+struct topic *entidx_enum_topic_next (struct entidx_enum_topic *st)
+{
+  DDSRT_STATIC_ASSERT (offsetof (struct topic, e) == 0);
+  return entidx_enum_next (&st->st);
+}
+
+void entidx_enum_topic_fini (struct entidx_enum_topic *st)
+{
+  entidx_enum_fini (&st->st);
+}
+
+#endif /* DDS_HAS_TOPIC_DISCOVERY */

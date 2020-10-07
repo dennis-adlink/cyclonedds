@@ -23,18 +23,7 @@ extern "C" {
 struct entity_index;
 struct ddsi_guid;
 struct ddsi_domaingv;
-
-struct match_entities_range_key {
-  union {
-    struct writer wr;
-    struct reader rd;
-    struct proxy_writer pwr;
-    struct proxy_reader prd;
-    struct entity_common e;
-    struct generic_proxy_endpoint gpe;
-  } entity;
-  struct dds_qos xqos;
-};
+struct match_entities_range_key;
 
 struct entidx_enum
 {
@@ -111,6 +100,9 @@ struct entidx_enum_proxy_participant { struct entidx_enum st; };
 struct entidx_enum_proxy_writer { struct entidx_enum st; };
 struct entidx_enum_proxy_reader { struct entidx_enum st; };
 
+struct match_entities_range_key *entidx_minmax_new (void);
+void entidx_minmax_fini (struct match_entities_range_key *minmax);
+
 void entidx_enum_init (struct entidx_enum *st, const struct entity_index *ei, enum entity_kind kind) ddsrt_nonnull_all;
 void entidx_enum_init_topic (struct entidx_enum *st, const struct entity_index *gh, enum entity_kind kind, const char *topic, struct match_entities_range_key *max) ddsrt_nonnull_all;
 void entidx_enum_init_topic_w_prefix (struct entidx_enum *st, const struct entity_index *ei, enum entity_kind kind, const char *topic, const ddsi_guid_prefix_t *prefix, struct match_entities_range_key *max) ddsrt_nonnull_all;
@@ -138,6 +130,16 @@ void entidx_enum_proxy_writer_fini (struct entidx_enum_proxy_writer *st) ddsrt_n
 void entidx_enum_proxy_reader_fini (struct entidx_enum_proxy_reader *st) ddsrt_nonnull_all;
 void entidx_enum_participant_fini (struct entidx_enum_participant *st) ddsrt_nonnull_all;
 void entidx_enum_proxy_participant_fini (struct entidx_enum_proxy_participant *st) ddsrt_nonnull_all;
+
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+void entidx_insert_topic_guid (struct entity_index *ei, struct topic *tp) ddsrt_nonnull_all;
+void entidx_remove_topic_guid (struct entity_index *ei, struct topic *tp) ddsrt_nonnull_all;
+DDS_EXPORT struct topic *entidx_lookup_topic_guid (const struct entity_index *ei, const struct ddsi_guid *guid);
+struct entidx_enum_topic { struct entidx_enum st; };
+void entidx_enum_topic_init (struct entidx_enum_topic *st, const struct entity_index *ei) ddsrt_nonnull_all;
+struct topic *entidx_enum_topic_next (struct entidx_enum_topic *st) ddsrt_nonnull_all;
+void entidx_enum_topic_fini (struct entidx_enum_topic *st) ddsrt_nonnull_all;
+#endif
 
 #if defined (__cplusplus)
 }

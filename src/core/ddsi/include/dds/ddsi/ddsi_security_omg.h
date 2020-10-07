@@ -404,6 +404,22 @@ bool q_omg_get_reader_security_info(const struct reader *rd, nn_security_info_t 
  * @retval NN_ENTITYID_SEDP_BUILTIN_SUBSCRIPTIONS_WRITER
  */
 unsigned determine_subscription_writer(const struct reader *rd);
+
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+/**
+ * @brief Return the builtin writer id for topic discovery.
+ *
+ * Return builtin entity id of the writer to use for the topic
+ * discovery information.
+ *
+ * @param[in] tp Topic to determine the writer from.
+ *
+ * @returns unsigned
+ * @retval NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER
+ */
+unsigned determine_topic_writer(const struct topic *tp);
+#endif /* DDS_HAS_TOPIC_DISCOVERY */
+
 /**
  * @brief Check if security allows to create the reader.
  *
@@ -1144,6 +1160,13 @@ inline unsigned determine_publication_writer(UNUSED_ARG(const struct writer *wr)
 {
   return NN_ENTITYID_SEDP_BUILTIN_PUBLICATIONS_WRITER;
 }
+
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+inline unsigned determine_topic_writer(UNUSED_ARG(const struct topic *tp))
+{
+  return NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER;
+}
+#endif
 
 inline bool is_proxy_participant_deletion_allowed(UNUSED_ARG(struct ddsi_domaingv * const gv), UNUSED_ARG(const struct ddsi_guid *guid), UNUSED_ARG(const ddsi_entityid_t pwr_entityid))
 {

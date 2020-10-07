@@ -43,6 +43,7 @@ PREPEND(srcs_ddsi "${CMAKE_CURRENT_LIST_DIR}/src"
     ddsi_cdrstream.c
     ddsi_time.c
     ddsi_ownip.c
+    ddsi_list_genptr.c
     q_addrset.c
     q_bitset_inlines.c
     q_bswap.c
@@ -120,6 +121,8 @@ PREPEND(hdrs_private_ddsi "${CMAKE_CURRENT_LIST_DIR}/include/dds/ddsi"
     ddsi_ownip.h
     ddsi_cfgunits.h
     ddsi_cfgelems.h
+    ddsi_list_tmpl.h
+    ddsi_list_genptr.h
     q_addrset.h
     q_bitset.h
     q_bswap.h

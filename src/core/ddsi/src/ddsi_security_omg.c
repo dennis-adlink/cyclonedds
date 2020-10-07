@@ -1712,6 +1712,15 @@ unsigned determine_publication_writer (const struct writer *wr)
     return NN_ENTITYID_SEDP_BUILTIN_PUBLICATIONS_WRITER;
 }
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+unsigned determine_topic_writer (const struct topic *tp)
+{
+  // FIXME: secure topic writer required?
+  DDSRT_UNUSED_ARG (tp);
+  return NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER;
+}
+#endif
+
 static int64_t check_remote_participant_permissions(uint32_t domain_id, struct participant *pp, struct proxy_participant *proxypp, int64_t remote_identity_handle)
 {
   struct dds_security_context *sc = q_omg_security_get_secure_context(pp);
@@ -3883,8 +3892,6 @@ extern inline bool q_omg_participant_is_liveliness_protected(UNUSED_ARG(const st
 extern inline bool q_omg_participant_is_secure(UNUSED_ARG(const struct participant *pp));
 extern inline bool q_omg_proxy_participant_is_secure(UNUSED_ARG(const struct proxy_participant *proxypp));
 
-extern inline unsigned determine_subscription_writer(UNUSED_ARG(const struct reader *rd));
-
 extern inline bool q_omg_security_match_remote_writer_enabled(UNUSED_ARG(struct reader *rd), UNUSED_ARG(struct proxy_writer *pwr), UNUSED_ARG(int64_t *crypto_handle));
 extern inline bool q_omg_security_match_remote_reader_enabled(UNUSED_ARG(struct writer *wr), UNUSED_ARG(struct proxy_reader *prd), UNUSED_ARG(bool relay_only), UNUSED_ARG(int64_t *crypto_handle));
 
@@ -3899,7 +3906,11 @@ extern inline void q_omg_get_proxy_reader_security_info(UNUSED_ARG(struct proxy_
 extern inline bool q_omg_security_check_remote_reader_permissions(UNUSED_ARG(const struct proxy_reader *prd), UNUSED_ARG(uint32_t domain_id), UNUSED_ARG(struct participant *par), UNUSED_ARG(bool *relay_only));
 extern inline void q_omg_security_deregister_remote_reader_match(UNUSED_ARG(const struct proxy_reader *prd), UNUSED_ARG(const struct writer *wr), UNUSED_ARG(struct wr_prd_match *match));
 
+extern inline unsigned determine_subscription_writer(UNUSED_ARG(const struct reader *rd));
 extern inline unsigned determine_publication_writer(UNUSED_ARG(const struct writer *wr));
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+extern inline unsigned determine_topic_writer(UNUSED_ARG(const struct topic *tp));
+#endif
 
 extern inline bool is_proxy_participant_deletion_allowed(UNUSED_ARG(struct ddsi_domaingv * const gv), UNUSED_ARG(const struct ddsi_guid *guid), UNUSED_ARG(const ddsi_entityid_t pwr_entityid));
 

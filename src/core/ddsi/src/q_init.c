@@ -828,6 +828,10 @@ static void free_special_types (struct ddsi_domaingv *gv)
   ddsi_sertype_unref (gv->sedp_reader_secure_type);
   ddsi_sertype_unref (gv->sedp_writer_secure_type);
 #endif
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  if (gv->config.enable_topic_discovery_endpoints)
+    ddsi_sertype_unref (gv->sedp_topic_type);
+#endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsi_sertype_unref (gv->tl_svc_request_type);
   ddsi_sertype_unref (gv->tl_svc_reply_type);
@@ -848,6 +852,10 @@ static void make_special_types (struct ddsi_domaingv *gv)
   gv->tl_svc_request_type = make_special_type_pserop (gv, "TypeLookup_Request", sizeof (type_lookup_request_t), typelookup_service_request_nops, typelookup_service_request_ops, 0, NULL);
   gv->tl_svc_reply_type = make_special_type_pserop (gv, "TypeLookup_Reply", sizeof (type_lookup_reply_t), typelookup_service_reply_nops, typelookup_service_reply_ops, 0, NULL);
 #endif
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  if (gv->config.enable_topic_discovery_endpoints)
+    gv->sedp_topic_type = make_special_type_plist (gv, "TopicBuiltinTopicData", PID_CYCLONE_TOPIC_GUID);
+#endif
 #ifdef DDSI_INCLUDE_SECURITY
   gv->spdp_secure_type = make_special_type_plist (gv, "ParticipantBuiltinTopicDataSecure", PID_PARTICIPANT_GUID);
   gv->sedp_reader_secure_type = make_special_type_plist (gv, "SubscriptionBuiltinTopicDataSecure", PID_ENDPOINT_GUID);
@@ -865,6 +873,10 @@ static void make_special_types (struct ddsi_domaingv *gv)
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsi_sertype_register_locked (gv->tl_svc_request_type);
   ddsi_sertype_register_locked (gv->tl_svc_reply_type);
+#endif
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  if (gv->config.enable_topic_discovery_endpoints)
+    ddsi_sertype_register_locked (gv->sedp_topic_type);
 #endif
 #ifdef DDSI_INCLUDE_SECURITY
   ddsi_sertype_register_locked (gv->spdp_secure_type);
@@ -1006,12 +1018,22 @@ static int tl_meta_equal_wrap (const void *tlm_a, const void *tlm_b)
 {
   return ddsi_tl_meta_equal (tlm_a, tlm_b);
 }
-
 static uint32_t tl_meta_hash_wrap (const void *tlm)
 {
   return ddsi_tl_meta_hash (tlm);
 }
-#endif
+#endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
+
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+static int topic_definition_equal_wrap (const void *tpd_a, const void *tpd_b)
+{
+  return topic_definition_equal (tpd_a, tpd_b);
+}
+static uint32_t topic_definition_hash_wrap (const void *tpd)
+{
+  return topic_definition_hash (tpd);
+}
+#endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
 
 static void reset_deaf_mute (struct xevent *xev, void *varg, UNUSED_ARG (ddsrt_mtime_t tnow))
 {
@@ -1240,6 +1262,12 @@ int rtps_init (struct ddsi_domaingv *gv)
   ddsrt_mutex_init (&gv->tl_admin_lock);
   ddsrt_cond_init (&gv->tl_resolved_cond);
   gv->tl_admin = ddsrt_hh_new (1, tl_meta_hash_wrap, tl_meta_equal_wrap);
+#endif
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  ddsrt_mutex_init (&gv->new_topic_lock);
+  ddsrt_cond_init (&gv->new_topic_cond);
+  ddsrt_mutex_init (&gv->topic_defs_lock);
+  gv->topic_defs = ddsrt_hh_new (1, topic_definition_hash_wrap, topic_definition_equal_wrap);
 #endif
   make_special_types (gv);
 
@@ -1597,6 +1625,12 @@ err_unicast_sockets:
 #endif
   ddsrt_hh_free (gv->sertypes);
   ddsrt_mutex_destroy (&gv->sertypes_lock);
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  ddsrt_hh_free (gv->topic_defs);
+  ddsrt_mutex_destroy (&gv->topic_defs_lock);
+  ddsrt_mutex_destroy (&gv->new_topic_lock);
+  ddsrt_cond_destroy (&gv->new_topic_cond);
+#endif
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   ddsrt_hh_free (gv->tl_admin);
   ddsrt_mutex_destroy (&gv->tl_admin_lock);
@@ -1830,6 +1864,15 @@ void rtps_stop (struct ddsi_domaingv *gv)
     }
     entidx_enum_reader_fini (&est_rd);
     thread_state_awake_to_awake_no_nest (ts1);
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+    struct entidx_enum_topic est_tp;
+    struct topic *tp;
+    entidx_enum_topic_init (&est_tp, gv->entity_index);
+    while ((tp = entidx_enum_topic_next (&est_tp)) != NULL)
+      delete_topic (gv, &tp->e.guid);
+    entidx_enum_topic_fini (&est_tp);
+    thread_state_awake_to_awake_no_nest (ts1);
+#endif
     entidx_enum_participant_init (&est_pp, gv->entity_index);
     while ((pp = entidx_enum_participant_next (&est_pp)) != NULL)
     {
@@ -1962,6 +2005,16 @@ void rtps_fini (struct ddsi_domaingv *gv)
   ddsrt_cond_destroy (&gv->participant_set_cond);
   free_special_types (gv);
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+#ifndef NDEBUG
+  {
+    struct ddsrt_hh_iter it;
+    assert (ddsrt_hh_iter_first (gv->topic_defs, &it) == NULL);
+  }
+#endif
+  ddsrt_hh_free (gv->topic_defs);
+  ddsrt_mutex_destroy (&gv->topic_defs_lock);
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 #ifndef NDEBUG
   {
     struct ddsrt_hh_iter it;
@@ -1979,7 +2032,7 @@ void rtps_fini (struct ddsi_domaingv *gv)
 #endif
   ddsrt_hh_free (gv->tl_admin);
   ddsrt_mutex_destroy (&gv->tl_admin_lock);
-#endif
+#endif /* DDSI_INCLUDE_TYPE_DISCOVERY */
 #ifdef DDSI_INCLUDE_SECURITY
   q_omg_security_free (gv);
   ddsi_xqos_fini (&gv->builtin_stateless_xqos_wr);

@@ -301,6 +301,7 @@ struct ddsi_domaingv {
   struct ddsi_sertype *spdp_type; /* key = participant GUID */
   struct ddsi_sertype *sedp_reader_type; /* key = endpoint GUID */
   struct ddsi_sertype *sedp_writer_type; /* key = endpoint GUID */
+  struct ddsi_sertype *sedp_topic_type; /* key = topic GUID */
   struct ddsi_sertype *pmd_type; /* participant message data */
 #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
   struct ddsi_sertype *tl_svc_request_type; /* TypeLookup service request, no key */
@@ -339,6 +340,13 @@ struct ddsi_domaingv {
   struct ddsrt_hh *tl_admin;
   ddsrt_cond_t tl_resolved_cond;
 #endif
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  ddsrt_mutex_t topic_defs_lock;
+  struct ddsrt_hh *topic_defs;
+#endif
+
+  ddsrt_mutex_t new_topic_lock;
+  ddsrt_cond_t new_topic_cond;
 
   /* security globals */
 #ifdef DDSI_INCLUDE_SECURITY

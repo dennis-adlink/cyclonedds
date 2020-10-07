@@ -33,6 +33,7 @@ void dds__builtin_fini (struct dds_domain *dom);
 
 struct entity_common;
 struct ddsi_serdata *dds__builtin_make_sample (const struct entity_common *e, ddsrt_wctime_t timestamp, bool alive);
+struct ddsi_serdata *dds__builtin_make_sample_topic (const struct topic_definition *tpd, ddsrt_wctime_t timestamp, bool alive);
 
 #if defined (__cplusplus)
 }

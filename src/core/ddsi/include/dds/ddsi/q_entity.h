@@ -29,6 +29,7 @@
 #include "dds/ddsi/ddsi_typeid.h"
 #include "dds/ddsi/ddsi_typelookup.h"
 #include "dds/ddsi/ddsi_tran.h"
+#include "dds/ddsi/ddsi_list_genptr.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -58,6 +59,7 @@ typedef void (*ddsi2direct_directread_cb_t) (const struct nn_rsample_info *sampl
 enum entity_kind {
   EK_PARTICIPANT,
   EK_PROXY_PARTICIPANT,
+  EK_TOPIC,
   EK_WRITER,
   EK_PROXY_WRITER,
   EK_READER,
@@ -240,6 +242,23 @@ struct participant
 #endif
 };
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+struct topic_definition {
+  unsigned char key[16]; /* key for this topic definition (MD5 hash of the type_id and qos */
+  type_identifier_t type_id; /* type identifier for this topic */
+  const struct ddsi_sertype * type;
+  struct dds_qos *xqos; /* contains also the topic name and type name */
+  uint32_t refc;
+  struct ddsi_domaingv *gv;
+};
+
+struct topic {
+  struct entity_common e;
+  struct topic_definition *definition; /* ref to (shared) topic definition */
+  struct participant *pp; /* backref to the participant */
+};
+#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
+
 struct endpoint_common {
   struct participant *pp;
   ddsi_guid_t group_guid;
@@ -365,6 +384,11 @@ struct reader
 #endif
 };
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+DDSI_LIST_GENERIC_PTR_TYPES(proxy_topic_list);
+DDSI_LIST_GENERIC_PTR_DECL(extern, proxy_topic_list, struct proxy_topic *, ddsrt_attribute_unused);
+#endif
+
 struct proxy_participant
 {
   struct entity_common e;
@@ -381,6 +405,9 @@ struct proxy_participant
   struct addrset *as_default; /* default address set to use for user data traffic */
   struct addrset *as_meta; /* default address set to use for discovery traffic */
   struct proxy_endpoint_common *endpoints; /* all proxy endpoints can be reached from here */
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  proxy_topic_list_t topics;
+#endif
   ddsrt_avl_tree_t groups; /* table of all groups (publisher, subscriber), see struct proxy_group */
   seqno_t seq; /* sequence number of most recent SPDP message */
   unsigned implicitly_created : 1; /* participants are implicitly created for Cloud/Fog discovered endpoints */
@@ -395,6 +422,15 @@ struct proxy_participant
   struct proxy_participant_sec_attributes *sec_attr;
 #endif
 };
+
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+struct proxy_topic
+{
+  ddsi_entityid_t entityid;
+  struct topic_definition *definition; /* ref to (shared) topic definition */
+  ddsrt_wctime_t tupdate; /* timestamp of last update */
+};
+#endif
 
 /* Representing proxy subscriber & publishers as "groups": until DDSI2
    gets a reason to care about these other than for the generation of
@@ -499,7 +535,9 @@ bool is_null_guid (const ddsi_guid_t *guid);
 ddsi_entityid_t to_entityid (unsigned u);
 int is_builtin_entityid (ddsi_entityid_t id, nn_vendorid_t vendorid);
 int is_builtin_endpoint (ddsi_entityid_t id, nn_vendorid_t vendorid);
+int is_builtin_topic (ddsi_entityid_t id, nn_vendorid_t vendorid);
 bool is_local_orphan_endpoint (const struct entity_common *e);
+int is_topic_entityid (ddsi_entityid_t id);
 int is_writer_entityid (ddsi_entityid_t id);
 int is_reader_entityid (ddsi_entityid_t id);
 int is_keyed_endpoint_entityid (ddsi_entityid_t id);
@@ -712,10 +750,19 @@ void proxy_participant_reassign_lease (struct proxy_participant *proxypp, struct
 
 void purge_proxy_participants (struct ddsi_domaingv *gv, const nn_locator_t *loc, bool delete_from_as_disc);
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+dds_return_t new_topic (struct topic **tp_out, struct ddsi_guid *tpguid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, bool is_builtin, bool *new_topic_def);
+dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
+
+int topic_definition_equal (const struct topic_definition *tp_def_a, const struct topic_definition *tp_def_b);
+uint32_t topic_definition_hash (const struct topic_definition *tp_def);
+dds_return_t lookup_topic_definition_by_name (struct ddsi_domaingv *gv, const char * topic_name, struct topic_definition **topic_definition);
+bool new_proxy_topic (struct proxy_participant *proxypp, const ddsi_guid_t *guid, const type_identifier_t *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp);
+#endif
 
 /* To create a new proxy writer or reader; the proxy participant is
    determined from the GUID and must exist. */
-  int new_proxy_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *ppguid, const struct ddsi_guid *guid, struct addrset *as, const struct ddsi_plist *plist, struct nn_dqueue *dqueue, struct xeventq *evq, ddsrt_wctime_t timestamp, seqno_t seq);
+int new_proxy_writer (struct ddsi_domaingv *gv, const struct ddsi_guid *ppguid, const struct ddsi_guid *guid, struct addrset *as, const struct ddsi_plist *plist, struct nn_dqueue *dqueue, struct xeventq *evq, ddsrt_wctime_t timestamp, seqno_t seq);
 int new_proxy_reader (struct ddsi_domaingv *gv, const struct ddsi_guid *ppguid, const struct ddsi_guid *guid, struct addrset *as, const struct ddsi_plist *plist, ddsrt_wctime_t timestamp, seqno_t seq
 #ifdef DDSI_INCLUDE_SSM
                       , int favours_ssm

@@ -756,7 +756,7 @@ dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *gui
 
 int topic_definition_equal (const struct topic_definition *tp_def_a, const struct topic_definition *tp_def_b);
 uint32_t topic_definition_hash (const struct topic_definition *tp_def);
-struct topic_definition *lookup_topic_definition_by_name (struct ddsi_domaingv *gv, const char * topic_name);
+dds_return_t lookup_topic_definition_by_name (struct ddsi_domaingv *gv, const char * topic_name, struct topic_definition **topic_definition);
 bool new_proxy_topic (struct proxy_participant *proxypp, const ddsi_guid_t *guid, const type_identifier_t *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp);
 #endif
 

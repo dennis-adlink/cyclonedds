@@ -5832,19 +5832,29 @@ static struct topic_definition *lookup_topic_definition (struct ddsi_domaingv *g
   return tpd;
 }
 
-struct topic_definition *lookup_topic_definition_by_name (struct ddsi_domaingv *gv, const char * topic_name)
+dds_return_t lookup_topic_definition_by_name (struct ddsi_domaingv *gv, const char * topic_name, struct topic_definition **topic_definition)
 {
+  assert (topic_definition != NULL);
+  *topic_definition = NULL;
   struct ddsrt_hh_iter it;
-  struct topic_definition *tpd;
-
+  dds_return_t ret = DDS_RETCODE_OK;
   ddsrt_mutex_lock (&gv->topic_defs_lock);
-  for (tpd = ddsrt_hh_iter_first (gv->topic_defs, &it); tpd; tpd = ddsrt_hh_iter_next (&it))
+  for (struct topic_definition *tpd = ddsrt_hh_iter_first (gv->topic_defs, &it); tpd; tpd = ddsrt_hh_iter_next (&it))
   {
     if (!strcmp (tpd->xqos->topic_name, topic_name))
-      break;
+    {
+      if (*topic_definition == NULL)
+        *topic_definition = tpd;
+      else
+      {
+        *topic_definition = NULL;
+        ret = DDS_RETCODE_PRECONDITION_NOT_MET;
+        break;
+      }
+    }
   }
   ddsrt_mutex_unlock (&gv->topic_defs_lock);
-  return tpd;
+  return ret;
 }
 
 static void gc_delete_topic_definition (struct gcreq *gcreq)

@@ -670,7 +670,7 @@ static dds_entity_t find_local_topic_impl (dds_entity_t entity, const char *name
   }
   ddsrt_mutex_unlock (&dom->m_entity.m_mutex);
   dds_entity_unpin (e);
-  return DDS_RETCODE_PRECONDITION_NOT_MET;
+  return 0;
 }
 
 
@@ -678,9 +678,8 @@ static dds_entity_t find_local_topic_impl (dds_entity_t entity, const char *name
 
 static dds_entity_t find_remote_topic_impl (dds_entity_t entity, const char *name, dds_duration_t timeout)
 {
+  dds_entity_t ret = 0, pp_entity;
   dds_entity *e;
-  dds_return_t ret;
-  dds_entity_t hdl = DDS_RETCODE_PRECONDITION_NOT_MET, pp_entity = 0;
 
   if ((ret = dds_entity_pin (entity, &e)) != DDS_RETCODE_OK)
     return ret;
@@ -688,18 +687,8 @@ static dds_entity_t find_remote_topic_impl (dds_entity_t entity, const char *nam
   switch (dds_entity_kind (e))
   {
     case DDS_KIND_DOMAIN:
-    {
-      /* find first participant in domain for creating the topic */
-      ddsrt_avl_iter_t it;
-      ddsrt_mutex_lock (&e->m_mutex);
-      for (struct dds_entity *e_domain_child = ddsrt_avl_iter_first (&dds_entity_children_td, &e->m_children, &it); e_domain_child != NULL && pp_entity == 0; e_domain_child = ddsrt_avl_iter_next (&it))
-      {
-        if (e_domain_child->m_kind == DDS_KIND_PARTICIPANT)
-          pp_entity = e_domain_child->m_hdllink.hdl;
-      }
-      ddsrt_mutex_unlock (&e->m_mutex);
+      pp_entity = 0;
       break;
-    }
     case DDS_KIND_PARTICIPANT:
       pp_entity = entity;
       break;
@@ -708,7 +697,9 @@ static dds_entity_t find_remote_topic_impl (dds_entity_t entity, const char *nam
       return DDS_RETCODE_ILLEGAL_OPERATION;
   }
 
-  struct topic_definition *tpd = lookup_topic_definition_by_name (&e->m_domain->gv, name);
+  struct topic_definition *tpd;
+  if ((ret = lookup_topic_definition_by_name (&e->m_domain->gv, name, &tpd)) != DDS_RETCODE_OK)
+    goto err;
   if (tpd == NULL)
     goto not_found;
 
@@ -719,19 +710,33 @@ static dds_entity_t find_remote_topic_impl (dds_entity_t entity, const char *nam
         and timeout 0 means we don't want to request and wait the type to be retrieved */
     if (timeout == 0)
       goto not_found;
-    if ((hdl = dds_domain_resolve_type (entity, tpd->type_id.hash, sizeof (tpd->type_id.hash), timeout, &sertype)) != DDS_RETCODE_OK)
+    if ((ret = dds_domain_resolve_type (entity, tpd->type_id.hash, sizeof (tpd->type_id.hash), timeout, &sertype)) != DDS_RETCODE_OK)
       goto err;
   }
   else
   {
     sertype = ddsi_sertype_ref (tpd->type);
   }
-  hdl = dds_create_topic_impl (pp_entity, name, &sertype, tpd->xqos, NULL, NULL, false, true);
+
+  if (pp_entity == 0)
+  {
+    /* find first participant in domain, will be used for creating the topic */
+    ddsrt_avl_iter_t it;
+    ddsrt_mutex_lock (&e->m_mutex);
+    for (struct dds_entity *e_domain_child = ddsrt_avl_iter_first (&dds_entity_children_td, &e->m_children, &it); e_domain_child != NULL && pp_entity == 0; e_domain_child = ddsrt_avl_iter_next (&it))
+    {
+      if (e_domain_child->m_kind == DDS_KIND_PARTICIPANT)
+        pp_entity = e_domain_child->m_hdllink.hdl;
+    }
+    assert (pp_entity > 0);
+    ddsrt_mutex_unlock (&e->m_mutex);
+  }
+  ret = dds_create_topic_impl (pp_entity, name, &sertype, tpd->xqos, NULL, NULL, false, true);
 
 not_found:
 err:
   dds_entity_unpin (e);
-  return hdl;
+  return ret;
 }
 
 #endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
@@ -754,16 +759,16 @@ static dds_entity_t find_topic_impl (dds_entity_t entity, const char *name, bool
   ddsrt_mutex_lock (&gv->new_topic_lock);
   do
   {
-    if ((hdl = find_local_topic_impl (entity, name)) == DDS_RETCODE_PRECONDITION_NOT_MET && !only_local)
+    if ((hdl = find_local_topic_impl (entity, name)) == 0 && !only_local)
     {
 #ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
       hdl = find_remote_topic_impl (entity, name, timeout);
 #endif
     }
-    if (hdl == DDS_RETCODE_PRECONDITION_NOT_MET && timeout > 0)
+    if (hdl == 0 && timeout > 0)
       if (!ddsrt_cond_waituntil (&gv->new_topic_cond, &gv->new_topic_lock, abstimeout))
         hdl = DDS_RETCODE_TIMEOUT;
-  } while (hdl == DDS_RETCODE_PRECONDITION_NOT_MET && dds_time () < abstimeout);
+  } while (hdl == 0 && dds_time () < abstimeout);
   ddsrt_mutex_unlock (&gv->new_topic_lock);
   dds_entity_unpin (e);
   return hdl;

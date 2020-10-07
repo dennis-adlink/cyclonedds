@@ -1146,10 +1146,10 @@ dds_find_topic(dds_entity_t participant, const char *name);
  *
  * @retval >0
  *             A valid topic handle.
+ * @retval 0
+ *             No topic of this name existed yet in the given scope
  * @retval DDS_RETCODE_BAD_PARAMETER
  *             Participant was invalid.
- * @retval DDS_RETCODE_PRECONDITION_NOT_MET
- *             No topic of this name existed yet in the given scope
  */
 DDS_EXPORT dds_entity_t
 dds_find_topic_locally (dds_entity_t entity, const char *name, dds_duration_t timeout);

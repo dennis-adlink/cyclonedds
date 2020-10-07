@@ -114,6 +114,7 @@ CU_Test(ddsc_topic_find_local, deleted, .init = topic_find_init, .fini = topic_f
   CU_ASSERT_EQUAL_FATAL (topic, DDS_RETCODE_PRECONDITION_NOT_MET);
 }
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 static void create_remote_topic (char * topic_name_remote)
 {
   dds_entity_t participant_remote = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
@@ -123,6 +124,7 @@ static void create_remote_topic (char * topic_name_remote)
   dds_entity_t topic_remote = dds_create_topic (participant_remote, &Space_Type1_desc, topic_name_remote, NULL, NULL);
   CU_ASSERT_FATAL (topic_remote > 0);
 }
+#endif
 
 CU_Test(ddsc_topic_find_global, domain, .init = topic_find_init, .fini = topic_find_fini)
 {

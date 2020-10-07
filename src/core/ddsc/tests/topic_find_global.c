@@ -26,36 +26,38 @@
 
 #define DDS_DOMAINID1 0
 #define DDS_DOMAINID2 1
+#define DDS_DOMAINID3 2
 
-#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 #define DDS_CONFIG_NO_PORT_GAIN "${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}<Discovery><ExternalDomainId>0</ExternalDomainId><EnableTopicDiscoveryEndpoints>true</EnableTopicDiscoveryEndpoints></Discovery>"
-#else
-#define DDS_CONFIG_NO_PORT_GAIN "${CYCLONEDDS_URI}${CYCLONEDDS_URI:+,}<Discovery><ExternalDomainId>0</ExternalDomainId></Discovery>"
-#endif
 
 static dds_entity_t g_domain1 = 0;
 static dds_entity_t g_participant1 = 0;
 static dds_entity_t g_topic1 = 0;
-static dds_entity_t g_domain_remote = 0;
+static dds_entity_t g_domain_remote1 = 0;
+static dds_entity_t g_domain_remote2 = 0;
 
 ddsrt_atomic_uint32_t g_stop;
 
 #define MAX_NAME_SIZE (100)
 char g_topic_name1[MAX_NAME_SIZE];
 
-static void topic_find_init (void)
+static void topic_find_global_init (void)
 {
   /* Domains for pub and sub use a different domain id, but the portgain setting
          * in configuration is 0, so that both domains will map to the same port number.
          * This allows to create two domains in a single test process. */
-  char *conf1 = ddsrt_expand_envvars (DDS_CONFIG_NO_PORT_GAIN, DDS_DOMAINID1);
-  char *conf2 = ddsrt_expand_envvars (DDS_CONFIG_NO_PORT_GAIN, DDS_DOMAINID2);
-  g_domain1 = dds_create_domain (DDS_DOMAINID1, conf1);
+  char * conf = ddsrt_expand_envvars (DDS_CONFIG_NO_PORT_GAIN, DDS_DOMAINID1);
+  g_domain1 = dds_create_domain (DDS_DOMAINID1, conf);
   CU_ASSERT_FATAL (g_domain1 > 0);
-  g_domain_remote = dds_create_domain (DDS_DOMAINID2, conf2);
-  CU_ASSERT_FATAL (g_domain_remote > 0);
-  dds_free (conf1);
-  dds_free (conf2);
+  dds_free (conf);
+  conf = ddsrt_expand_envvars (DDS_CONFIG_NO_PORT_GAIN, DDS_DOMAINID2);
+  g_domain_remote1 = dds_create_domain (DDS_DOMAINID2, conf);
+  CU_ASSERT_FATAL (g_domain_remote1 > 0);
+  dds_free (conf);
+  conf = ddsrt_expand_envvars (DDS_CONFIG_NO_PORT_GAIN, DDS_DOMAINID3);
+  g_domain_remote2 = dds_create_domain (DDS_DOMAINID3, conf);
+  CU_ASSERT_FATAL (g_domain_remote2 > 0);
+  dds_free (conf);
 
   g_participant1 = dds_create_participant (DDS_DOMAINID1, NULL, NULL);
   CU_ASSERT_FATAL (g_participant1 > 0);
@@ -65,56 +67,13 @@ static void topic_find_init (void)
   CU_ASSERT_FATAL (g_topic1 > 0);
 }
 
-static void topic_find_fini (void)
+static void topic_find_global_fini (void)
 {
   dds_delete (g_domain1);
-  dds_delete (g_domain_remote);
+  dds_delete (g_domain_remote1);
+  dds_delete (g_domain_remote2);
 }
 
-CU_Test(ddsc_topic_find_local, domain, .init = topic_find_init, .fini = topic_find_fini)
-{
-  dds_entity_t topic = dds_find_topic_locally (g_domain1, g_topic_name1, 0);
-  CU_ASSERT_FATAL (topic > 0);
-  CU_ASSERT_NOT_EQUAL_FATAL (topic, g_topic1);
-  dds_return_t ret = dds_delete (topic);
-  CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
-}
-
-CU_Test(ddsc_topic_find_local, participant, .init = topic_find_init, .fini = topic_find_fini)
-{
-  dds_entity_t topic = dds_find_topic_locally (g_participant1, g_topic_name1, 0);
-  CU_ASSERT_FATAL (topic > 0);
-  CU_ASSERT_NOT_EQUAL_FATAL (topic, g_topic1);
-}
-
-CU_Test(ddsc_topic_find_local, non_participants, .init = topic_find_init, .fini = topic_find_fini)
-{
-  dds_entity_t topic = dds_find_topic_locally (g_topic1, "non_participant", 0);
-  CU_ASSERT_EQUAL_FATAL (topic, DDS_RETCODE_ILLEGAL_OPERATION);
-}
-
-CU_Test(ddsc_topic_find_local, null, .init = topic_find_init, .fini = topic_find_fini)
-{
-  DDSRT_WARNING_MSVC_OFF (6387); /* Disable SAL warning on intentional misuse of the API */
-  dds_entity_t topic = dds_find_topic_locally (g_participant1, NULL, 0);
-  DDSRT_WARNING_MSVC_ON (6387);
-  CU_ASSERT_EQUAL_FATAL (topic, DDS_RETCODE_BAD_PARAMETER);
-}
-
-CU_Test(ddsc_topic_find_local, unknown, .init = topic_find_init, .fini = topic_find_fini)
-{
-  dds_entity_t topic = dds_find_topic_locally (g_participant1, "unknown", 0);
-  CU_ASSERT_EQUAL_FATAL (topic, DDS_RETCODE_PRECONDITION_NOT_MET);
-}
-
-CU_Test(ddsc_topic_find_local, deleted, .init = topic_find_init, .fini = topic_find_fini)
-{
-  dds_delete (g_topic1);
-  dds_entity_t topic = dds_find_topic_locally (g_participant1, g_topic_name1, 0);
-  CU_ASSERT_EQUAL_FATAL (topic, DDS_RETCODE_PRECONDITION_NOT_MET);
-}
-
-#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 static void create_remote_topic (char * topic_name_remote)
 {
   dds_entity_t participant_remote = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
@@ -124,11 +83,9 @@ static void create_remote_topic (char * topic_name_remote)
   dds_entity_t topic_remote = dds_create_topic (participant_remote, &Space_Type1_desc, topic_name_remote, NULL, NULL);
   CU_ASSERT_FATAL (topic_remote > 0);
 }
-#endif
 
-CU_Test(ddsc_topic_find_global, domain, .init = topic_find_init, .fini = topic_find_fini)
+CU_Test(ddsc_topic_find_global, domain, .init = topic_find_global_init, .fini = topic_find_global_fini)
 {
-#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   char topic_name_remote[MAX_NAME_SIZE];
   create_remote_topic (topic_name_remote);
 
@@ -137,21 +94,16 @@ CU_Test(ddsc_topic_find_global, domain, .init = topic_find_init, .fini = topic_f
 
   dds_return_t ret = dds_delete (topic);
   CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
-#endif
 }
 
-CU_Test(ddsc_topic_find_global, participant, .init = topic_find_init, .fini = topic_find_fini)
+CU_Test(ddsc_topic_find_global, participant, .init = topic_find_global_init, .fini = topic_find_global_fini)
 {
-#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
   char topic_name_remote[MAX_NAME_SIZE];
   create_remote_topic (topic_name_remote);
 
   dds_entity_t topic = dds_find_topic_globally (g_participant1, topic_name_remote, DDS_SECS (3));
   CU_ASSERT_FATAL (topic > 0);
-#endif
 }
-
-#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
 
 static void msg (const char *msg, ...)
 {
@@ -225,7 +177,6 @@ static dds_return_t topics_thread_state (struct create_topic_thread_arg *arg, ui
     dds_sleepfor (DDS_MSECS (10));
   return ddsrt_atomic_ld32 (&arg->state) == desired_state ? DDS_RETCODE_OK : DDS_RETCODE_TIMEOUT;
 }
-#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
 
 CU_TheoryDataPoints (ddsc_topic_find_global, find_delete_topics) = {
     CU_DataPoints (uint32_t,     1,  5,  0,  5), /* number of local participants */
@@ -233,10 +184,9 @@ CU_TheoryDataPoints (ddsc_topic_find_global, find_delete_topics) = {
     CU_DataPoints (uint32_t,     1, 50, 50, 50), /* number of topics per participant */
 };
 
-CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), ddsc_topic_find_global, find_delete_topics, .init = topic_find_init, .fini = topic_find_fini, .timeout = 30)
+CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), ddsc_topic_find_global, find_delete_topics, .init = topic_find_global_init, .fini = topic_find_global_fini, .timeout = 30)
 {
-#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
-  msg("ddsc_topic_find_global.remote_topics: %u/%u local/remote participants, %u topics", num_local_pp, num_remote_pp, num_tp);
+  msg("ddsc_topic_find_global.find_delete_topics: %u/%u local/remote participants, %u topics", num_local_pp, num_remote_pp, num_tp);
   dds_return_t ret;
   dds_entity_t participant_remote = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
   CU_ASSERT_FATAL (participant_remote > 0);
@@ -252,7 +202,7 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
     ddsrt_atomic_st32 (&create_args[n].state, INIT);
     create_args[n].num_tp = num_tp;
     create_args[n].pp = remote ? participant_remote : g_participant1;
-    create_unique_topic_name ("ddsc_topic_find_remote", create_args[n].topic_name_prefix, MAX_NAME_SIZE);
+    create_unique_topic_name ("ddsc_topic_find_global", create_args[n].topic_name_prefix, MAX_NAME_SIZE);
     create_args[n].topic_desc = n % 3 ? (n % 3 == 1 ? &Space_Type2_desc : &Space_Type3_desc) : &Space_Type1_desc;
 
     ddsrt_thread_t thread_id;
@@ -301,9 +251,45 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
     CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
   }
   ddsrt_free (create_args);
-#else
-  (void) num_local_pp;
-  (void) num_remote_pp;
-  (void) num_tp;
-#endif /* DDSI_INCLUDE_TOPIC_DISCOVERY */
+}
+
+CU_Test (ddsc_topic_find_global, same_name, .init = topic_find_global_init, .fini = topic_find_global_fini)
+{
+  dds_entity_t participant_remote1 = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
+  CU_ASSERT_FATAL (participant_remote1 > 0);
+  dds_entity_t participant_remote2 = dds_create_participant (DDS_DOMAINID3, NULL, NULL);
+  CU_ASSERT_FATAL (participant_remote2 > 0);
+
+  /* create 2 topics with same name, different type */
+  char topic_name[MAX_NAME_SIZE];
+  create_unique_topic_name ("ddsc_topic_find_global_same_name", topic_name, MAX_NAME_SIZE);
+  dds_entity_t topic_remote1 = dds_create_topic (participant_remote1, &Space_Type1_desc, topic_name, NULL, NULL);
+  CU_ASSERT_FATAL (topic_remote1 > 0);
+  dds_entity_t topic_remote2 = dds_create_topic (participant_remote2, &Space_Type2_desc, topic_name, NULL, NULL);
+  CU_ASSERT_FATAL (topic_remote2 > 0);
+
+  /* Wait for both topics to be discovered */
+  dds_entity_t topic_rd = dds_create_reader (g_participant1, DDS_BUILTIN_TOPIC_DCPSTOPIC, NULL, NULL);
+  CU_ASSERT_FATAL (topic_rd > 0);
+  dds_time_t t_exp = dds_time () + DDS_SECS (5);
+  uint32_t seen = 0;
+  do
+  {
+    void *raw[1] = { 0 };
+    dds_sample_info_t sample_info[1];
+    dds_return_t n;
+    while ((n = dds_take (topic_rd, raw, sample_info, 1, 1)) > 0)
+    {
+      if (sample_info[0].valid_data && !strcmp (((dds_builtintopic_topic_t *) raw[0])->topic_name, topic_name))
+        seen++;
+      dds_return_loan (topic_rd, raw, n);
+    }
+    dds_sleepfor (DDS_MSECS (10));
+  }
+  while (seen < 2 && dds_time () < t_exp);
+
+  /* find topic should return DDS_RETCODE_PRECONDITION_NOT_MET because
+     multiple topics with this name are found */
+  dds_entity_t topic = dds_find_topic_globally (g_participant1, topic_name, DDS_SECS (5));
+  CU_ASSERT_EQUAL_FATAL (topic, DDS_RETCODE_PRECONDITION_NOT_MET);
 }

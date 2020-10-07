@@ -157,10 +157,11 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
     }
     all_seen = true;
     for (uint32_t p = 0; p < 2 * num_pp && all_seen; p++)
-      if (((hist_data && p < num_pp) || (live_data && p >= num_pp)) && (seen[p] != (UINT64_C (2) << (num_tp - 1)) - 1))
+      if (((hist_data && p < num_pp) || (live_data && p >= num_pp)) && seen[p] != (UINT64_C (2) << (num_tp - 1)) - 1)
         all_seen = false;
     dds_sleepfor (DDS_MSECS (10));
-  } while (!all_seen && dds_time () < t_exp);
+  }
+  while (!all_seen && dds_time () < t_exp);
   CU_ASSERT_FATAL (all_seen);
 
   /* clean up */

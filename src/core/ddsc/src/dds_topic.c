@@ -333,7 +333,8 @@ dds_entity_t dds_create_topic_impl (
     const dds_qos_t *qos,
     const dds_listener_t *listener,
     const ddsi_plist_t *sedp_plist,
-    bool is_builtin)
+    bool is_builtin,
+    bool is_find_topic)
 {
   dds_return_t rc;
   dds_participant *pp;
@@ -478,9 +479,13 @@ dds_entity_t dds_create_topic_impl (
 
   if (new_topic_def)
   {
-    ddsrt_mutex_lock (&gv->new_topic_lock);
+    /* In case we're creating this topic for a find topic, we have already
+       taken the new_topic_lock */
+    if (!is_find_topic)
+      ddsrt_mutex_lock (&gv->new_topic_lock);
     ddsrt_cond_broadcast (&gv->new_topic_cond);
-    ddsrt_mutex_unlock (&gv->new_topic_lock);
+    if (!is_find_topic)
+      ddsrt_mutex_unlock (&gv->new_topic_lock);
   }
 
   dds_entity_unpin (&pp->m_entity);
@@ -499,7 +504,7 @@ dds_entity_t dds_create_topic_generic (dds_entity_t participant, const char *nam
     return DDS_RETCODE_BAD_PARAMETER;
   if (!strncmp(name, "DCPS", 4))
     return DDS_RETCODE_BAD_PARAMETER;
-  return dds_create_topic_impl (participant, name, sertype, qos, listener, sedp_plist, false);
+  return dds_create_topic_impl (participant, name, sertype, qos, listener, sedp_plist, false, false);
 }
 
 dds_entity_t dds_create_topic_arbitrary (dds_entity_t participant, const char *name, struct ddsi_sertype *sertype, const dds_qos_t *qos, const dds_listener_t *listener, const ddsi_plist_t *sedp_plist)
@@ -591,74 +596,81 @@ dds_entity_t dds_find_topic (dds_entity_t participant, const char *name)
 static dds_entity_t find_local_topic_impl (dds_entity_t entity, const char *name)
 {
   dds_entity *e;
-  dds_participant *pp;
   dds_return_t ret;
+  dds_domain *dom;
 
   if ((ret = dds_entity_pin (entity, &e)) != DDS_RETCODE_OK)
     return ret;
-  else
+
+  switch (dds_entity_kind (e))
   {
-    switch (dds_entity_kind (e))
-    {
-      case DDS_KIND_CYCLONEDDS:
-      case DDS_KIND_DOMAIN:
-        ret = DDS_RETCODE_UNSUPPORTED;
-        goto err;
-      case DDS_KIND_PARTICIPANT:
-        pp = (dds_participant *) e;
-        break;
-      default:
-        ret = DDS_RETCODE_ILLEGAL_OPERATION;
-        goto err;
-    }
+    case DDS_KIND_PARTICIPANT:
+      dom = e->m_domain;
+      break;
+    case DDS_KIND_DOMAIN:
+      dom = (dds_domain *) e;
+      break;
+    default:
+      dds_entity_unpin (e);
+      return DDS_RETCODE_ILLEGAL_OPERATION;
   }
 
-  ddsrt_avl_iter_t it;
-  ddsrt_mutex_lock (&pp->m_entity.m_mutex);
-  for (dds_entity *e_child = ddsrt_avl_iter_first (&dds_entity_children_td, &pp->m_entity.m_children, &it); e_child != NULL; e_child = ddsrt_avl_iter_next (&it))
+  dds_instance_handle_t last_iid = 0;
+  ddsrt_mutex_lock (&dom->m_entity.m_mutex);
+  dds_entity *e_domain_child;
+  while ((e_domain_child = ddsrt_avl_lookup_succ (&dds_entity_children_td, &dom->m_entity.m_children, &last_iid)) != NULL)
   {
-    if (dds_entity_kind (e_child) != DDS_KIND_TOPIC)
+    last_iid = e_domain_child->m_iid;
+    if (dds_entity_kind (e_domain_child) != DDS_KIND_PARTICIPANT)
       continue;
 
-    struct dds_entity *x;
-    if (dds_entity_pin (e_child->m_hdllink.hdl, &x) != DDS_RETCODE_OK)
-      continue;
+    dds_participant *pp = (dds_participant *) e_domain_child;
+    ddsrt_mutex_unlock (&dom->m_entity.m_mutex);
 
-    struct dds_topic * const tp = (struct dds_topic *) e_child;
-    if (x != e_child || strcmp (tp->m_ktopic->name, name) != 0)
+    ddsrt_mutex_lock (&pp->m_entity.m_mutex);
+    ddsrt_avl_iter_t it;
+    for (dds_entity *e_pp_child = ddsrt_avl_iter_first (&dds_entity_children_td, &pp->m_entity.m_children, &it); e_pp_child != NULL; e_pp_child = ddsrt_avl_iter_next (&it))
     {
+      if (dds_entity_kind (e_pp_child) != DDS_KIND_TOPIC)
+        continue;
+
+      struct dds_entity *x;
+      if (dds_entity_pin (e_pp_child->m_hdllink.hdl, &x) != DDS_RETCODE_OK)
+        continue;
+
+      struct dds_topic * const tp = (struct dds_topic *) e_pp_child;
+      if (x != e_pp_child || strcmp (tp->m_ktopic->name, name) != 0)
+      {
+        dds_entity_unpin (x);
+        continue;
+      }
+
+      /* found a topic with the provided topic name */
+      struct ddsi_sertype * const sertype = ddsi_sertype_ref (tp->m_stype);
+      struct dds_ktopic * const ktp = tp->m_ktopic;
+      ktp->refc++;
       dds_entity_unpin (x);
-      continue;
+
+  #ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+      /* reference ktopic-sertype meta-data entry, this should be an existing
+        entry because the topic already exists locally */
+      topic_guid_map_ref (ktp, sertype);
+  #endif
+
+      dds_entity_t hdl = create_topic_pp_locked (pp, ktp, false, name, sertype, NULL, NULL);
+      ddsrt_mutex_unlock (&pp->m_entity.m_mutex);
+      dds_entity_unpin (e);
+  #ifdef DDSI_INCLUDE_TYPE_DISCOVERY
+      ddsi_tl_meta_local_ref (sertype->gv, NULL, sertype);
+  #endif
+      return hdl;
     }
-
-    struct ddsi_sertype * const sertype = ddsi_sertype_ref (tp->m_stype);
-    struct dds_ktopic * const ktp = tp->m_ktopic;
-    ktp->refc++;
-    dds_entity_unpin (x);
-
-#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
-    /* reference ktopic-sertype meta-data entry, this should be an existing
-      entry because the topic already exists locally */
-    topic_guid_map_ref (ktp, sertype);
-#endif
-
-    dds_entity_t hdl = create_topic_pp_locked (pp, ktp, false, name, sertype, NULL, NULL);
     ddsrt_mutex_unlock (&pp->m_entity.m_mutex);
-    dds_entity_unpin (e);
-#ifdef DDSI_INCLUDE_TYPE_DISCOVERY
-    ddsi_tl_meta_local_ref (sertype->gv, NULL, sertype);
-#endif
-    return hdl;
+    ddsrt_mutex_lock (&dom->m_entity.m_mutex);
   }
-
-  /* no topic found with this name */
-  ddsrt_mutex_unlock (&pp->m_entity.m_mutex);
+  ddsrt_mutex_unlock (&dom->m_entity.m_mutex);
   dds_entity_unpin (e);
   return DDS_RETCODE_PRECONDITION_NOT_MET;
-
-err:
-  dds_entity_unpin (e);
-  return ret;
 }
 
 
@@ -668,48 +680,55 @@ static dds_entity_t find_remote_topic_impl (dds_entity_t entity, const char *nam
 {
   dds_entity *e;
   dds_return_t ret;
-  dds_entity_t hdl = DDS_RETCODE_PRECONDITION_NOT_MET;
+  dds_entity_t hdl = DDS_RETCODE_PRECONDITION_NOT_MET, pp_entity = 0;
 
   if ((ret = dds_entity_pin (entity, &e)) != DDS_RETCODE_OK)
     return ret;
-  else
+
+  switch (dds_entity_kind (e))
   {
-    switch (dds_entity_kind (e))
+    case DDS_KIND_DOMAIN:
     {
-      case DDS_KIND_CYCLONEDDS:
-        hdl = DDS_RETCODE_UNSUPPORTED;
-        goto err;
-      case DDS_KIND_DOMAIN:
-      case DDS_KIND_PARTICIPANT:
-        break;
-      default:
-        hdl = DDS_RETCODE_ILLEGAL_OPERATION;
-        goto err;
+      /* find first participant in domain for creating the topic */
+      ddsrt_avl_iter_t it;
+      ddsrt_mutex_lock (&e->m_mutex);
+      for (struct dds_entity *e_domain_child = ddsrt_avl_iter_first (&dds_entity_children_td, &e->m_children, &it); e_domain_child != NULL && pp_entity == 0; e_domain_child = ddsrt_avl_iter_next (&it))
+      {
+        if (e_domain_child->m_kind == DDS_KIND_PARTICIPANT)
+          pp_entity = e_domain_child->m_hdllink.hdl;
+      }
+      ddsrt_mutex_unlock (&e->m_mutex);
+      break;
     }
+    case DDS_KIND_PARTICIPANT:
+      pp_entity = entity;
+      break;
+    default:
+      dds_entity_unpin (e);
+      return DDS_RETCODE_ILLEGAL_OPERATION;
   }
 
   struct topic_definition *tpd = lookup_topic_definition_by_name (&e->m_domain->gv, name);
-  if (tpd != NULL)
+  if (tpd == NULL)
+    goto not_found;
+
+  struct ddsi_sertype *sertype;
+  if (tpd->type == NULL)
   {
-    struct ddsi_sertype *sertype;
-    if (tpd->type == NULL)
-    {
-      if (timeout == 0)
-      {
-        /* topic definition is found, but the type for this topic is not resolved
-           and timeout 0 means we don't want to request and wait the type to be retrieved */
-        goto notfound;
-      }
-      if ((hdl = dds_domain_resolve_type (entity, tpd->type_id.hash, sizeof (tpd->type_id.hash), timeout, &sertype)) != DDS_RETCODE_OK)
-        goto err;
-    }
-    else
-    {
-      sertype = ddsi_sertype_ref (tpd->type);
-    }
-    hdl = dds_create_topic_impl (entity, name, &sertype, tpd->xqos, NULL, NULL, false);
+    /* if topic definition is found, but the type for this topic is not resolved
+        and timeout 0 means we don't want to request and wait the type to be retrieved */
+    if (timeout == 0)
+      goto not_found;
+    if ((hdl = dds_domain_resolve_type (entity, tpd->type_id.hash, sizeof (tpd->type_id.hash), timeout, &sertype)) != DDS_RETCODE_OK)
+      goto err;
   }
-notfound:
+  else
+  {
+    sertype = ddsi_sertype_ref (tpd->type);
+  }
+  hdl = dds_create_topic_impl (pp_entity, name, &sertype, tpd->xqos, NULL, NULL, false, true);
+
+not_found:
 err:
   dds_entity_unpin (e);
   return hdl;

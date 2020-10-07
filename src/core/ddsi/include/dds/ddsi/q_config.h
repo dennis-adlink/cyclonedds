@@ -268,6 +268,10 @@ struct config
   int publish_uc_locators; /* Publish discovery unicast locators */
   int enable_uc_locators; /* If false, don't even try to create a unicast socket */
 
+#ifdef DDSI_INCLUDE_TOPIC_DISCOVERY
+  int enable_topic_discovery_endpoints;
+#endif
+
   /* TCP transport configuration */
   int tcp_nodelay;
   int tcp_port;

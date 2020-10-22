@@ -12,6 +12,7 @@
 #define _GNU_SOURCE
 
 #include <assert.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -264,6 +265,7 @@ DDSRT_WARNING_GNUC_ON(sign-conversion)
 
 #if DDSRT_HAVE_DNS
 #if DDSRT_HAVE_GETADDRINFO
+
 dds_return_t
 ddsrt_gethostbyname(const char *name, int af, ddsrt_hostent_t **hentp)
 {
@@ -290,6 +292,12 @@ ddsrt_gethostbyname(const char *name, int af, ddsrt_hostent_t **hentp)
      Deny empty hostnames to keep behavior across platforms consistent. */
   if (strlen(name) == 0) {
     return DDS_RETCODE_HOST_NOT_FOUND;
+  }
+
+  for (size_t i = 0; name[i]; i++) {
+    if (!isalnum (name[i]) && name[i] != '-' && name[i] != '.' && name[i] != ':') {
+      return DDS_RETCODE_HOST_NOT_FOUND;
+    }
   }
 
   memset(&hints, 0, sizeof(hints));

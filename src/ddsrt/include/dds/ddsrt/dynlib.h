@@ -121,8 +121,8 @@ ddsrt_dlsym(
 /**
  * @brief Get the most recent library related error.
  *
- * The function ddsrt_dlerror() will return the most recent error of the operating system
- * in human readable form.
+ * The function ddsrt_dlerror() will return the most recent error of a
+ * call to ddsrt_dlopen, ddsrt_dlclose, ddsrt_dlsym in human readable form.
  *
  * If no error was found, it's either due to the fact that there
  * actually was no error since init or last ddsrt_dlerror() call,
@@ -135,9 +135,9 @@ ddsrt_dlsym(
  * @returns A dds_return_t indicating success or failure.
  *
  * @retval DDS_RETCODE_OK
- *             Most recent library related error returned.
- * @retval DDS_RETCODE_NOT_FOUND
- *             No library related error found.
+ *             Most recent dynamic library loading related error returned.
+ * @retval DDS_RETCODE_PRECONDITION_NOT_MET
+ *             No dynamic library loading related error
  */
 DDS_EXPORT dds_return_t
 ddsrt_dlerror(

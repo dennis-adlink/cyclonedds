@@ -549,7 +549,11 @@ static bool crypto_decrypt_data(uint32_t session_id, unsigned char *iv, DDS_Secu
   EVP_CIPHER_CTX *ctx;
   crypto_session_key_t session_key;
   uint32_t key_size = crypto_get_key_size(CRYPTO_TRANSFORM_KIND(transformation_kind));
+  assert (key_size);
   int len = 0;
+
+  if (!key_size)
+    return false;
 
   if (!crypto_calculate_session_key_test(&session_key, session_id, key_material->master_salt, key_material->master_sender_key, key_material->transformation_kind))
     return false;

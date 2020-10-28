@@ -266,6 +266,18 @@ DDSRT_WARNING_GNUC_ON(sign-conversion)
 #if DDSRT_HAVE_DNS
 #if DDSRT_HAVE_GETADDRINFO
 
+static bool
+is_valid_hostname_char(char c)
+{
+  return
+    (c >= 'a' && c <= 'z') ||
+    (c >= 'A' && c <= 'Z') ||
+    (c >= '0' && c <= '9') ||
+    c == '-' ||
+    c == '.' ||
+    c == ':';
+}
+
 dds_return_t
 ddsrt_gethostbyname(const char *name, int af, ddsrt_hostent_t **hentp)
 {
@@ -295,7 +307,7 @@ ddsrt_gethostbyname(const char *name, int af, ddsrt_hostent_t **hentp)
   }
 
   for (size_t i = 0; name[i]; i++) {
-    if (!isalnum (name[i]) && name[i] != '-' && name[i] != '.' && name[i] != ':') {
+    if (!is_valid_hostname_char(name[i])) {
       return DDS_RETCODE_HOST_NOT_FOUND;
     }
   }

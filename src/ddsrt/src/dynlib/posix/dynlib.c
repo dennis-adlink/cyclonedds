@@ -18,7 +18,15 @@
 #include "dds/ddsrt/io.h"
 #include "dds/ddsrt/string.h"
 
-dds_return_t ddsrt_dlopen (const char *name, bool translate, ddsrt_dynlib_t *handle)
+static void get_dlerror (char *buf, size_t buflen)
+{
+  assert (buf);
+  const char *err = dlerror ();
+  assert (err != NULL);
+  (void) ddsrt_strlcpy (buf, err, buflen);
+}
+
+dds_return_t ddsrt_dlopen (const char *name, bool translate, ddsrt_dynlib_t *handle, char *err_msg, size_t err_msg_len)
 {
   assert (handle);
   *handle = NULL;
@@ -43,30 +51,38 @@ dds_return_t ddsrt_dlopen (const char *name, bool translate, ddsrt_dynlib_t *han
     *handle = dlopen (name, RTLD_GLOBAL | RTLD_NOW);
   }
 
-  return *handle != NULL ? DDS_RETCODE_OK : DDS_RETCODE_ERROR;
+  if (*handle == NULL)
+  {
+    if (err_msg != NULL)
+      get_dlerror (err_msg, err_msg_len);
+    return DDS_RETCODE_ERROR;
+  }
+  return DDS_RETCODE_OK;
 }
 
-dds_return_t ddsrt_dlclose (ddsrt_dynlib_t handle)
+dds_return_t ddsrt_dlclose (ddsrt_dynlib_t handle, char *err_msg, size_t err_msg_len)
 {
   assert (handle);
-  return (dlclose (handle) == 0) ? DDS_RETCODE_OK : DDS_RETCODE_ERROR;
+  if (dlclose (handle) != 0)
+  {
+    if (err_msg != NULL)
+      get_dlerror (err_msg, err_msg_len);
+    return DDS_RETCODE_ERROR;
+  }
+  return DDS_RETCODE_OK;
 }
 
-dds_return_t ddsrt_dlsym (ddsrt_dynlib_t handle, const char *symbol, void **address)
+dds_return_t ddsrt_dlsym (ddsrt_dynlib_t handle, const char *symbol, void **address, char *err_msg, size_t err_msg_len)
 {
   assert (handle);
   assert (address);
   assert (symbol);
   *address = dlsym (handle, symbol);
-  return (*address == NULL) ? DDS_RETCODE_ERROR : DDS_RETCODE_OK;
-}
-
-dds_return_t ddsrt_dlerror (char *buf, size_t buflen)
-{
-  assert (buf);
-  const char *err = dlerror ();
-  if (err == NULL)
-    return DDS_RETCODE_PRECONDITION_NOT_MET;
-  (void) ddsrt_strlcpy (buf, err, buflen);
+  if (*address == NULL)
+  {
+    if (err_msg != NULL)
+      get_dlerror (err_msg, err_msg_len);
+    return DDS_RETCODE_ERROR;
+  }
   return DDS_RETCODE_OK;
 }

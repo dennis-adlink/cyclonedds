@@ -46,18 +46,16 @@ load_plugin(
     void *plugin = NULL;
     assert(info);
 
-    result = ddsrt_dlopen(name_lib, true, &info->lib_handle);
+    char err_msg[200] = { 0 };
+    result = ddsrt_dlopen(name_lib, true, &info->lib_handle, err_msg, sizeof (err_msg));
     if (result == DDS_RETCODE_OK && info->lib_handle) {
-
-        result = ddsrt_dlsym(info->lib_handle, name_init, (void **)&info->func_init);
+        result = ddsrt_dlsym(info->lib_handle, name_init, (void **)&info->func_init, err_msg, sizeof (err_msg));
         if( result != DDS_RETCODE_OK || info->func_init == NULL) {
-      char buf[200];
-      ddsrt_dlerror(buf, 200);
-           printf("ERROR: could not init %s\n. Invalid init function: %s: %s", name_lib, name_init, buf);
+           printf("ERROR: could not init %s\n. Invalid init function: %s: %s", name_lib, name_init, err_msg);
            return plugin;
         }
 
-        result = ddsrt_dlsym(info->lib_handle, name_fini, (void **)&info->func_fini);
+        result = ddsrt_dlsym(info->lib_handle, name_fini, (void **)&info->func_fini, NULL, 0);
         if( result != DDS_RETCODE_OK || info->func_fini == NULL ) {
            printf("ERROR: could not init %s\n. Invalid fini function: %s", name_lib, name_fini);
            return plugin;
@@ -71,9 +69,7 @@ load_plugin(
             printf("ERROR: could not init %s\n", name_lib);
         }
     } else {
-      char buffer[300];
-      ddsrt_dlerror(buffer,300);
-        printf("ERROR: could not load %s. %s\n", name_lib, buffer);
+        printf("ERROR: could not load %s. %s\n", name_lib, err_msg);
     }
     return plugin;
 }
@@ -133,7 +129,7 @@ unload_plugin(
         if (info->func_fini && info->context) {
             info->func_fini(info->context);
         }
-        result = ddsrt_dlclose( info->lib_handle );
+        result = ddsrt_dlclose( info->lib_handle, NULL, 0 );
         if ( result != 0 ){
           printf( "Error occured while closing the library\n");
         }

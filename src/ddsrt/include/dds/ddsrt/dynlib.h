@@ -54,6 +54,8 @@ typedef struct ddsrt_dynlib *ddsrt_dynlib_t;
  * @param[in]   name        Library file name.
  * @param[in]   translate   Automatic name translation on/off.
  * @param[out]  handle      Library handle that will be assigned after successfull operation. It is assigned to NULL if loading fails.
+ * @param[out]  err_msg     Buffer for error message that will be set in case of an error (can be null)
+ * @param[in]   err_msg_len Size of the error message buffer
  *
  * @returns A dds_return_t indicating success or failure.
  *
@@ -63,13 +65,14 @@ typedef struct ddsrt_dynlib *ddsrt_dynlib_t;
  *             There is an invalid input in the parameter list
  * @retval DDS_RETCODE_ERROR
  *             Loading failed.
- *             Use ddsrt_dlerror() to diagnose the failure.
  */
 DDS_EXPORT dds_return_t
 ddsrt_dlopen(
     const char *name,
     bool translate,
-    ddsrt_dynlib_t *handle) ddsrt_nonnull_all;
+    ddsrt_dynlib_t *handle,
+    char *err_msg,
+    size_t err_msg_len) ddsrt_nonnull((1,3));
 
 /**
  * @brief Close the library.
@@ -80,6 +83,8 @@ ddsrt_dlopen(
  * identified by 'symbol', from a loaded library 'handle'.
  *
  * @param[in]   handle      Library handle.
+ * @param[out]  err_msg     Buffer for error message that will be set in case of an error (can be null)
+ * @param[in]   err_msg_len Size of the error message buffer
  *
  * @returns A dds_return_t indicating success or failure.
  *
@@ -87,11 +92,12 @@ ddsrt_dlopen(
  *             Library handle was successfully closed.
  * @retval DDS_RETCODE_ERROR
  *             Library closing failed.
- *             Use ddsrt_dlerror() to diagnose the failure.
  */
 DDS_EXPORT dds_return_t
 ddsrt_dlclose(
-    ddsrt_dynlib_t handle);
+    ddsrt_dynlib_t handle,
+    char *err_msg,
+    size_t err_msg_len);
 
 /**
  * @brief Get the memory address of a symbol.
@@ -102,6 +108,8 @@ ddsrt_dlclose(
  * @param[in]   handle      Library handle.
  * @param[in]   symbol      Symbol name.
  * @param[out]  address     The memory address of the loaded symbol (void*).
+ * @param[out]  err_msg     Buffer for error message that will be set in case of an error (can be null)
+ * @param[in]   err_msg_len Size of the error message buffer
  *
  * @returns  A dds_return_t indicating success or failure.
  *
@@ -110,39 +118,14 @@ ddsrt_dlclose(
  *             Address parameter is ready to use.
  * @retval DDS_RETCODE_ERROR
  *             Symbol was not found.
- *             Use ddsrt_dlerror() to diagnose the failure.
  */
 DDS_EXPORT dds_return_t
 ddsrt_dlsym(
     ddsrt_dynlib_t handle,
     const char *symbol,
-    void **address);
-
-/**
- * @brief Get the most recent library related error.
- *
- * The function ddsrt_dlerror() will return the most recent error of a
- * call to ddsrt_dlopen, ddsrt_dlclose, ddsrt_dlsym in human readable form.
- *
- * If no error was found, it's either due to the fact that there
- * actually was no error since init or last ddsrt_dlerror() call,
- * or due to an unknown unrelated error.
- *
- * As error reporting function can be used for different purposes, dssrt_dlerror
- * function should be called immediately after calling ddsrt_dlopen or ddsrt_dlsym
- * function.
- *
- * @returns A dds_return_t indicating success or failure.
- *
- * @retval DDS_RETCODE_OK
- *             Most recent dynamic library loading related error returned.
- * @retval DDS_RETCODE_PRECONDITION_NOT_MET
- *             No dynamic library loading related error
- */
-DDS_EXPORT dds_return_t
-ddsrt_dlerror(
-    char *buf,
-    size_t buflen);
+    void **address,
+    char *err_msg,
+    size_t err_msg_len);
 
 #if defined (__cplusplus)
 }

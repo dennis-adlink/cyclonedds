@@ -18,7 +18,17 @@
 #include "dds/ddsrt/string.h"
 #include "dds/ddsrt/io.h"
 
-dds_return_t ddsrt_dlopen (const char *name, bool translate, ddsrt_dynlib_t *handle)
+static void get_last_error (char *buf, size_t buflen)
+{
+  DWORD err;
+  assert (buf);
+  err = GetLastError ();
+  assert (err != 0);
+  (void) ddsrt_strerror_r (err, buf, buflen);
+  SetLastError (0);
+}
+
+dds_return_t ddsrt_dlopen (const char *name, bool translate, ddsrt_dynlib_t *handle, char *err_msg, size_t err_msg_len)
 {
   assert (handle);
   *handle = NULL;
@@ -39,33 +49,40 @@ dds_return_t ddsrt_dlopen (const char *name, bool translate, ddsrt_dynlib_t *han
     *handle = (ddsrt_dynlib_t) LoadLibrary (name);
   }
 
-  return (*handle != NULL) ? DDS_RETCODE_OK : DDS_RETCODE_ERROR;
+  if (*handle == NULL)
+  {
+    if (err_msg != NULL)
+      get_last_error (err_msg, err_msg_len);
+    return DDS_RETCODE_ERROR;
+  }
+  return DDS_RETCODE_OK;
 }
 
-dds_return_t ddsrt_dlclose (ddsrt_dynlib_t handle)
+dds_return_t ddsrt_dlclose (ddsrt_dynlib_t handle, char *err_msg, size_t err_msg_len)
 {
   assert (handle);
-  return (FreeLibrary ((HMODULE) handle) == 0) ? DDS_RETCODE_ERROR : DDS_RETCODE_OK;
+  if (FreeLibrary ((HMODULE) handle) == 0)
+  {
+    if (err_msg != NULL)
+      get_last_error (err_msg, err_msg_len);
+    return DDS_RETCODE_ERROR;
+  }
+  return DDS_RETCODE_OK;
 }
 
-dds_return_t ddsrt_dlsym (ddsrt_dynlib_t handle, const char *symbol, void **address)
+dds_return_t ddsrt_dlsym (ddsrt_dynlib_t handle, const char *symbol, void **address, char *err_msg, size_t err_msg_len)
 {
   assert (handle);
   assert (address);
   assert (symbol);
 
   *address = GetProcAddress ((HMODULE) handle, symbol);
-  return (*address == NULL) ? DDS_RETCODE_ERROR : DDS_RETCODE_OK;
-}
-
-dds_return_t ddsrt_dlerror (char *buf, size_t buflen)
-{
-  DWORD err;
-  assert (buf);
-  err = GetLastError ();
-  if (err == 0)
-    return DDS_RETCODE_PRECONDITION_NOT_MET;
-  (void) ddsrt_strerror_r (err, buf, buflen);
-  SetLastError (0);
+  if (*address == NULL)
+  {
+    if (err_msg != NULL)
+      get_last_error (err_msg, err_msg_len);
+    return DDS_RETCODE_ERROR;
+  }
   return DDS_RETCODE_OK;
 }
+

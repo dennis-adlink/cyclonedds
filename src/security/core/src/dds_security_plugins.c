@@ -204,28 +204,26 @@ dds_return_t dds_security_load_security_library (const dds_security_plugin_confi
   if (*plugin_config->library_path == 0)
     return DDS_RETCODE_ERROR;
 
+  char err_msg[256];
   const size_t poff = (strncmp (plugin_config->library_path, "file://", 7) == 0) ? 7 : 0;
   (void) ddsrt_asprintf (&library_str, "%s", plugin_config->library_path + poff);
-  lib_ret = ddsrt_dlopen (library_str, true, &security_plugin->lib_handle);
+  lib_ret = ddsrt_dlopen (library_str, true, &security_plugin->lib_handle, err_msg, sizeof (err_msg));
   ddsrt_free (library_str);
   if (lib_ret != DDS_RETCODE_OK)
   {
-    char buffer[256];
-    if (ddsrt_dlerror (buffer, sizeof (buffer)) != DDS_RETCODE_OK)
-      (void) snprintf (buffer, sizeof (buffer), "unknown error");
-    GVERROR ("Could not load %s library: %s\n", security_plugin->name, buffer);
+    GVERROR ("Could not load %s library: %s\n", security_plugin->name, err_msg);
     goto load_error;
   }
 
   void *tmp;
-  if (ddsrt_dlsym (security_plugin->lib_handle, plugin_config->library_init, &tmp) != DDS_RETCODE_OK)
+  if (ddsrt_dlsym (security_plugin->lib_handle, plugin_config->library_init, &tmp, NULL, 0) != DDS_RETCODE_OK)
   {
     GVERROR ("Could not find the function: %s\n", plugin_config->library_init);
     goto library_error;
   }
   security_plugin->func_init = (plugin_init) tmp;
 
-  if (ddsrt_dlsym (security_plugin->lib_handle, plugin_config->library_finalize, &tmp) != DDS_RETCODE_OK)
+  if (ddsrt_dlsym (security_plugin->lib_handle, plugin_config->library_finalize, &tmp, NULL, 0) != DDS_RETCODE_OK)
   {
     GVERROR ("Could not find the function: %s\n", plugin_config->library_finalize);
     goto library_error;
@@ -243,7 +241,7 @@ dds_return_t dds_security_load_security_library (const dds_security_plugin_confi
   return DDS_RETCODE_OK;
 
 library_error:
-  (void) ddsrt_dlclose (security_plugin->lib_handle);
+  (void) ddsrt_dlclose (security_plugin->lib_handle, NULL, 0);
   security_plugin->lib_handle = NULL;
 load_error:
   return DDS_RETCODE_ERROR;
@@ -261,7 +259,7 @@ dds_return_t dds_security_plugin_release (const dds_security_plugin *security_pl
     DDS_ERROR("Error occured while finaizing %s plugin", security_plugin->name);
     result = DDS_RETCODE_ERROR;
   }
-  if (ddsrt_dlclose (security_plugin->lib_handle) != DDS_RETCODE_OK){
+  if (ddsrt_dlclose (security_plugin->lib_handle, NULL, 0) != DDS_RETCODE_OK){
     result = DDS_RETCODE_ERROR;
   }
   return result;

@@ -16,7 +16,6 @@
 #include <dds/ddsrt/dynlib.h>
 #include "dds/ddsrt/heap.h"
 #include "dds/ddsrt/io.h"
-#include "dds/ddsrt/string.h"
 
 dds_return_t ddsrt_dlopen (const char *name, bool translate, ddsrt_dynlib_t *handle)
 {
@@ -61,12 +60,3 @@ dds_return_t ddsrt_dlsym (ddsrt_dynlib_t handle, const char *symbol, void **addr
   return (*address == NULL) ? DDS_RETCODE_ERROR : DDS_RETCODE_OK;
 }
 
-dds_return_t ddsrt_dlerror (char *buf, size_t buflen)
-{
-  assert (buf);
-  const char *err = dlerror ();
-  if (err == NULL)
-    return DDS_RETCODE_PRECONDITION_NOT_MET;
-  (void) ddsrt_strlcpy (buf, err, buflen);
-  return DDS_RETCODE_OK;
-}

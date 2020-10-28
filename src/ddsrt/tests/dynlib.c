@@ -25,10 +25,6 @@
 #define TEST_ABORT_IF_NULL(var, msg) \
 do { \
   if (var == NULL) { \
-    char err[256]; \
-    r = ddsrt_dlerror(err, sizeof(err)); \
-    CU_ASSERT_EQUAL_FATAL(r, DDS_RETCODE_OK); \
-    printf("\n%s", err); \
     CU_FAIL_FATAL(msg); \
   } \
 } while(0)
@@ -82,17 +78,12 @@ CU_Test(ddsrt_library, dlopen_name)
 
 CU_Test(ddsrt_library, dlopen_unknown)
 {
-  char buffer[256];
   dds_return_t r;
   ddsrt_dynlib_t l;
 
   r = ddsrt_dlopen("UnknownLib", false, &l);
   CU_ASSERT_NOT_EQUAL(r, DDS_RETCODE_OK);
   CU_ASSERT_PTR_NULL_FATAL(l);
-
-  r = ddsrt_dlerror(buffer, sizeof(buffer));
-  CU_ASSERT_EQUAL_FATAL(r, DDS_RETCODE_OK);
-  printf("\n%s", buffer);
 }
 
 CU_Test(ddsrt_library, dlsym)
@@ -117,7 +108,6 @@ CU_Test(ddsrt_library, dlsym)
 
 CU_Test(ddsrt_library, dlsym_unknown)
 {
-  char buffer[256];
   dds_return_t r;
   ddsrt_dynlib_t l;
   void* f;
@@ -130,10 +120,6 @@ CU_Test(ddsrt_library, dlsym_unknown)
   r = ddsrt_dlsym(l, "UnknownSym", &f);
   CU_ASSERT_EQUAL(r, DDS_RETCODE_ERROR);
   CU_ASSERT_PTR_NULL_FATAL(f);
-
-  r = ddsrt_dlerror(buffer, sizeof(buffer));
-  CU_ASSERT_EQUAL_FATAL(r, DDS_RETCODE_OK);
-  printf("\n%s", buffer);
 
   r = ddsrt_dlclose(l);
   CU_ASSERT_EQUAL(r, DDS_RETCODE_OK);

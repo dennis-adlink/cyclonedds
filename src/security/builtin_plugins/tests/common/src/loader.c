@@ -51,9 +51,7 @@ load_plugin(
 
         result = ddsrt_dlsym(info->lib_handle, name_init, (void **)&info->func_init);
         if( result != DDS_RETCODE_OK || info->func_init == NULL) {
-      char buf[200];
-      ddsrt_dlerror(buf, 200);
-           printf("ERROR: could not init %s\n. Invalid init function: %s: %s", name_lib, name_init, buf);
+           printf("ERROR: could not init %s\n. Invalid init function: %s", name_lib, name_init);
            return plugin;
         }
 
@@ -71,9 +69,7 @@ load_plugin(
             printf("ERROR: could not init %s\n", name_lib);
         }
     } else {
-      char buffer[300];
-      ddsrt_dlerror(buffer,300);
-        printf("ERROR: could not load %s. %s\n", name_lib, buffer);
+        printf("ERROR: could not load %s.\n", name_lib);
     }
     return plugin;
 }

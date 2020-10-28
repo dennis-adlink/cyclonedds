@@ -293,9 +293,8 @@ CU_Test(ddssec_security_plugin_loading, no_library_in_path, .init = ddsrt_init, 
 {
   dds_entity_t domain, participant;
   const char *log_expected[] = {
-      "Could not load Authentication library: " WRAPPERLIB_PATH("dds_security_authentication_wrapper_INVALID") ": cannot open shared object file: No such file or directory*",
+      "Could not load Authentication library: " WRAPPERLIB_PATH("dds_security_authentication_wrapper_INVALID") ": cannot open shared object file*",
       "Could not load Authentication library: dlopen(" WRAPPERLIB_PATH("dds_security_authentication_wrapper_INVALID") "*",
-      "Could not load Authentication library: The specified module could not be found.*",
       "Could not load Authentication plugin*",
       "Could not load security*",
       NULL};
@@ -334,8 +333,7 @@ CU_Test(ddssec_security_plugin_loading, no_library_in_path, .init = ddsrt_init, 
   CU_ASSERT_EQUAL_FATAL(participant, DDS_RETCODE_ERROR);
   dds_delete(domain);
   reset_logger();
-
-  CU_ASSERT_FATAL(found == 0x19 || found == 0x1a || found == 0x1c);
+  CU_ASSERT_FATAL(found == 0xc);
 }
 
 CU_Test(ddssec_security_plugin_loading, init_error, .init = ddsrt_init, .fini = ddsrt_fini)

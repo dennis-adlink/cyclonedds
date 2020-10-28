@@ -57,15 +57,3 @@ dds_return_t ddsrt_dlsym (ddsrt_dynlib_t handle, const char *symbol, void **addr
   *address = GetProcAddress ((HMODULE) handle, symbol);
   return (*address == NULL) ? DDS_RETCODE_ERROR : DDS_RETCODE_OK;
 }
-
-dds_return_t ddsrt_dlerror (char *buf, size_t buflen)
-{
-  DWORD err;
-  assert (buf);
-  err = GetLastError ();
-  if (err == 0)
-    return DDS_RETCODE_PRECONDITION_NOT_MET;
-  (void) ddsrt_strerror_r (err, buf, buflen);
-  SetLastError (0);
-  return DDS_RETCODE_OK;
-}

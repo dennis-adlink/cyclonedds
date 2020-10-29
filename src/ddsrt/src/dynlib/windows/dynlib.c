@@ -17,6 +17,9 @@
 #include "dds/ddsrt/types.h"
 #include "dds/ddsrt/string.h"
 #include "dds/ddsrt/io.h"
+#include "dds/ddsrt/threads.h"
+
+static ddsrt_thread_local DWORD dynlib_last_err;
 
 dds_return_t ddsrt_dlopen (const char *name, bool translate, ddsrt_dynlib_t *handle)
 {
@@ -39,13 +42,25 @@ dds_return_t ddsrt_dlopen (const char *name, bool translate, ddsrt_dynlib_t *han
     *handle = (ddsrt_dynlib_t) LoadLibrary (name);
   }
 
-  return (*handle != NULL) ? DDS_RETCODE_OK : DDS_RETCODE_ERROR;
+  if (*handle == NULL)
+  {
+    dynlib_last_err = GetLastError ();
+    return DDS_RETCODE_ERROR;
+  }
+  dynlib_last_err = 0;
+  return DDS_RETCODE_OK;
 }
 
 dds_return_t ddsrt_dlclose (ddsrt_dynlib_t handle)
 {
   assert (handle);
-  return (FreeLibrary ((HMODULE) handle) == 0) ? DDS_RETCODE_ERROR : DDS_RETCODE_OK;
+  if (FreeLibrary ((HMODULE) handle) == 0)
+  {
+    dynlib_last_err = GetLastError ();
+    return DDS_RETCODE_ERROR;
+  }
+  dynlib_last_err = 0;
+  return DDS_RETCODE_OK;
 }
 
 dds_return_t ddsrt_dlsym (ddsrt_dynlib_t handle, const char *symbol, void **address)
@@ -53,19 +68,33 @@ dds_return_t ddsrt_dlsym (ddsrt_dynlib_t handle, const char *symbol, void **addr
   assert (handle);
   assert (address);
   assert (symbol);
-
-  *address = GetProcAddress ((HMODULE) handle, symbol);
-  return (*address == NULL) ? DDS_RETCODE_ERROR : DDS_RETCODE_OK;
+  if ((*address = GetProcAddress ((HMODULE) handle, symbol)) == NULL)
+  {
+    dynlib_last_err = GetLastError ();
+    return DDS_RETCODE_ERROR;
+  }
+  dynlib_last_err = 0;
+  return DDS_RETCODE_OK;
 }
 
 dds_return_t ddsrt_dlerror (char *buf, size_t buflen)
 {
-  DWORD err;
   assert (buf);
-  err = GetLastError ();
-  if (err == 0)
-    return DDS_RETCODE_PRECONDITION_NOT_MET;
-  (void) ddsrt_strerror_r (err, buf, buflen);
-  SetLastError (0);
-  return DDS_RETCODE_OK;
+  assert (buflen);
+  dds_return_t ret = 0;
+  buf[0] = '\0';
+  if (dynlib_last_err != 0)
+  {
+    if ((ret = ddsrt_strerror_r (dynlib_last_err, buf, buflen)) == DDS_RETCODE_OK)
+      ret = (int32_t) strlen (buf);
+    else if (ret == DDS_RETCODE_BAD_PARAMETER)
+    {
+      const char *err_unknown = "unknown error";
+      size_t len = ddsrt_strlcpy (buf, err_unknown, buflen);
+      ret = (len >= buflen) ? DDS_RETCODE_NOT_ENOUGH_SPACE : (int32_t) strlen (buf);
+    }
+  }
+
+  dynlib_last_err = 0;
+  return ret;
 }

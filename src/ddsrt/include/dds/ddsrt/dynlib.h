@@ -134,10 +134,13 @@ ddsrt_dlsym(
  *
  * @returns A dds_return_t indicating success or failure.
  *
- * @retval DDS_RETCODE_OK
- *             Most recent dynamic library loading related error returned.
- * @retval DDS_RETCODE_PRECONDITION_NOT_MET
- *             No dynamic library loading related error
+ * @retval >0
+ *             The length of the error message for the most recent
+ *             dynamic library loading related error returned.
+ * @retval 0
+ *             No dynamic library loading related error present
+ * @retval DDS_RETCODE_NOT_ENOUGH_SPACE
+ *             Buffer is not large enough to hold the error message
  */
 DDS_EXPORT dds_return_t
 ddsrt_dlerror(

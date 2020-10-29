@@ -64,9 +64,13 @@ dds_return_t ddsrt_dlsym (ddsrt_dynlib_t handle, const char *symbol, void **addr
 dds_return_t ddsrt_dlerror (char *buf, size_t buflen)
 {
   assert (buf);
+  assert (buflen);
   const char *err = dlerror ();
   if (err == NULL)
-    return DDS_RETCODE_PRECONDITION_NOT_MET;
-  (void) ddsrt_strlcpy (buf, err, buflen);
-  return DDS_RETCODE_OK;
+  {
+    buf[0] = '\0';
+    return 0;
+  }
+  size_t len = ddsrt_strlcpy (buf, err, buflen);
+  return (len >= buflen) ? DDS_RETCODE_NOT_ENOUGH_SPACE : (int32_t) strlen (buf);
 }

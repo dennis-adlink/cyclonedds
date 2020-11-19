@@ -592,17 +592,22 @@ dds_entity_t dds_create_topic (dds_entity_t participant, const dds_topic_descrip
 
   st = dds_alloc (sizeof (*st));
 
+  DDSRT_STATIC_ASSERT (DDSI_SERTYPE_EXT_FINAL == DDS_TOPIC_TYPE_EXTENSIBILITY (DDS_TOPIC_TYPE_EXTENSIBILITY_FINAL));
+  DDSRT_STATIC_ASSERT (DDSI_SERTYPE_EXT_APPENDABLE == DDS_TOPIC_TYPE_EXTENSIBILITY (DDS_TOPIC_TYPE_EXTENSIBILITY_APPENDABLE));
+  DDSRT_STATIC_ASSERT (DDSI_SERTYPE_EXT_MUTABLE == DDS_TOPIC_TYPE_EXTENSIBILITY (DDS_TOPIC_TYPE_EXTENSIBILITY_MUTABLE));
+
   ddsi_sertype_init (&st->c, desc->m_typename, &ddsi_sertype_ops_default, desc->m_nkeys ? &ddsi_serdata_ops_cdr : &ddsi_serdata_ops_cdr_nokey, (desc->m_nkeys == 0));
-  st->native_encoding_identifier = (DDSRT_ENDIAN == DDSRT_LITTLE_ENDIAN ? CDR_LE : CDR_BE);
+  st->encoding_format = ddsi_sertype_get_encoding_format (DDS_TOPIC_TYPE_EXTENSIBILITY (desc->m_flagset));
   st->serpool = ppent->m_domain->gv.serpool;
   st->type.size = desc->m_size;
   st->type.align = desc->m_align;
-  st->type.flagset = desc->m_flagset;
+  st->type.flagset = desc->m_flagset & DDS_TOPIC_FLAGS_MASK;
+  st->type.extensibility = (uint32_t) DDS_TOPIC_TYPE_EXTENSIBILITY (desc->m_flagset);
   st->type.keys.nkeys = desc->m_nkeys;
   st->type.keys.keys = ddsrt_malloc (st->type.keys.nkeys  * sizeof (*st->type.keys.keys));
   for (uint32_t i = 0; i < st->type.keys.nkeys; i++)
     st->type.keys.keys[i] = desc->m_keys[i].m_index;
-  st->type.ops.nops = dds_stream_countops (desc->m_ops);
+  st->type.ops.nops = dds_stream_countops (desc->m_ops, desc->m_nkeys, desc->m_keys);
   st->type.ops.ops = ddsrt_memdup (desc->m_ops, st->type.ops.nops * sizeof (*st->type.ops.ops));
 
   /* Check if topic cannot be optimised (memcpy marshal) */

@@ -10,7 +10,7 @@
 # SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
 #
 cmake_minimum_required(VERSION 3.5)
-
+project(CycloneCdrTest)
 find_package(CycloneDDS COMPONENTS idlc)
 
 add_compile_options("-I${PROJECT_SOURCE_DIR}/src/ddsrt/include")
@@ -34,8 +34,20 @@ add_compile_options("-I$ENV{OSPL_HOME}/src/api/dcps/sac/code")
 # the proper data types and compiles them into a library.
 idlc_generate(TARGET xxx_lib FILES "xxx.idl")
 
-# Both executables have only one related source file.
 add_executable(xxx xxx-cyc.c)
+target_include_directories(xxx PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+
+# Replace the vm instruction for bounded sequence
+add_custom_target(xxx_c_replaced
+                  COMMAND sed -i 's/DDS_OP_TYPE_BST/DDS_OP_TYPE_BSP/g' ${CMAKE_CURRENT_BINARY_DIR}/xxx.c
+                  DEPENDS xxx_lib)
+
+# Replace the type for bounded sequence fields
+add_custom_target(xxx_h_replaced
+                   COMMAND sed -i -E "'s/char[[:space:]]+([[:alnum:]]+)\[[[:digit:]]+\];/char \*\\1;/g'" ${CMAKE_CURRENT_BINARY_DIR}/xxx.h
+                   DEPENDS xxx_lib)
+
+add_dependencies(xxx xxx_c_replaced xxx_h_replaced)
 
 # Both executables need to be linked to the idl data type library and
 # the ddsc API library.

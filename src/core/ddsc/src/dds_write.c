@@ -182,6 +182,19 @@ static dds_return_t deliver_locally (struct writer *wr, struct ddsi_serdata *pay
   return rc;
 }
 
+static uint32_t get_writer_xcdr_version (dds_qos_t *xqos)
+{
+  assert (xqos->present & QP_DATA_REPRESENTATION);
+  if (xqos->data_representation.value.n > 0)
+  {
+    assert (xqos->data_representation.value.ids != NULL);
+    assert (xqos->data_representation.value.ids[0] != XML_DATA_REPRESENTATION); /* not supported */
+    return xqos->data_representation.value.ids[0] == XCDR2_DATA_REPRESENTATION ? CDR_ENC_VERSION_2 : CDR_ENC_VERSION_1;
+  }
+  /* default is XCDR1 (xtypes 1.3 spec 7.6.3.1.1) */
+  return CDR_ENC_VERSION_1;
+}
+
 dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstamp, dds_write_action action)
 {
   struct thread_state1 * const ts1 = lookup_thread_state ();
@@ -224,7 +237,8 @@ dds_return_t dds_write_impl (dds_writer *wr, const void * data, dds_time_t tstam
   thread_state_awake (ts1, &wr->m_entity.m_domain->gv);
 
   /* Serialize and write data or key */
-  if ((d = ddsi_serdata_from_sample (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, data)) == NULL)
+  uint32_t xcdr_version = get_writer_xcdr_version (ddsi_wr->xqos);
+  if ((d = ddsi_serdata_from_sample_xcdr_version (ddsi_wr->type, writekey ? SDK_KEY : SDK_DATA, xcdr_version, data)) == NULL)
     ret = DDS_RETCODE_BAD_PARAMETER;
   else
   {

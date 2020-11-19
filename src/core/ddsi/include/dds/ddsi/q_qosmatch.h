@@ -19,8 +19,6 @@ extern "C" {
 
 struct dds_qos;
 
-int partitions_match_p (const struct dds_qos *a, const struct dds_qos *b);
-
 /* perform reader/writer QoS (and topic name, type name, partition) matching;
    mask can be used to exclude some of these (including topic name and type
    name, so be careful!)

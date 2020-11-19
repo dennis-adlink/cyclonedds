@@ -25,6 +25,8 @@
 #include "dds/ddsi/ddsi_guid.h"
 #include "dds/ddsi/ddsi_xqos.h"
 #include "dds/ddsi/ddsi_typeid.h"
+#include "dds/ddsi/ddsi_type_identifier.h"
+#include "dds/ddsi/ddsi_type_object.h"
 #include "dds/ddsi/ddsi_list_tmpl.h"
 
 

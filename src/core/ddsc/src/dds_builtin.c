@@ -41,6 +41,7 @@ static dds_qos_t *dds__create_builtin_qos (void)
   dds_qset_presentation (qos, DDS_PRESENTATION_TOPIC, false, false);
   dds_qset_reliability (qos, DDS_RELIABILITY_RELIABLE, DDS_MSECS(100));
   dds_qset_partition (qos, 1, &partition);
+  dds_qset_data_representation (qos, 1, (dds_data_representation_id_t[]) { XCDR_DATA_REPRESENTATION });
   return qos;
 }
 

@@ -60,6 +60,7 @@ extern inline struct ddsi_serdata *ddsi_serdata_from_ser (const struct ddsi_sert
 extern inline struct ddsi_serdata *ddsi_serdata_from_ser_iov (const struct ddsi_sertype *type, enum ddsi_serdata_kind kind, ddsrt_msg_iovlen_t niov, const ddsrt_iovec_t *iov, size_t size);
 extern inline struct ddsi_serdata *ddsi_serdata_from_keyhash (const struct ddsi_sertype *type, const struct ddsi_keyhash *keyhash);
 extern inline struct ddsi_serdata *ddsi_serdata_from_sample (const struct ddsi_sertype *type, enum ddsi_serdata_kind kind, const void *sample);
+extern inline struct ddsi_serdata *ddsi_serdata_from_sample_xcdr_version (const struct ddsi_sertype *type, enum ddsi_serdata_kind kind, uint32_t xcdr_version, const void *sample);
 extern inline struct ddsi_serdata *ddsi_serdata_to_untyped (const struct ddsi_serdata *d);
 extern inline void ddsi_serdata_to_ser (const struct ddsi_serdata *d, size_t off, size_t sz, void *buf);
 extern inline struct ddsi_serdata *ddsi_serdata_to_ser_ref (const struct ddsi_serdata *d, size_t off, size_t sz, ddsrt_iovec_t *ref);

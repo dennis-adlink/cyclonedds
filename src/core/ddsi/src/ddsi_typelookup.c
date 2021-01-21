@@ -24,6 +24,7 @@
 #include "dds/ddsi/ddsi_tkmap.h"
 #include "dds/ddsi/ddsi_entity_index.h"
 #include "dds/ddsi/ddsi_typeid.h"
+#include "dds/ddsi/ddsi_type_identifier.h"
 #include "dds/ddsi/q_gc.h"
 #include "dds/ddsi/q_entity.h"
 #include "dds/ddsi/q_protocol.h"
@@ -67,7 +68,9 @@ uint32_t ddsi_tl_meta_hash (const struct tl_meta *tl_meta)
 {
   // As the type id is the key in the hash table and the type id currently only
   // consists of a hash value, we'll use the first 32 bits of that hash for now
-  return *(uint32_t *) tl_meta->type_id.hash;
+  // FIXME: return *(uint32_t *) tl_meta->type_id.hash;
+  (void) tl_meta;
+  return 0;
 }
 
 static void tlm_fini (struct tl_meta *tlm)
@@ -80,7 +83,7 @@ static void tlm_fini (struct tl_meta *tlm)
   ddsrt_free (tlm);
 }
 
-struct tl_meta * ddsi_tl_meta_lookup_locked (struct ddsi_domaingv *gv, const type_identifier_t *type_id)
+struct tl_meta * ddsi_tl_meta_lookup_locked (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id)
 {
   struct tl_meta templ;
   memset (&templ, 0, sizeof (templ));
@@ -89,7 +92,7 @@ struct tl_meta * ddsi_tl_meta_lookup_locked (struct ddsi_domaingv *gv, const typ
   return tlm;
 }
 
-struct tl_meta * ddsi_tl_meta_lookup (struct ddsi_domaingv *gv, const type_identifier_t *type_id)
+struct tl_meta * ddsi_tl_meta_lookup (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id)
 {
   struct tl_meta *tlm;
   ddsrt_mutex_lock (&gv->tl_admin_lock);
@@ -103,9 +106,9 @@ static struct tl_meta * tlm_ref_impl (struct ddsi_domaingv *gv, const type_ident
   bool resolved = false;
   assert (type_id || type);
   GVTRACE (" ref tl_meta");
-  type_identifier_t *tid;
+  struct TypeIdentifier *tid;
   if (type_id != NULL)
-    tid = (type_identifier_t *) type_id;
+    tid = (struct TypeIdentifier *) type_id;
   else
   {
     GVTRACE (" sertype %p", type);
@@ -113,7 +116,8 @@ static struct tl_meta * tlm_ref_impl (struct ddsi_domaingv *gv, const type_ident
     if (tid == NULL)
       return NULL;
   }
-  GVTRACE (" tid "PTYPEIDFMT, PTYPEID (*tid));
+
+  // FIXME: GVTRACE (" tid "PTYPEIDFMT, PTYPEID (*tid));
 
   ddsrt_mutex_lock (&gv->tl_admin_lock);
   struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, tid);
@@ -236,7 +240,7 @@ static struct writer *get_typelookup_writer (const struct ddsi_domaingv *gv, uin
   return wr;
 }
 
-bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const type_identifier_t *type_id)
+bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const struct TypeIdentifier *type_id)
 {
   ddsrt_mutex_lock (&gv->tl_admin_lock);
   struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, type_id);
@@ -245,7 +249,7 @@ bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const type_identifie
   {
     // type lookup is pending or the type is already resolved, so we'll return true
     // to indicate that the type request is done (or not required)
-    GVTRACE ("state not-new (%u) for "PTYPEIDFMT"\n", tlm->state, PTYPEID (*type_id));
+    // FIXME: GVTRACE ("state not-new (%u) for "PTYPEIDFMT"\n", tlm->state, PTYPEID (*type_id));
     ddsrt_mutex_unlock (&gv->tl_admin_lock);
     return true;
   }
@@ -271,7 +275,7 @@ bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const type_identifie
   ddsrt_mutex_unlock (&gv->tl_admin_lock);
 
   thread_state_awake (lookup_thread_state (), gv);
-  GVTRACE ("wr "PGUIDFMT" typeid "PTYPEIDFMT"\n", PGUID (wr->e.guid), PTYPEID(*type_id));
+  // FIXME: GVTRACE ("wr "PGUIDFMT" typeid "PTYPEIDFMT"\n", PGUID (wr->e.guid), PTYPEID(*type_id));
   struct ddsi_tkmap_instance *tk = ddsi_tkmap_lookup_instance_ref (gv->m_tkmap, serdata);
   write_sample_gc (lookup_thread_state (), NULL, wr, serdata, tk);
   ddsi_tkmap_instance_unref (gv->m_tkmap, tk);
@@ -280,7 +284,7 @@ bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const type_identifie
   return true;
 }
 
-static void write_typelookup_reply (struct writer *wr, seqno_t seqno, type_identifier_type_object_pair_seq_t *types)
+static void write_typelookup_reply (struct writer *wr, seqno_t seqno, struct TypeIdentifierTypeObjectPairSeq *types)
 {
   struct ddsi_domaingv * const gv = wr->e.gv;
   type_lookup_reply_t reply;
@@ -307,28 +311,29 @@ void ddsi_tl_handle_request (struct ddsi_domaingv *gv, struct ddsi_serdata *samp
   GVTRACE (" handle-tl-req wr "PGUIDFMT " seqnr %"PRIi64" ntypeids %"PRIu32, PGUID (req->writer_guid), req->sequence_number, req->type_ids.n);
 
   ddsrt_mutex_lock (&gv->tl_admin_lock);
-  type_identifier_type_object_pair_seq_t types = { 0, NULL };
+  struct TypeIdentifierTypeObjectPairSeq types = { 0, NULL };
   for (uint32_t n = 0; n < req->type_ids.n; n++)
   {
-    type_identifier_t *tid = &req->type_ids.type_ids[n];
-    GVTRACE (" type "PTYPEIDFMT, PTYPEID (*tid));
+    struct TypeIdentifier *tid = &req->type_ids.type_ids[n];
+    // FIXME: GVTRACE (" type "PTYPEIDFMT, PTYPEID (*tid));
     struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, tid);
     if (tlm != NULL && tlm->state == TL_META_RESOLVED)
     {
-      size_t sz;
-      types.types = ddsrt_realloc (types.types, (types.n + 1) * sizeof (*types.types));
-      types.types[types.n].type_identifier = tlm->type_id;
-      if (!ddsi_sertype_serialize (tlm->sertype, &sz, &types.types[types.n].type_object.value))
-      {
-        GVTRACE (" serialize failed");
-      }
-      else
-      {
-        assert (sz <= UINT32_MAX);
-        types.n++;
-        types.types[types.n - 1].type_object.length = (uint32_t) sz;
-        GVTRACE (" found");
-      }
+      // FIXME
+      // types.types = ddsrt_realloc (types.types, (types.n + 1) * sizeof (*types.types));
+      // types.types[types.n].type_identifier = tlm->type_id;
+      // size_t sz;
+      // if (!ddsi_sertype_serialize (tlm->sertype, &sz, &types.types[types.n].type_object.value))
+      // {
+      //   GVTRACE (" serialize failed");
+      // }
+      // else
+      // {
+      //   assert (sz <= UINT32_MAX);
+      //   types.n++;
+      //   types.types[types.n - 1].type_object.length = (uint32_t) sz;
+      //   GVTRACE (" found");
+      // }
     }
   }
   ddsrt_mutex_unlock (&gv->tl_admin_lock);
@@ -339,8 +344,9 @@ void ddsi_tl_handle_request (struct ddsi_domaingv *gv, struct ddsi_serdata *samp
   else
     GVTRACE (" no tl-reply writer");
 
-  for (uint32_t n = 0; n < types.n; n++)
-    ddsrt_free (types.types[n].type_object.value);
+  // FIXME
+  // for (uint32_t n = 0; n < types.n; n++)
+  //   ddsrt_free (types.types[n].type_object.value);
   ddsrt_free (types.types);
 }
 
@@ -375,7 +381,7 @@ static void tlm_register_with_proxy_endpoints_locked (struct ddsi_domaingv *gv, 
 
 void ddsi_tl_meta_register_with_proxy_endpoints (struct ddsi_domaingv *gv, const struct ddsi_sertype *type)
 {
-  type_identifier_t *type_id = ddsi_typeid_from_sertype (type);
+  struct TypeIdentifier *type_id = ddsi_typeid_from_sertype (type);
   if (type_id)
   {
     ddsrt_mutex_lock (&gv->tl_admin_lock);
@@ -400,30 +406,30 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
   GVTRACE ("handle-tl-reply wr "PGUIDFMT " seqnr %"PRIi64" ntypeids %"PRIu32" ", PGUID (reply->writer_guid), reply->sequence_number, reply->types.n);
   while (n < reply->types.n)
   {
-    type_identifier_type_object_pair_t r = reply->types.types[n];
-    struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, &r.type_identifier);
+    TypeIdentifierTypeObjectPair_t r = reply->types.types[n];
+    struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, r.type_identifier);
     if (tlm != NULL && tlm->state == TL_META_REQUESTED && tlm_proxy_guid_list_count (&tlm->proxy_guids) > 0)
     {
       bool sertype_new = false;
-      GVTRACE (" type "PTYPEIDFMT, PTYPEID (r.type_identifier));
-      st = ddsrt_malloc (sizeof (*st));
+      // FIXME: GVTRACE (" type "PTYPEIDFMT, PTYPEID (r.type_identifier));
+      // st = ddsrt_malloc (sizeof (*st));
       // assume ddsi_sertype_ops_default at this point, as it should be serialized with the sertype_default serializer
-      if (!ddsi_sertype_deserialize (gv, &st->c, &ddsi_sertype_ops_default, r.type_object.length, r.type_object.value))
-      {
-        GVTRACE (" deser failed\n");
-        ddsrt_free (st);
-        n++;
-        continue;
-      }
-      ddsrt_mutex_lock (&gv->sertypes_lock);
-      struct ddsi_sertype *existing_sertype = ddsi_sertype_lookup_locked (gv, &st->c);
-      if (existing_sertype == NULL)
-      {
-        ddsi_sertype_register_locked (gv, &st->c);
-        sertype_new = true;
-      }
-      ddsi_sertype_unref_locked (gv, &st->c); // unref because both init_from_ser and sertype_lookup/register refcounts the type
-      ddsrt_mutex_unlock (&gv->sertypes_lock);
+      // if (!ddsi_sertype_deserialize (gv, &st->c, &ddsi_sertype_ops_default, r.type_object.length, r.type_object.value))
+      // {
+      //   GVTRACE (" deser failed\n");
+      //   ddsrt_free (st);
+      //   n++;
+      //   continue;
+      // }
+      // ddsrt_mutex_lock (&gv->sertypes_lock);
+      // struct ddsi_sertype *existing_sertype = ddsi_sertype_lookup_locked (gv, &st->c);
+      // if (existing_sertype == NULL)
+      // {
+      //   ddsi_sertype_register_locked (gv, &st->c);
+      //   sertype_new = true;
+      // }
+      // ddsi_sertype_unref_locked (gv, &st->c); // unref because both init_from_ser and sertype_lookup/register refcounts the type
+      // ddsrt_mutex_unlock (&gv->sertypes_lock);
 
       tlm->state = TL_META_RESOLVED;
       tlm->sertype = &st->c; // refcounted by sertype_register/lookup

@@ -2945,8 +2945,8 @@ static bool topickind_qos_match_p_lock (
     const dds_qos_t *wrqos,
     dds_qos_policy_id_t *reason
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    , const type_identifier_t *rd_typeid
-    , const type_identifier_t *wr_typeid
+    , const struct TypeIdentifier *rd_typeid
+    , const struct TypeIdentifier *wr_typeid
 #endif
 )
 {
@@ -3549,7 +3549,7 @@ static void endpoint_common_init (struct entity_common *e, struct endpoint_commo
     memset (&c->group_guid, 0, sizeof (c->group_guid));
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
+  struct TypeIdentifier * type_id = ddsi_typeid_from_sertype (type);
   if (type_id)
   {
     c->tlm = ddsi_tl_meta_local_ref (pp->e.gv, type_id, type);
@@ -4839,11 +4839,12 @@ dds_return_t ddsi_new_topic
   assert (tp_qos->aliased == 0);
 
   /* Set topic name, type name and type id in qos */
-  type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
+  struct TypeIdentifier * type_id = ddsi_typeid_from_sertype (type);
   assert (type_id != NULL);
-  tp_qos->present |= QP_CYCLONE_TYPE_INFORMATION;
-  tp_qos->type_information.length = (uint32_t) sizeof (*type_id);
-  tp_qos->type_information.value = ddsrt_memdup (&type_id->hash, tp_qos->type_information.length);
+  // FIXME
+  // tp_qos->present |= QP_CYCLONE_TYPE_INFORMATION;
+  // tp_qos->type_information.length = (uint32_t) sizeof (*type_id);
+  // tp_qos->type_information.value = ddsrt_memdup (&type_id->hash, tp_qos->type_information.length);
   set_topic_type_name (tp_qos, topic_name, type->type_name);
 
   if (gv->logconfig.c.mask & DDS_LC_DISCOVERY)

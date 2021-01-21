@@ -66,7 +66,6 @@
 
 static const uint32_t *stream_normalize (char * __restrict data, uint32_t * __restrict off, uint32_t size, bool bswap, uint32_t xcdr_version, const uint32_t * __restrict ops);
 static const uint32_t *dds_stream_skip_default (char * __restrict data, const uint32_t * __restrict ops);
-static const uint32_t *dds_stream_read (dds_istream_t * __restrict is, char * __restrict data, const uint32_t * __restrict ops);
 static const uint32_t *dds_stream_write (dds_ostream_t * __restrict os, const char * __restrict data, const uint32_t * __restrict ops);
 static const uint32_t *dds_stream_writeLE (dds_ostreamLE_t * __restrict os, const char * __restrict data, const uint32_t * __restrict ops);
 static void dds_stream_extract_key_from_data1 (dds_istream_t * __restrict is, dds_ostream_t * __restrict os, const uint32_t * __restrict ops, uint32_t * __restrict keys_remaining);
@@ -600,7 +599,7 @@ static const uint32_t *find_union_case (const uint32_t * __restrict union_ops, u
   for (ci = 0; ci < numcases; ci++)
   {
     assert (DDS_OP (jeq_op[idx]) == DDS_OP_JEQ);
-    idx += 3 + (DDS_OP_TYPE (jeq_op[idx]) == DDS_OP_VAL_ENU);
+    idx += (size_t) 3 + (DDS_OP_TYPE (jeq_op[idx]) == DDS_OP_VAL_ENU);
   }
 #endif
   for (ci = 0; ci < numcases - (has_default ? 1 : 0); ci++)
@@ -665,10 +664,9 @@ static const uint32_t *skip_array_default (uint32_t insn, char * __restrict data
   const uint32_t num = ops[2];
   switch (subtype)
   {
-    case DDS_OP_VAL_ENU: {
+    case DDS_OP_VAL_ENU:
       ops++;
       /* fall through */
-    }
     case DDS_OP_VAL_1BY: case DDS_OP_VAL_2BY: case DDS_OP_VAL_4BY: case DDS_OP_VAL_8BY: {
       const uint32_t elem_size = get_type_size (subtype);
       memset (data, 0, num * elem_size);
@@ -848,6 +846,7 @@ static uint32_t get_length_code (const uint32_t * __restrict ops)
       return 5; /* nextint overlaps with DHEADER of serialized delimited or mutable type */
     }
   }
+  return 0;
 }
 
 static void dds_stream_write_pl_member (bool must_understand, uint32_t mid, dds_ostream_t * __restrict os, const char * __restrict data, const uint32_t * __restrict ops)
@@ -1097,10 +1096,9 @@ static const uint32_t *dds_stream_read_arr (dds_istream_t * __restrict is, char 
   const uint32_t num = ops[2];
   switch (subtype)
   {
-    case DDS_OP_VAL_ENU: {
+    case DDS_OP_VAL_ENU:
       ops++;
       /* fall through */
-    }
     case DDS_OP_VAL_1BY: case DDS_OP_VAL_2BY: case DDS_OP_VAL_4BY: case DDS_OP_VAL_8BY: {
       const uint32_t elem_size = get_type_size (subtype);
       dds_is_get_bytes (is, addr, num, elem_size);
@@ -1401,7 +1399,7 @@ static const uint32_t *dds_stream_read_pl (dds_istream_t * __restrict is, char *
   return ops;
 }
 
-static const uint32_t *dds_stream_read (dds_istream_t * __restrict is, char * __restrict data, const uint32_t * __restrict ops)
+const uint32_t *dds_stream_read (dds_istream_t * __restrict is, char * __restrict data, const uint32_t * __restrict ops)
 {
   uint32_t insn;
   while ((insn = *ops) != DDS_OP_RTS)
@@ -1619,10 +1617,9 @@ static const uint32_t *normalize_seq (char * __restrict data, uint32_t * __restr
     return skip_sequence_insns (insn, ops);
   switch (subtype)
   {
-    case DDS_OP_VAL_ENU: {
+    case DDS_OP_VAL_ENU:
       ops++;
       /* fall through */
-    }
     case DDS_OP_VAL_1BY: case DDS_OP_VAL_2BY: case DDS_OP_VAL_4BY: case DDS_OP_VAL_8BY: {
       if (!normalize_primarray (data, off, size, bswap, num, subtype))
         return NULL;
@@ -1663,10 +1660,9 @@ static const uint32_t *normalize_arr (char * __restrict data, uint32_t * __restr
   const uint32_t num = ops[2];
   switch (subtype)
   {
-    case DDS_OP_VAL_ENU: {
+    case DDS_OP_VAL_ENU:
       ops++;
       /* fall through */
-    }
     case DDS_OP_VAL_1BY: case DDS_OP_VAL_2BY: case DDS_OP_VAL_4BY: case DDS_OP_VAL_8BY: {
       if (!normalize_primarray (data, off, size, bswap, num, subtype))
         return NULL;

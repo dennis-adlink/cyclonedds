@@ -11,8 +11,9 @@
  */
 #ifndef DDSI_TYPE_OBJECT_H
 #define DDSI_TYPE_OBJECT_H
-#ifdef DDS_HAS_TYPE_DISCOVERY
+//#ifdef DDS_HAS_TYPE_DISCOVERY
 
+#include <stdbool.h>
 #include <stdint.h>
 #include "dds/ddsi/ddsi_type_identifier.h"
 
@@ -20,35 +21,11 @@
 extern "C" {
 #endif
 
-struct NameHash {
-  uint8_t hash[4];
-};
-
-// @bit_bound(16)
-// bitmask TypeFlag {
-//     @position(0) IS_FINAL,        // F |
-//     @position(1) IS_APPENDABLE,   // A |-  Struct, Union
-//     @position(2) IS_MUTABLE,      // M |   (exactly one flag)
-
-//     @position(3) IS_NESTED,       // N     Struct, Union
-//     @position(4) IS_AUTOID_HASH   // H     Struct
-// };
-typedef uint16_t TypeFlag;
-typedef TypeFlag   StructTypeFlag;      // All flags apply
-typedef TypeFlag   UnionTypeFlag;       // All flags apply
-typedef TypeFlag   CollectionTypeFlag;  // Unused. No flags apply
-typedef TypeFlag   AnnotationTypeFlag;  // Unused. No flags apply
-typedef TypeFlag   AliasTypeFlag;       // Unused. No flags apply
-typedef TypeFlag   EnumTypeFlag;        // Unused. No flags apply
-typedef TypeFlag   BitmaskTypeFlag;     // Unused. No flags apply
-typedef TypeFlag   BitsetTypeFlag;      // Unused. No flags apply
-
-
 // // --- Annotation usage: -----------------------------------------------
 
 typedef uint32_t MemberId;
 #define ANNOTATION_STR_VALUE_MAX_LEN 128
-#define ANNOTATION_OCTETSEC_VALUE_MAX_LEN 128
+#define ANNOTATION_uint8_tSEC_VALUE_MAX_LEN 128
 
 #define MEMBER_NAME_MAX_LENGTH 256
 typedef char MemberName[MEMBER_NAME_MAX_LENGTH];
@@ -67,11 +44,11 @@ struct ExtendedAnnotationParameterValue {
 //   * definition or the value applied in its usage.
 //   */
 // @extensibility(FINAL) @nested
-// union AnnotationParameterValue switch (octet) {
+// union AnnotationParameterValue switch (uint8_t) {
 //     case TK_BOOLEAN:
 //         boolean             boolean_value;
 //     case TK_BYTE:
-//         octet               byte_value;
+//         uint8_t               byte_value;
 //     case TK_INT16:
 //         short               int16_value;
 //     case TK_UINT16:
@@ -665,7 +642,7 @@ struct MinimalCollectionElement {
 //     LBound                    bound;
 // };
 struct CommonCollectionHeader {
-  LBound bound;
+  LBound_t bound;
 };
 
 // @extensibility(APPENDABLE) @nested
@@ -975,7 +952,7 @@ struct MinimalBitmaskType {
 // struct CommonBitfield {
 //     unsigned short        position;
 //     BitsetMemberFlag      flags;
-//     octet                 bitcount;
+//     uint8_t                 bitcount;
 //     TypeKind              holder_type; // Must be primitive integer type
 // };
 struct CommonBitfield {
@@ -1069,7 +1046,7 @@ struct CompleteExtendedType {
 };
 
 // @extensibility(FINAL)     @nested
-// union CompleteTypeObject switch (octet) {
+// union CompleteTypeObject switch (uint8_t) {
 //     case TK_ALIAS:
 //         CompleteAliasType      alias_type;
 //     case TK_ANNOTATION:
@@ -1120,7 +1097,7 @@ struct MinimalExtendedType {
 };
 
 // @extensibility(FINAL)     @nested
-// union MinimalTypeObject switch (octet) {
+// union MinimalTypeObject switch (uint8_t) {
 //     case TK_ALIAS:
 //         MinimalAliasType       alias_type;
 //     case TK_ANNOTATION:
@@ -1164,7 +1141,7 @@ struct MinimalTypeObject {
 };
 
 // @extensibility(APPENDABLE)  @nested
-// union TypeObject switch (octet) { // EquivalenceKind
+// union TypeObject switch (uint8_t) { // EquivalenceKind
 // case EK_COMPLETE:
 //     CompleteTypeObject   complete;
 // case EK_MINIMAL:
@@ -1181,5 +1158,5 @@ struct TypeObject {
 #if defined (__cplusplus)
 }
 #endif
-#endif /* DDS_HAS_TYPE_DISCOVERY */
+//#endif /* DDS_HAS_TYPE_DISCOVERY */
 #endif /* DDSI_TYPE_OBJECT_H */

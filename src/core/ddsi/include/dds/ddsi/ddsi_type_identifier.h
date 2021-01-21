@@ -11,22 +11,107 @@
  */
 #ifndef DDSI_TYPE_IDENTIFIER_H
 #define DDSI_TYPE_IDENTIFIER_H
-#ifdef DDS_HAS_TYPE_DISCOVERY
+// #ifdef DDS_HAS_TYPE_DISCOVERY
 #include <stdint.h>
 
 #if defined (__cplusplus)
 extern "C" {
 #endif
 
-typedef uint8_t SBound;
-typedef SBound * SBoundSeq;
-#define INVALID_SBOUND 0
+#define TI_STRING8_SMALL                0x70
+#define TI_STRING8_LARGE                0x71
+#define TI_STRING16_SMALL               0x72
+#define TI_STRING16_LARGE               0x73
+#define TI_PLAIN_SEQUENCE_SMALL         0x80
+#define TI_PLAIN_SEQUENCE_LARGE         0x81
+#define TI_PLAIN_ARRAY_SMALL            0x90
+#define TI_PLAIN_ARRAY_LARGE            0x91
+#define TI_PLAIN_MAP_SMALL              0xA0
+#define TI_PLAIN_MAP_LARGE              0xA1
+#define TI_STRONGLY_CONNECTED_COMPONENT 0xB0
 
-typedef uint32_t LBound;
+
+// Primitive TKs
+#define TK_NONE       0x00
+#define TK_BOOLEAN    0x01
+#define TK_BYTE       0x02
+#define TK_INT16      0x03
+#define TK_INT32      0x04
+#define TK_INT64      0x05
+#define TK_UINT16     0x06
+#define TK_UINT32     0x07
+#define TK_UINT64     0x08
+#define TK_FLOAT32    0x09
+#define TK_FLOAT64    0x0A
+#define TK_FLOAT128   0x0B
+#define TK_CHAR8      0x10
+#define TK_CHAR16     0x11
+
+// String TKs
+#define TK_STRING8    0x20
+#define TK_STRING16   0x21
+
+// Constructed/Named types
+#define TK_ALIAS      0x30
+
+// Enumerated TKs
+#define TK_ENUM       0x40
+#define TK_BITMASK    0x41
+
+// Structured TKs
+#define TK_ANNOTATION 0x50
+#define TK_STRUCTURE  0x51
+#define TK_UNION      0x52
+#define TK_BITSET     0x53
+
+// Collection TKs
+#define TK_SEQUENCE   0x60
+#define TK_ARRAY      0x61
+#define TK_MAP        0x62
+
+struct NameHash {
+  uint8_t hash[4];
+};
+
+// @bit_bound(16)
+// bitmask TypeFlag {
+//     @position(0) IS_FINAL,        // F |
+//     @position(1) IS_APPENDABLE,   // A |-  Struct, Union
+//     @position(2) IS_MUTABLE,      // M |   (exactly one flag)
+
+//     @position(3) IS_NESTED,       // N     Struct, Union
+//     @position(4) IS_AUTOID_HASH   // H     Struct
+// };
+#define IS_FINAL        (1u << 0)
+#define IS_APPENDABLE   (1u << 1)
+#define IS_MUTABLE      (1u << 2)
+#define IS_NESTED       (1u << 3)
+#define IS_AUTOID_HASH  (1u << 4)
+
+typedef uint16_t TypeFlag;
+typedef TypeFlag   StructTypeFlag;      // All flags apply
+typedef TypeFlag   UnionTypeFlag;       // All flags apply
+typedef TypeFlag   CollectionTypeFlag;  // Unused. No flags apply
+typedef TypeFlag   AnnotationTypeFlag;  // Unused. No flags apply
+typedef TypeFlag   AliasTypeFlag;       // Unused. No flags apply
+typedef TypeFlag   EnumTypeFlag;        // Unused. No flags apply
+typedef TypeFlag   BitmaskTypeFlag;     // Unused. No flags apply
+typedef TypeFlag   BitsetTypeFlag;      // Unused. No flags apply
+
+
+#define INVALID_SBOUND 0
 #define INVALID_LBOUND 0
+
+typedef uint8_t SBound_t;
+typedef struct SBoundSeq {
+  uint32_t length;
+  SBound_t * seq;
+} SBoundSeq_t;
+
+typedef uint32_t LBound_t;
 struct LBoundSeq {
   uint32_t length;
-  LBound * seq;
+  LBound_t * seq;
 };
 
 struct EquivalenceHash {
@@ -66,6 +151,15 @@ typedef uint8_t TypeKind;
 //     @position(5)  IS_KEY,          // K  StructMember, UnionDiscriminator
 //     @position(6)  IS_DEFAULT       // D  UnionMember, EnumerationLiteral
 // };
+
+#define TRY_CONSTRUCT1      (1u << 0)
+#define TRY_CONSTRUCT2      (1u << 1)
+#define IS_EXTERNAL         (1u << 2)
+#define IS_OPTIONAL         (1u << 3)
+#define IS_MUST_UNDERSTAND  (1u << 4)
+#define IS_KEY              (1u << 5)
+#define IS_DEFAULT          (1u << 6)
+
 typedef uint16_t MemberFlag;
 
 typedef MemberFlag CollectionElementFlag;   // T1, T2, X
@@ -84,7 +178,7 @@ typedef MemberFlag BitsetMemberFlag;        // Unused. No flags apply
 // };
 struct StringSTypeDefn
 {
-  SBound bound;
+  SBound_t bound;
 };
 
 // @extensibility(FINAL) @nested
@@ -93,7 +187,7 @@ struct StringSTypeDefn
 // };
 struct StringLTypeDefn
 {
-  LBound bound;
+  LBound_t bound;
 };
 
 // @extensibility(FINAL) @nested
@@ -116,8 +210,8 @@ struct PlainCollectionHeader
 struct PlainSequenceSElemDefn
 {
   struct PlainCollectionHeader header;
-  SBound bound;
-  struct TypeIdentifier *element_identifier;
+  SBound_t bound;
+  struct TypeIdentifier * element_identifier;
 };
 
 // @extensibility(FINAL) @nested
@@ -128,7 +222,7 @@ struct PlainSequenceSElemDefn
 // };
 struct PlainSequenceLElemDefn {
   struct PlainCollectionHeader header;
-  LBound bound;
+  LBound_t bound;
   struct TypeIdentifier * element_identifier;
 };
 
@@ -140,7 +234,7 @@ struct PlainSequenceLElemDefn {
 // };
 struct PlainArraySElemDefn {
   struct PlainCollectionHeader header;
-  SBoundSeq array_bound_seq;
+  struct SBoundSeq array_bound_seq;
   struct TypeIdentifier * element_identifier;
 };
 
@@ -166,7 +260,7 @@ struct PlainArrayLElemDefn {
 // };
 struct PlainMapSTypeDefn {
   struct PlainCollectionHeader header;
-  SBound bound;
+  SBound_t bound;
   struct TypeIdentifier * element_identifier;
   CollectionElementFlag key_flags;
   struct TypeIdentifier * key_identifier;
@@ -182,7 +276,7 @@ struct PlainMapSTypeDefn {
 // };
 struct PlainMapLTypeDefn {
   struct PlainCollectionHeader header;
-  LBound bound;
+  LBound_t bound;
   struct TypeIdentifier * element_identifier;
   CollectionElementFlag  key_flags;
   struct TypeIdentifier * key_identifier;
@@ -211,7 +305,58 @@ struct ExtendedTypeDefn {
 
 // @extensibility(FINAL) @nested
 // union TypeIdentifier switch (octet) {
-//     ...
+//  // ============  Primitive types - use TypeKind ====================
+//  // All primitive types fall here.
+//  // Commented-out because Unions cannot have cases with no member.
+//  /*
+//  case TK_NONE:
+//  case TK_BOOLEAN:
+//  case TK_BYTE_TYPE:
+//  case TK_INT16_TYPE:
+//  case TK_INT32_TYPE:
+//  case TK_INT64_TYPE:
+//  case TK_UINT8_TYPE:
+//  case TK_UINT16_TYPE:
+//  case TK_UINT32_TYPE:
+//  case TK_UINT64_TYPE:
+//  case TK_FLOAT32_TYPE:
+//  case TK_FLOAT64_TYPE:
+//  case TK_FLOAT128_TYPE:
+//  case TK_CHAR8_TYPE:
+//  case TK_CHAR16_TYPE:
+//      // No Value
+//  */
+//  // ============ Strings - use TypeIdentifierKind ===================
+//  case TI_STRING8_SMALL:
+//  case TI_STRING16_SMALL:
+//      StringSTypeDefn         string_sdefn;
+//  case TI_STRING8_LARGE:
+//  case TI_STRING16_LARGE:
+//      StringLTypeDefn         string_ldefn;
+//  // ============  Plain collectios - use TypeIdentifierKind =========
+//  case TI_PLAIN_SEQUENCE_SMALL:
+//      PlainSequenceSElemDefn  seq_sdefn;
+//  case TI_PLAIN_SEQUENCE_LARGE:
+//      PlainSequenceLElemDefn  seq_ldefn;
+//  case TI_PLAIN_ARRAY_SMALL:
+//      PlainArraySElemDefn     array_sdefn;
+//  case TI_PLAIN_ARRAY_LARGE:
+//      PlainArrayLElemDefn     array_ldefn;
+//  case TI_PLAIN_MAP_SMALL:
+//      PlainMapSTypeDefn       map_sdefn;
+//  case TI_PLAIN_MAP_LARGE:
+//      PlainMapLTypeDefn       map_ldefn;
+//  // ============  Types that are mutually dependent on each other ===
+//  case TI_STRONGLY_CONNECTED_COMPONENT:
+//      StronglyConnectedComponentId  sc_component_id;
+//  // ============  The remaining cases - use EquivalenceKind =========
+//  case EK_COMPLETE:
+//  case EK_MINIMAL:
+//      EquivalenceHash         equivalence_hash;
+//  // ===================  Future extensibility  ============
+//  // Future extensions
+//  default:
+//      ExtendedTypeDefn        extended_defn;
 // };
 struct TypeIdentifier
 {
@@ -234,5 +379,5 @@ struct TypeIdentifier
 #if defined (__cplusplus)
 }
 #endif
-#endif /* DDS_HAS_TYPE_DISCOVERY */
+//#endif /* DDS_HAS_TYPE_DISCOVERY */
 #endif /* DDSI_TYPE_IDENTIFIER_H */

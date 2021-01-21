@@ -132,7 +132,7 @@ static dds_builtintopic_endpoint_t *make_builtintopic_endpoint (
     dds_instance_handle_t ppiid,
     const dds_qos_t *qos
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    , const type_identifier_t *type_id
+    , const struct TypeIdentifier *type_id
 #endif
 )
 {
@@ -151,8 +151,10 @@ static dds_builtintopic_endpoint_t *make_builtintopic_endpoint (
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
   ep->qos->present |= QP_CYCLONE_TYPE_INFORMATION;
-  ep->qos->type_information.length = (uint32_t) sizeof (*type_id);
-  ep->qos->type_information.value = ddsrt_memdup (&type_id->hash, ep->qos->type_information.length);
+  // FIXME
+  (void) type_id;
+  // ep->qos->type_information.length = (uint32_t) sizeof (*type_id);
+  // ep->qos->type_information.value = ddsrt_memdup (&type_id->hash, ep->qos->type_information.length);
 #endif
 
   return ep;

@@ -13,39 +13,37 @@
 #include <stdlib.h>
 #include "dds/ddsrt/heap.h"
 #include "dds/ddsi/ddsi_typeid.h"
+#include "dds/ddsi/ddsi_type_xtypes.h"
 #include "dds/ddsi/ddsi_sertype.h"
 
-type_identifier_t * ddsi_typeid_from_sertype (const struct ddsi_sertype *type)
+struct TypeIdentifier * ddsi_typeid_from_sertype (const struct ddsi_sertype *type)
 {
   assert (type != NULL);
-  type_identifier_t *type_id = ddsrt_malloc (sizeof (*type_id));
-  if (ddsi_sertype_typeid_hash (type, type_id->hash))
-    return type_id;
-  else
-  {
-    ddsrt_free (type_id);
-    return NULL;
-  }
+  // FIXME
+  return NULL;
 }
 
-type_identifier_t * ddsi_typeid_dup (const type_identifier_t *type_id)
+struct TypeIdentifier * ddsi_typeid_dup (const struct TypeIdentifier *type_id)
 {
   assert (type_id);
-  type_identifier_t *t = ddsrt_malloc (sizeof (*t));
-  memcpy (&t->hash, type_id->hash, sizeof (t->hash));
+  struct TypeIdentifier *t = ddsrt_malloc (sizeof (*t));
+  /* FIXME: alloc and copy all fields */
+  abort ();
   return t;
 }
 
-bool ddsi_typeid_equal (const type_identifier_t *a, const type_identifier_t *b)
+bool ddsi_typeid_equal (const struct TypeIdentifier *a, const struct TypeIdentifier *b)
 {
-  return memcmp (a->hash, b->hash, sizeof (*a)) == 0;
+  /* FIXME: implement compare */
+  (void) a;
+  (void) b;
+  abort ();
+  return false;
 }
 
-bool ddsi_typeid_none (const type_identifier_t *type_id)
+bool ddsi_typeid_none (const struct TypeIdentifier *typeid)
 {
-  if (type_id == NULL)
+  if (typeid == NULL)
     return true;
-  type_identifier_t empty;
-  memset (&empty, 0, sizeof (*type_id));
-  return memcmp (type_id, &empty, sizeof (*type_id)) == 0;
+  return typeid->_d == TK_NONE;
 }

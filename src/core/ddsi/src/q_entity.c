@@ -2938,8 +2938,8 @@ static bool topickind_qos_match_p_lock (
     const dds_qos_t *wrqos,
     dds_qos_policy_id_t *reason
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    , const type_identifier_t *rd_typeid
-    , const type_identifier_t *wr_typeid
+    , const struct TypeIdentifier *rd_typeid
+    , const struct TypeIdentifier *wr_typeid
 #endif
 )
 {
@@ -3542,7 +3542,7 @@ static void endpoint_common_init (struct entity_common *e, struct endpoint_commo
     memset (&c->group_guid, 0, sizeof (c->group_guid));
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
+  struct TypeIdentifier * type_id = ddsi_typeid_from_sertype (type);
   if (type_id)
   {
     memcpy (&c->type_id, type_id, sizeof (c->type_id));
@@ -4159,17 +4159,18 @@ struct local_orphan_writer *new_local_orphan_writer (struct ddsi_domaingv *gv, d
   memset (&wr->c.group_guid, 0, sizeof (wr->c.group_guid));
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
-  if (type_id)
-  {
-    memcpy (&wr->c.type_id, type_id, sizeof (wr->c.type_id));
-    ddsi_tl_meta_local_ref (gv, type_id, type);
-    ddsrt_free (type_id);
-  }
-  else
-  {
-    memset (&wr->c.type_id, 0, sizeof (wr->c.type_id));
- }
+// FIXME
+//   struct TypeIdentifier * type_id = ddsi_typeid_from_sertype (type);
+//   if (type_id)
+//   {
+//     memcpy (&wr->c.type_id, type_id, sizeof (wr->c.type_id));
+//     ddsi_tl_meta_local_ref (gv, type_id, type);
+//     ddsrt_free (type_id);
+//   }
+//   else
+//   {
+//     memset (&wr->c.type_id, 0, sizeof (wr->c.type_id));
+//   }
 #endif
 
   new_writer_guid_common_init (wr, topic_name, type, xqos, whc, 0, NULL);
@@ -4840,11 +4841,12 @@ dds_return_t ddsi_new_topic
   assert (tp_qos->aliased == 0);
 
   /* Set topic name, type name and type id in qos */
-  type_identifier_t * type_id = ddsi_typeid_from_sertype (type);
+  struct TypeIdentifier * type_id = ddsi_typeid_from_sertype (type);
   assert (type_id != NULL);
-  tp_qos->present |= QP_CYCLONE_TYPE_INFORMATION;
-  tp_qos->type_information.length = (uint32_t) sizeof (*type_id);
-  tp_qos->type_information.value = ddsrt_memdup (&type_id->hash, tp_qos->type_information.length);
+  // FIXME
+  // tp_qos->present |= QP_CYCLONE_TYPE_INFORMATION;
+  // tp_qos->type_information.length = (uint32_t) sizeof (*type_id);
+  // tp_qos->type_information.value = ddsrt_memdup (&type_id->hash, tp_qos->type_information.length);
   set_topic_type_name (tp_qos, topic_name, type->type_name);
 
   if (gv->logconfig.c.mask & DDS_LC_DISCOVERY)
@@ -5936,7 +5938,9 @@ static struct ddsi_topic_definition *lookup_topic_definition_locked (struct ddsi
   struct ddsi_topic_definition templ;
   memset (&templ, 0, sizeof (templ));
   templ.xqos = qos;
-  memcpy (&templ.type_id, type_id, sizeof (templ.type_id));
+  // FIXME
+  (void) type_id;
+  // memcpy (&templ.type_id, type_id, sizeof (templ.type_id));
   templ.gv = gv;
   set_topic_definition_hash (&templ);
   struct ddsi_topic_definition *tpd = ddsrt_hh_lookup (gv->topic_defs, &templ);
@@ -6172,14 +6176,15 @@ static int proxy_endpoint_common_init (struct entity_common *e, struct proxy_end
   c->vendor = proxypp->vendor;
   c->seq = seq;
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  if ((plist->qos.present & QP_CYCLONE_TYPE_INFORMATION) && plist->qos.type_information.length == sizeof (c->type_id.hash))
-  {
-    memcpy (c->type_id.hash, plist->qos.type_information.value, sizeof (c->type_id.hash));
-    ddsi_tl_meta_proxy_ref (proxypp->e.gv, &c->type_id, guid);
-  }
-  else
-    memset (&c->type_id, 0, sizeof (c->type_id));
-  c->type = NULL;
+  // FIXME
+  // if ((plist->qos.present & QP_CYCLONE_TYPE_INFORMATION) && plist->qos.type_information.length == sizeof (c->type_id.hash))
+  // {
+  //   memcpy (c->type_id.hash, plist->qos.type_information.value, sizeof (c->type_id.hash));
+  //   ddsi_tl_meta_proxy_ref (proxypp->e.gv, &c->type_id, guid);
+  // }
+  // else
+  //   memset (&c->type_id, 0, sizeof (c->type_id));
+  // c->type = NULL;
 #endif
 
   if (plist->present & PP_GROUP_GUID)

@@ -25,8 +25,7 @@
 #include "dds/ddsi/ddsi_guid.h"
 #include "dds/ddsi/ddsi_xqos.h"
 #include "dds/ddsi/ddsi_typeid.h"
-#include "dds/ddsi/ddsi_type_identifier.h"
-#include "dds/ddsi/ddsi_type_object.h"
+#include "dds/ddsi/ddsi_type_xtypes.h"
 #include "dds/ddsi/ddsi_list_tmpl.h"
 
 
@@ -45,13 +44,13 @@ struct ddsi_serdata;
 typedef struct type_lookup_request {
   ddsi_guid_t writer_guid;
   seqno_t sequence_number;
-  type_identifier_seq_t type_ids;
+  struct TypeIdentifierSeq type_ids;
 } type_lookup_request_t;
 
 typedef struct type_lookup_reply {
   ddsi_guid_t writer_guid;
   seqno_t sequence_number;
-  type_identifier_type_object_pair_seq_t types;
+  struct TypeIdentifierTypeObjectPairSeq types;
 } type_lookup_reply_t;
 
 enum tl_meta_state
@@ -66,8 +65,10 @@ DDSI_LIST_TYPES_TMPL(tlm_proxy_guid_list, ddsi_guid_t, NOARG, 32)
 #undef NOARG
 
 struct tl_meta {
-  type_identifier_t type_id;            /* type identifier for this record */
-  const struct ddsi_sertype *sertype;   /* sertype associated with the type identifier, NULL if type is unresolved */
+  struct TypeIdentifier type_id;        /* type identifier for this record (minimal or complete hash identifier) */
+  struct TypeObject type_object;        /* type object (minimal or complete) */
+  struct xt_type *xt;
+  const struct ddsi_sertype *sertype;   /* sertype associated with the type identifier, NULL if type is unresolved or not a top-level type */
   enum tl_meta_state state;             /* state of this record */
   seqno_t request_seqno;                /* sequence number of the last type lookup request message */
   struct tlm_proxy_guid_list proxy_guids; /* administration for proxy endpoints and proxy topics that are using this type */
@@ -83,7 +84,7 @@ extern size_t typelookup_service_reply_nops;
  * Reference the type lookup meta object identified by the provided type identifier
  * and register the proxy endpoint with this entry.
  */
-void ddsi_tl_meta_proxy_ref (struct ddsi_domaingv *gv, const type_identifier_t *type_id, const ddsi_guid_t *proxy_ep_guid);
+void ddsi_tl_meta_proxy_ref (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, const ddsi_guid_t *proxy_ep_guid);
 
 /**
  * Reference the type lookup meta object identifier by the provided type identifier
@@ -91,19 +92,19 @@ void ddsi_tl_meta_proxy_ref (struct ddsi_domaingv *gv, const type_identifier_t *
  * yet registered with the type lookup meta object, this field will be set in the meta
  * object.
  */
-void ddsi_tl_meta_local_ref (struct ddsi_domaingv *gv, const type_identifier_t *type_id, const struct ddsi_sertype *type);
+void ddsi_tl_meta_local_ref (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, const struct ddsi_sertype *type);
 
 /**
  * Dereference the type lookup meta object identified by the provided type identifier.
  * The proxy endpoint will be deregistered for this entry.
  */
-void ddsi_tl_meta_proxy_unref (struct ddsi_domaingv *gv, const type_identifier_t *type_id, const ddsi_guid_t *proxy_ep_guid);
+void ddsi_tl_meta_proxy_unref (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, const ddsi_guid_t *proxy_ep_guid);
 
 /**
  * Dereference the type lookup meta object identifier by the provided type identifier
  * or the provided type object.
  */
-void ddsi_tl_meta_local_unref (struct ddsi_domaingv *gv, const type_identifier_t *type_id, const struct ddsi_sertype *type);
+void ddsi_tl_meta_local_unref (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, const struct ddsi_sertype *type);
 
 /**
  * Returns the type lookup meta object for the provided type identifier.
@@ -113,7 +114,7 @@ void ddsi_tl_meta_local_unref (struct ddsi_domaingv *gv, const type_identifier_t
  *   its lifetime is at lease the lifetime of the (proxy) endpoints
  *   that are referring to it.
  */
-struct tl_meta * ddsi_tl_meta_lookup_locked (struct ddsi_domaingv *gv, const type_identifier_t *type_id);
+struct tl_meta * ddsi_tl_meta_lookup_locked (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id);
 
 /**
  * Returns the type lookup meta object for the provided type identifier
@@ -122,7 +123,7 @@ struct tl_meta * ddsi_tl_meta_lookup_locked (struct ddsi_domaingv *gv, const typ
  *   its lifetime is at lease the lifetime of the (proxy) endpoints
  *   that are referring to it.
  */
-struct tl_meta * ddsi_tl_meta_lookup (struct ddsi_domaingv *gv, const type_identifier_t *type_id);
+struct tl_meta * ddsi_tl_meta_lookup (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id);
 
 /**
  * For all proxy endpoints registered with the type lookup meta object that is
@@ -135,7 +136,7 @@ void ddsi_tl_meta_register_with_proxy_endpoints (struct ddsi_domaingv *gv, const
  * Send a type lookup request message in order to request type information for the
  * provided type identifier.
  */
-bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const type_identifier_t *type_id);
+bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const struct TypeIdentifier *type_id);
 
 /**
  * Handle an incoming type lookup request message. For all types requested

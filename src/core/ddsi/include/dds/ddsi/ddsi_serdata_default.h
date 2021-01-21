@@ -18,12 +18,15 @@
 #include "dds/ddsrt/avl.h"
 #include "dds/ddsi/ddsi_serdata.h"
 #include "dds/ddsi/ddsi_plist_generic.h"
+#include "dds/ddsi/ddsi_type_xtypes.h"
 
 #include "dds/dds.h"
 
 #if defined (__cplusplus)
 extern "C" {
 #endif
+
+struct TypeIdentifier;
 
 struct CDRHeader {
   unsigned short identifier;
@@ -102,12 +105,18 @@ typedef struct ddsi_sertype_default_desc_op_seq {
   uint32_t *ops;    /* Marshalling meta data */
 } ddsi_sertype_default_desc_op_seq_t;
 
+typedef struct ddsi_sertype_default_cdr_data {
+  uint32_t sz;
+  uint8_t *data;
+} ddsi_sertype_default_cdr_data_t;
+
 /* Reduced version of dds_topic_descriptor_t */
 struct ddsi_sertype_default_desc {
   uint32_t size;    /* Size of topic type */
   uint32_t align;   /* Alignment of topic type */
   uint32_t flagset; /* Flags */
   enum ddsi_sertype_extensibility extensibility;  /* Extensibility of the top-level type */
+  struct TypeIdentifier type_identifier;
   ddsi_sertype_default_desc_key_seq_t keys;
   ddsi_sertype_default_desc_op_seq_t ops;
 };

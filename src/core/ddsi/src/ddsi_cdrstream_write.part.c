@@ -109,10 +109,9 @@ static const uint32_t *dds_stream_write_arrBO (DDS_OSTREAM_T * __restrict os, co
   const uint32_t num = ops[2];
   switch (subtype)
   {
-    case DDS_OP_VAL_ENU: {
+    case DDS_OP_VAL_ENU:
       ops++;
       /* fall through */
-    }
     case DDS_OP_VAL_1BY: case DDS_OP_VAL_2BY: case DDS_OP_VAL_4BY: case DDS_OP_VAL_8BY: {
       dds_os_put_bytes_aligned ((struct dds_ostream *)os, addr, num, get_type_size (subtype));
       ops += 3;

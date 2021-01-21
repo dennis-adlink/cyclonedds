@@ -905,7 +905,7 @@ static int sedp_write_endpoint_impl
    const struct entity_common *common, const struct endpoint_common *epcommon,
    const dds_qos_t *xqos, struct addrset *as, nn_security_info_t *security
 #ifdef DDS_HAS_TYPE_DISCOVERY
-   , type_identifier_t *type_id
+   , struct TypeIdentifier *type_id
 #endif
 )
 {
@@ -1011,7 +1011,7 @@ static int sedp_write_endpoint_impl
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 
-static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_t *guid, const dds_qos_t *xqos, type_identifier_t *type_id)
+static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_t *guid, const dds_qos_t *xqos, struct TypeIdentifier *type_id)
 {
   struct ddsi_domaingv * const gv = wr->e.gv;
   const dds_qos_t *defqos = &gv->default_xqos_tp;
@@ -1035,7 +1035,7 @@ static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_
   {
     ps.qos.present |= QP_CYCLONE_TYPE_INFORMATION;
     ps.qos.type_information.length = sizeof (*type_id);
-    ps.qos.type_information.value = ddsrt_memdup (&type_id->hash, ps.qos.type_information.length);
+    // FIXME: ps.qos.type_information.value = ddsrt_memdup (&type_id->hash, ps.qos.type_information.length);
   }
   if (xqos)
     ddsi_xqos_mergein_missing (&ps.qos, xqos, qosdiff);
@@ -1464,7 +1464,7 @@ static void handle_sedp_alive_topic (const struct receiver_state *rst, seqno_t s
   ddsi_guid_t ppguid;
   dds_qos_t *xqos;
   int reliable;
-  type_identifier_t type_id = { .hash = { 0 }};
+  struct TypeIdentifier type_id; // FIXME = { .hash = { 0 }};
 
   assert (datap);
   assert (datap->present & PP_CYCLONE_TOPIC_GUID);
@@ -1502,6 +1502,7 @@ static void handle_sedp_alive_topic (const struct receiver_state *rst, seqno_t s
   }
   else
   {
+    // FIXME: check compatibility with known topic definitions
     struct proxy_topic *ptp = lookup_proxy_topic (proxypp, &datap->topic_guid);
     if (ptp)
     {

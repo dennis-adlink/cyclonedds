@@ -37,8 +37,8 @@ bool qos_match_mask_p (
     uint64_t mask,
     dds_qos_policy_id_t *reason
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    , const type_identifier_t *rd_typeid
-    , const type_identifier_t *wr_typeid
+    , const struct TypeIdentifier *rd_typeid
+    , const struct TypeIdentifier *wr_typeid
     , bool *rd_typeid_req_lookup
     , bool *wr_typeid_req_lookup
 #endif
@@ -50,8 +50,8 @@ bool qos_match_p (
     const dds_qos_t *wr_qos,
     dds_qos_policy_id_t *reason
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    , const type_identifier_t *rd_typeid
-    , const type_identifier_t *wr_typeid
+    , const struct TypeIdentifier *rd_typeid
+    , const struct TypeIdentifier *wr_typeid
     , bool *rd_typeid_req_lookup
     , bool *wr_typeid_req_lookup
 #endif

@@ -420,11 +420,14 @@ void dds_write_set_batch (bool enable)
 dds_return_t dds_domain_resolve_type (dds_entity_t entity, unsigned char *type_identifier, size_t type_identifier_sz, dds_duration_t timeout, struct ddsi_sertype **sertype)
 {
   struct dds_entity *e;
-  type_identifier_t type_id;
+  struct TypeIdentifier type_id;
   dds_return_t rc;
 
-  if (type_identifier == NULL || type_identifier_sz != sizeof (type_id) || sertype == NULL)
-    return DDS_RETCODE_BAD_PARAMETER;
+  // FIXME
+  (void) type_identifier;
+  (void) type_identifier_sz;
+  // if (type_identifier == NULL || type_identifier_sz != sizeof (type_id) || sertype == NULL)
+  //   return DDS_RETCODE_BAD_PARAMETER;
 
   if ((rc = dds_entity_pin (entity, &e)) < 0)
     return rc;
@@ -435,7 +438,8 @@ dds_return_t dds_domain_resolve_type (dds_entity_t entity, unsigned char *type_i
   }
 
   struct ddsi_domaingv *gv = &e->m_domain->gv;
-  memcpy (&type_id.hash, type_identifier, sizeof (type_id));
+  // FIXME
+  // memcpy (&type_id.hash, type_identifier, sizeof (type_id));
   ddsrt_mutex_lock (&gv->tl_admin_lock);
   struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, &type_id);
   if (tlm == NULL)

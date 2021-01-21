@@ -26,6 +26,8 @@
 #include "dds/ddsi/ddsi_sertype.h"
 #include "dds/ddsi/ddsi_serdata_default.h"
 #include "dds/ddsi/ddsi_typelookup.h"
+#include "dds/ddsi/ddsi_type_xtypes.h"
+
 
 static bool sertype_default_equal (const struct ddsi_sertype *acmn, const struct ddsi_sertype *bcmn)
 {
@@ -139,7 +141,7 @@ static void sertype_default_free_samples (const struct ddsi_sertype *sertype_com
   }
 }
 
-const enum pserop ddsi_sertype_default_desc_ops[] = { Xux3, XE2, XQ, Xu, XSTOP, XQ, Xu, XSTOP, XSTOP };
+const enum pserop ddsi_sertype_default_desc_ops[] = { Xux3, XE2, XO, XO, XO, XO, XQ, Xu, XSTOP, XQ, Xu, XSTOP, XSTOP };
 
 static void sertype_default_serialized_size (const struct ddsi_sertype *stc, size_t *dst_offset)
 {
@@ -177,20 +179,15 @@ static bool sertype_default_assignable_from (const struct ddsi_sertype *type_a, 
   if (a->type.flagset & DDS_TOPIC_DISABLE_TYPECHECK)
     return true;
 
-  // For now, the assignable check is just comparing the type-ids for a and b, so only equal types will match
-  type_identifier_t *typeid_a = ddsi_typeid_from_sertype (&a->c);
-  type_identifier_t *typeid_b = ddsi_typeid_from_sertype (&b->c);
-  // this sertype always provides a typeid
-  assert (typeid_a && typeid_b);
-  bool assignable = ddsi_typeid_equal (typeid_a, typeid_b);
-  ddsrt_free (typeid_a);
-  ddsrt_free (typeid_b);
-  return assignable;
+  struct ddsi_domaingv *gv = ddsrt_atomic_ldvoidp (&type_a->gv);
+  struct tl_meta *tla = ddsi_tl_meta_lookup (gv, &a->type.type_identifier);
+  struct tl_meta *tlb = ddsi_tl_meta_lookup (gv, &b->type.type_identifier);
+  return ddsi_xt_is_assignable_from (gv, tla->xt, tlb->xt);
 #else
   DDSRT_UNUSED_ARG (type_a);
   DDSRT_UNUSED_ARG (type_b);
-  return false;
 #endif
+  return false;
 }
 
 const struct ddsi_sertype_ops ddsi_sertype_ops_default = {

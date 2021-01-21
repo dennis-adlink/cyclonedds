@@ -77,7 +77,7 @@ static dds_return_t dds_topic_status_validate (uint32_t mask)
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 static struct ktopic_type_guid * topic_guid_map_refc_impl (const struct dds_ktopic * ktp, const struct ddsi_sertype *sertype, bool unref)
 {
-  type_identifier_t *tid = ddsi_typeid_from_sertype (sertype);
+  struct TypeIdentifier *tid = ddsi_typeid_from_sertype (sertype);
   if (ddsi_typeid_none (tid))
     return NULL;
 
@@ -111,7 +111,7 @@ static void topic_guid_map_unref (struct ddsi_domaingv * const gv, const struct 
     thread_state_awake (lookup_thread_state (), gv);
     (void) delete_topic (gv, &m->guid);
     thread_state_asleep (lookup_thread_state ());
-    ddsrt_free ((type_identifier_t *) m->type_id);
+    ddsrt_free ((struct TypeIdentifier *) m->type_id);
     ddsrt_free (m);
   }
 }
@@ -349,7 +349,10 @@ static int ktopic_type_guid_equal (const void *ktp_guid_a, const void *ktp_guid_
 static uint32_t ktopic_type_guid_hash (const void *ktp_guid)
 {
   struct ktopic_type_guid *x = (struct ktopic_type_guid *)ktp_guid;
-  return (uint32_t) *x->type_id->hash;
+  // FIXME
+  (void) x;
+  // return (uint32_t) *x->type_id->hash;
+  return 0;
 }
 
 #endif /* DDS_HAS_TOPIC_DISCOVERY */
@@ -475,7 +478,7 @@ dds_entity_t dds_create_topic_impl (
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   /* create or reference ktopic-sertype meta-data entry */
   struct ktopic_type_guid templ, *m;
-  type_identifier_t *tid = ddsi_typeid_from_sertype (sertype_registered);
+  struct TypeIdentifier *tid = ddsi_typeid_from_sertype (sertype_registered);
   if (!ddsi_typeid_none (tid))
   {
     memset (&templ, 0, sizeof (templ));

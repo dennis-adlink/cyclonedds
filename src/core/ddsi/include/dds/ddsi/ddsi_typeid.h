@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include "dds/ddsi/ddsi_sertype.h"
 #include "dds/ddsi/ddsi_guid.h"
+#include "dds/ddsi/ddsi_type_xtypes.h"
 
 #define PFMT4B "%02x%02x%02x%02x"
 #define PTYPEIDFMT PFMT4B "-" PFMT4B "-" PFMT4B "-" PFMT4B
@@ -30,36 +31,28 @@ extern "C" {
 #endif
 
 struct ddsi_sertype;
+struct TypeIdentifier;
+struct TypeObject;
 
-typedef struct type_identifier {
-  unsigned char hash[16];
-} type_identifier_t;
-
-typedef struct type_identifier_seq {
+typedef struct TypeIdentifierSeq {
   uint32_t n;
-  type_identifier_t *type_ids;
-} type_identifier_seq_t;
+  struct TypeIdentifier * type_ids;
+} TypeIdentifierSeq_t;
 
-typedef struct type_object {
-  uint32_t length;
-  unsigned char *value;
-} type_object_t;
+typedef struct TypeIdentifierTypeObjectPair {
+  struct TypeIdentifier *type_identifier;
+  struct TypeObject *type_object;
+} TypeIdentifierTypeObjectPair_t;
 
-typedef struct type_identifier_type_object_pair {
-  type_identifier_t type_identifier;
-  type_object_t type_object;
-} type_identifier_type_object_pair_t;
-
-typedef struct type_identifier_type_object_pair_seq {
+typedef struct TypeIdentifierTypeObjectPairSeq {
   uint32_t n;
-  type_identifier_type_object_pair_t *types;
-} type_identifier_type_object_pair_seq_t;
+  struct TypeIdentifierTypeObjectPair * types;
+} TypeIdentifierTypeObjectPairSeq_t;
 
-
-DDS_EXPORT type_identifier_t * ddsi_typeid_from_sertype (const struct ddsi_sertype * type);
-DDS_EXPORT type_identifier_t * ddsi_typeid_dup (const type_identifier_t *type_id);
-DDS_EXPORT bool ddsi_typeid_equal (const type_identifier_t *a, const type_identifier_t *b);
-DDS_EXPORT bool ddsi_typeid_none (const type_identifier_t *type_id);
+DDS_EXPORT struct TypeIdentifier * ddsi_typeid_from_sertype (const struct ddsi_sertype * type);
+DDS_EXPORT struct TypeIdentifier * ddsi_typeid_dup (const struct TypeIdentifier *type_id);
+DDS_EXPORT bool ddsi_typeid_equal (const struct TypeIdentifier *a, const struct TypeIdentifier *b);
+DDS_EXPORT bool ddsi_typeid_none (const struct TypeIdentifier *typeid);
 
 #if defined (__cplusplus)
 }

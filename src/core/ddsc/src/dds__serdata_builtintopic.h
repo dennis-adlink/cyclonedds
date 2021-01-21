@@ -53,7 +53,7 @@ struct ddsi_serdata_builtintopic_endpoint {
   struct ddsi_serdata_builtintopic common;
   dds_instance_handle_t pphandle;
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  type_identifier_t type_id;
+  struct TypeIdentifier type_id;
 #endif
 };
 

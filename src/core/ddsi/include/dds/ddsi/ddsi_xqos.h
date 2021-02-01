@@ -15,11 +15,10 @@
 #include "dds/features.h"
 
 #include "dds/ddsc/dds_public_qosdefs.h"
-/*XXX*/
 #include "dds/ddsi/q_protocol.h"
 #include "dds/ddsi/q_rtps.h"
-/*XXX*/
 #include "dds/ddsi/q_log.h"
+#include "dds/ddsi/ddsi_type_information.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -269,7 +268,7 @@ typedef struct dds_data_representation_qospolicy {
 #define QP_CYCLONE_IGNORELOCAL               ((uint64_t)1 << 30)
 #define QP_PROPERTY_LIST                     ((uint64_t)1 << 31)
 #define QP_TYPE_CONSISTENCY_ENFORCEMENT      ((uint64_t)1 << 32)
-#define QP_CYCLONE_TYPE_INFORMATION          ((uint64_t)1 << 33)
+#define QP_TYPE_INFORMATION                  ((uint64_t)1 << 33)
 #define QP_DATA_REPRESENTATION               ((uint64_t)1 << 34)
 
 /* Partition QoS is not RxO according to the specification (DDS 1.2,
@@ -295,7 +294,7 @@ struct dds_qos {
   /* xx */char *topic_name;
   /* xx */char *type_name;
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  /* xx */ddsi_octetseq_t type_information;
+  /* xx */struct TypeInformation *type_information;
 #endif
   /*      PublisherQos, SubscriberQos: */
   /*xxx */dds_presentation_qospolicy_t presentation;

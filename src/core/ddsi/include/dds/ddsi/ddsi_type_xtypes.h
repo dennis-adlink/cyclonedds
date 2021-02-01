@@ -11,7 +11,10 @@
  */
 #ifndef DDSI_TYPE_XTYPES_H
 #define DDSI_TYPE_XTYPES_H
-//#ifdef DDS_HAS_TYPE_DISCOVERY
+
+#include "dds/features.h"
+
+#ifdef DDS_HAS_TYPE_DISCOVERY
 
 #include <stdint.h>
 #include "dds/ddsi/ddsi_type_identifier.h"
@@ -238,9 +241,10 @@ struct xt_type
 struct xt_type *ddsi_xt_type_init (const struct TypeIdentifier *ti, const struct TypeObject *to);
 void ddsi_xt_type_fini (struct xt_type *t);
 bool ddsi_xt_is_assignable_from (const struct ddsi_domaingv *gv, const struct xt_type *t1, const struct xt_type *t2);
+bool ddsi_xt_has_complete_typeid (const struct xt_type *xt);
 
 #if defined (__cplusplus)
 }
 #endif
-//#endif /* DDS_HAS_TYPE_DISCOVERY */
+#endif /* DDS_HAS_TYPE_DISCOVERY */
 #endif /* DDSI_TYPE_XTYPES_H */

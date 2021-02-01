@@ -12,7 +12,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include "dds/ddsrt/heap.h"
-#include "dds/ddsi/ddsi_typeid.h"
 #include "dds/ddsi/ddsi_type_xtypes.h"
 #include "dds/ddsi/ddsi_sertype.h"
 
@@ -23,11 +22,11 @@ struct TypeIdentifier * ddsi_typeid_from_sertype (const struct ddsi_sertype *typ
   return NULL;
 }
 
-struct TypeIdentifier * ddsi_typeid_dup (const struct TypeIdentifier *type_id)
+void ddsi_typeid_copy (struct TypeIdentifier *dst, const struct TypeIdentifier *src)
 {
-  assert (type_id);
-  struct TypeIdentifier *t = ddsrt_malloc (sizeof (*t));
-  /* FIXME: alloc and copy all fields */
+  assert (src);
+  assert (dst);
+
   abort ();
   return t;
 }

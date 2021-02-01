@@ -25,7 +25,7 @@
 #include "dds/ddsi/ddsi_cdrstream.h"
 #include "dds/ddsi/ddsi_sertype.h"
 #include "dds/ddsi/ddsi_serdata_default.h"
-#include "dds/ddsi/ddsi_typelookup.h"
+#include "dds/ddsi/ddsi_type_lookup.h"
 #include "dds/ddsi/ddsi_type_xtypes.h"
 
 

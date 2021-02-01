@@ -11,12 +11,19 @@
  */
 #ifndef DDSI_TYPE_IDENTIFIER_H
 #define DDSI_TYPE_IDENTIFIER_H
-// #ifdef DDS_HAS_TYPE_DISCOVERY
+
+#include "dds/features.h"
+
+#ifdef DDS_HAS_TYPE_DISCOVERY
 #include <stdint.h>
 
 #if defined (__cplusplus)
 extern "C" {
 #endif
+
+#define PTYPEIDFMT "%u"
+#define PTYPEID(x) ((x)._d)
+
 
 #define TI_STRING8_SMALL                0x70
 #define TI_STRING8_LARGE                0x71
@@ -376,8 +383,29 @@ struct TypeIdentifier
   } _u;
 };
 
+typedef struct TypeIdentifierSeq {
+  uint32_t n;
+  struct TypeIdentifier * type_ids;
+} TypeIdentifierSeq_t;
+
+typedef struct TypeIdentifierTypeObjectPair {
+  struct TypeIdentifier *type_identifier;
+  struct TypeObject *type_object;
+} TypeIdentifierTypeObjectPair_t;
+
+typedef struct TypeIdentifierTypeObjectPairSeq {
+  uint32_t n;
+  struct TypeIdentifierTypeObjectPair * types;
+} TypeIdentifierTypeObjectPairSeq_t;
+
+DDS_EXPORT struct TypeIdentifier * ddsi_typeid_from_sertype (const struct ddsi_sertype * type);
+DDS_EXPORT void ddsi_typeid_copy (struct TypeIdentifier *dst, const struct TypeIdentifier *src)
+DDS_EXPORT bool ddsi_typeid_equal (const struct TypeIdentifier *a, const struct TypeIdentifier *b);
+DDS_EXPORT bool ddsi_typeid_none (const struct TypeIdentifier *typeid);
+
+
 #if defined (__cplusplus)
 }
 #endif
-//#endif /* DDS_HAS_TYPE_DISCOVERY */
+#endif /* DDS_HAS_TYPE_DISCOVERY */
 #endif /* DDSI_TYPE_IDENTIFIER_H */

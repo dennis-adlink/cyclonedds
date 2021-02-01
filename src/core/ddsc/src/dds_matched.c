@@ -145,12 +145,12 @@ static dds_builtintopic_endpoint_t *make_builtintopic_endpoint (
   tmp = nn_hton_guid (*ppguid);
   memcpy (&ep->participant_key, &tmp, sizeof (ep->participant_key));
   ep->qos = dds_create_qos ();
-  ddsi_xqos_mergein_missing (ep->qos, qos, ~(QP_TOPIC_NAME | QP_TYPE_NAME | QP_CYCLONE_TYPE_INFORMATION));
+  ddsi_xqos_mergein_missing (ep->qos, qos, ~(QP_TOPIC_NAME | QP_TYPE_NAME | QP_TYPE_INFORMATION));
   ep->topic_name = dds_string_dup (qos->topic_name);
   ep->type_name = dds_string_dup (qos->type_name);
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  ep->qos->present |= QP_CYCLONE_TYPE_INFORMATION;
+  ep->qos->present |= QP_TYPE_INFORMATION;
   // FIXME
   (void) type_id;
   // ep->qos->type_information.length = (uint32_t) sizeof (*type_id);
@@ -276,11 +276,12 @@ dds_return_t dds_builtintopic_get_endpoint_typeid (dds_builtintopic_endpoint_t *
     return DDS_RETCODE_BAD_PARAMETER;
   *type_identifier = NULL;
   *size = 0;
-  if ((builtintopic_endpoint->qos->present & QP_CYCLONE_TYPE_INFORMATION)
-    && (*size = builtintopic_endpoint->qos->type_information.length) > 0)
-  {
-    *type_identifier = ddsrt_memdup (builtintopic_endpoint->qos->type_information.value, *size);
-  }
+  // FIXME
+  // if ((builtintopic_endpoint->qos->present & QP_TYPE_INFORMATION)
+  //   && (*size = builtintopic_endpoint->qos->type_information.length) > 0)
+  // {
+  //   *type_identifier = ddsrt_memdup (builtintopic_endpoint->qos->type_information, *size);
+  // }
   return DDS_RETCODE_OK;
 }
 #endif

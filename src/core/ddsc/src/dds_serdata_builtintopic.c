@@ -304,13 +304,12 @@ static bool to_sample_endpoint (const struct ddsi_serdata_builtintopic_endpoint 
     sample->type_name = dds_string_dup_reuse (sample->type_name, dep->common.xqos.type_name);
     sample->qos = dds_qos_from_xqos_reuse (sample->qos, &dep->common.xqos);
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    if (!(sample->qos->present & QP_CYCLONE_TYPE_INFORMATION))
+    if (!(sample->qos->present & QP_TYPE_INFORMATION))
     {
-      sample->qos->type_information.value = NULL;
-      sample->qos->present |= QP_CYCLONE_TYPE_INFORMATION;
+      sample->qos->type_information = NULL;
+      sample->qos->present |= QP_TYPE_INFORMATION;
     }
-    sample->qos->type_information.length = (uint32_t) sizeof (dep->type_id);
-    sample->qos->type_information.value = dds_mem_dup_reuse (sample->qos->type_information.value, &dep->type_id, sample->qos->type_information.length);
+    sample->qos->type_information = dds_mem_dup_reuse (sample->qos->type_information, &dep->type_id, sizeof (*sample->qos->type_information));
 #endif
   }
   return true;
@@ -327,13 +326,12 @@ static bool to_sample_topic (const struct ddsi_serdata_builtintopic_topic *dtp, 
     sample->topic_name = dds_string_dup_reuse (sample->topic_name, dtp->common.xqos.topic_name);
     sample->type_name = dds_string_dup_reuse (sample->type_name, dtp->common.xqos.type_name);
     sample->qos = dds_qos_from_xqos_reuse (sample->qos, &dtp->common.xqos);
-    if (!(sample->qos->present & QP_CYCLONE_TYPE_INFORMATION))
+    if (!(sample->qos->present & QP_TYPE_INFORMATION))
     {
-      sample->qos->type_information.value = NULL;
-      sample->qos->present |= QP_CYCLONE_TYPE_INFORMATION;
+      sample->qos->type_information = NULL;
+      sample->qos->present |= QP_TYPE_INFORMATION;
     }
-    sample->qos->type_information.length = (uint32_t) sizeof (dtp->type_id);
-    sample->qos->type_information.value = dds_mem_dup_reuse (sample->qos->type_information.value, &dtp->type_id, sample->qos->type_information.length);
+    sample->qos->type_information = dds_mem_dup_reuse (sample->qos->type_information, &dtp->type_id, sizeof (*sample->qos->type_information));
   }
   return true;
 }

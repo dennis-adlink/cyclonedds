@@ -24,7 +24,7 @@
 #include "dds/ddsi/ddsi_plist_generic.h"
 #include "dds/ddsi/ddsi_guid.h"
 #include "dds/ddsi/ddsi_xqos.h"
-#include "dds/ddsi/ddsi_typeid.h"
+#include "dds/ddsi/ddsi_type_identifier.h"
 #include "dds/ddsi/ddsi_type_xtypes.h"
 #include "dds/ddsi/ddsi_list_tmpl.h"
 
@@ -65,14 +65,14 @@ DDSI_LIST_TYPES_TMPL(tlm_proxy_guid_list, ddsi_guid_t, NOARG, 32)
 #undef NOARG
 
 struct tl_meta {
-  struct TypeIdentifier type_id;        /* type identifier for this record (minimal or complete hash identifier) */
-  struct TypeObject type_object;        /* type object (minimal or complete) */
-  struct xt_type *xt;
-  const struct ddsi_sertype *sertype;   /* sertype associated with the type identifier, NULL if type is unresolved or not a top-level type */
-  enum tl_meta_state state;             /* state of this record */
-  seqno_t request_seqno;                /* sequence number of the last type lookup request message */
+  struct TypeIdentifier type_id;          /* minimal hash or fully descriptive type identifier */
+  struct TypeIdentifier type_id_complete; /* complete hash type identifier for this record */
+  struct xt_type *xt;                     /* type wrapper */
+  enum tl_meta_state state;               /* state of this record */
+  const struct ddsi_sertype *sertype;     /* sertype associated with the type identifier, NULL if type is unresolved or not a top-level type */
+  seqno_t request_seqno;                  /* sequence number of the last type lookup request message */
   struct tlm_proxy_guid_list proxy_guids; /* administration for proxy endpoints and proxy topics that are using this type */
-  uint32_t refc;                        /* refcount for this record */
+  uint32_t refc;                          /* refcount for this record */
 };
 
 extern const enum pserop typelookup_service_request_ops[];

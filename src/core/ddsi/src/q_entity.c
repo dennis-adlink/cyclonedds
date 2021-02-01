@@ -51,7 +51,7 @@
 #include "dds/ddsi/ddsi_iid.h"
 #include "dds/ddsi/ddsi_tkmap.h"
 #include "dds/ddsi/ddsi_security_omg.h"
-#include "dds/ddsi/ddsi_typelookup.h"
+#include "dds/ddsi/ddsi_type_lookup.h"
 #include "dds/ddsi/ddsi_list_tmpl.h"
 
 #ifdef DDS_HAS_SECURITY
@@ -5879,7 +5879,7 @@ static void set_topic_definition_hash (struct ddsi_topic_definition *tpd)
   ddsrt_md5_init (&md5st);
   ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) &tpd->type_id, sizeof (tpd->type_id));
   struct nn_xmsg *mqos = nn_xmsg_new (tpd->gv->xmsgpool, &nullguid, NULL, 0, NN_XMSG_KIND_DATA);
-  ddsi_xqos_addtomsg (mqos, tpd->xqos, ~(QP_CYCLONE_TYPE_INFORMATION));
+  ddsi_xqos_addtomsg (mqos, tpd->xqos, ~(QP_TYPE_INFORMATION));
   size_t sqos_sz;
   void * sqos = nn_xmsg_payload (&sqos_sz, mqos);
   assert (sqos_sz <= UINT32_MAX);
@@ -5901,10 +5901,9 @@ static struct ddsi_topic_definition * new_topic_definition (struct ddsi_domaingv
     memcpy (&tpd->type_id, type_id, sizeof (tpd->type_id));
     ddsrt_free (type_id);
 #ifndef NDEBUG
-    if (qos->present & QP_CYCLONE_TYPE_INFORMATION)
+    if (qos->present & QP_TYPE_INFORMATION)
     {
-      assert (qos->type_information.length == sizeof (tpd->type_id));
-      assert (!memcmp (&tpd->type_id, qos->type_information.value, sizeof (tpd->type_id)));
+      /* FIXME: assert (!memcmp (&tpd->type_id, qos->type_information., sizeof (tpd->type_id))); */
     }
 #endif
   }
@@ -5912,6 +5911,7 @@ static struct ddsi_topic_definition * new_topic_definition (struct ddsi_domaingv
   {
     assert (qos->present & QP_CYCLONE_TYPE_INFORMATION);
     assert (qos->type_information.length == sizeof (tpd->type_id));
+    // FIXME
     memcpy (&tpd->type_id, qos->type_information.value, sizeof (tpd->type_id));
   }
   set_topic_definition_hash (tpd);
@@ -6176,15 +6176,16 @@ static int proxy_endpoint_common_init (struct entity_common *e, struct proxy_end
   c->vendor = proxypp->vendor;
   c->seq = seq;
 #ifdef DDS_HAS_TYPE_DISCOVERY
+  if (plist->qos.present & QP_TYPE_INFORMATION)
+  {
   // FIXME
-  // if ((plist->qos.present & QP_CYCLONE_TYPE_INFORMATION) && plist->qos.type_information.length == sizeof (c->type_id.hash))
-  // {
   //   memcpy (c->type_id.hash, plist->qos.type_information.value, sizeof (c->type_id.hash));
   //   ddsi_tl_meta_proxy_ref (proxypp->e.gv, &c->type_id, guid);
   // }
   // else
   //   memset (&c->type_id, 0, sizeof (c->type_id));
-  // c->type = NULL;
+  }
+  c->type = NULL;
 #endif
 
   if (plist->present & PP_GROUP_GUID)

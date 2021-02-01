@@ -28,7 +28,7 @@
 #include "dds/ddsi/q_inverse_uint32_set.h"
 #include "dds/ddsi/ddsi_serdata_default.h"
 #include "dds/ddsi/ddsi_handshake.h"
-#include "dds/ddsi/ddsi_typeid.h"
+#include "dds/ddsi/ddsi_type_identifier.h"
 #include "dds/ddsi/ddsi_typelookup.h"
 #include "dds/ddsi/ddsi_tran.h"
 #include "dds/ddsi/ddsi_list_genptr.h"

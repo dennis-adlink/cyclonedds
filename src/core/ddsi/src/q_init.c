@@ -50,7 +50,7 @@
 #include "dds/ddsi/q_init.h"
 #include "dds/ddsi/ddsi_threadmon.h"
 #include "dds/ddsi/ddsi_pmd.h"
-#include "dds/ddsi/ddsi_typelookup.h"
+#include "dds/ddsi/ddsi_type_lookup.h"
 
 #include "dds/ddsi/ddsi_tran.h"
 #include "dds/ddsi/ddsi_udp.h"

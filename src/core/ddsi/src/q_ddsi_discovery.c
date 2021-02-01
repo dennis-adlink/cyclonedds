@@ -1033,9 +1033,9 @@ static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_
 
   if (!ddsi_typeid_none (type_id))
   {
-    ps.qos.present |= QP_CYCLONE_TYPE_INFORMATION;
-    ps.qos.type_information.length = sizeof (*type_id);
-    // FIXME: ps.qos.type_information.value = ddsrt_memdup (&type_id->hash, ps.qos.type_information.length);
+    ps.qos.present |= QP_TYPE_INFORMATION;
+    ddsi_typeid_copy (ps.qos.type_information.value, &type_id);
+    (void) type_id;
   }
   if (xqos)
     ddsi_xqos_mergein_missing (&ps.qos, xqos, qosdiff);

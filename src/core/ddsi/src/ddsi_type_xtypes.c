@@ -19,7 +19,7 @@
 #include "dds/ddsi/ddsi_type_information.h"
 #include "dds/ddsi/ddsi_type_identifier.h"
 #include "dds/ddsi/ddsi_type_object.h"
-#include "dds/ddsi/ddsi_typelookup.h"
+#include "dds/ddsi/ddsi_type_lookup.h"
 
 static void xt_collection_common_init (struct xt_collection_common *xtcc, const struct PlainCollectionHeader *hdr)
 {
@@ -893,4 +893,9 @@ bool ddsi_xt_is_assignable_from (const struct ddsi_domaingv *gv, const struct xt
     return false;
 
   return true;
+}
+
+bool ddsi_xt_has_complete_typeid (const struct xt_type *xt)
+{
+  return xt_is_fully_descriptive_typeid (xt->ti);
 }

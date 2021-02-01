@@ -51,7 +51,7 @@
 #include "dds/ddsi/ddsi_iid.h"
 #include "dds/ddsi/ddsi_tkmap.h"
 #include "dds/ddsi/ddsi_security_omg.h"
-#include "dds/ddsi/ddsi_typelookup.h"
+#include "dds/ddsi/ddsi_type_lookup.h"
 #include "dds/ddsi/ddsi_list_tmpl.h"
 
 #ifdef DDS_HAS_SECURITY
@@ -5887,7 +5887,7 @@ static void set_topic_definition_hash (struct ddsi_topic_definition *tpd)
 
   /* Add serialized qos as part of the key */
   struct nn_xmsg *mqos = nn_xmsg_new (tpd->gv->xmsgpool, &nullguid, NULL, 0, NN_XMSG_KIND_DATA);
-  ddsi_xqos_addtomsg (mqos, tpd->xqos, ~(QP_CYCLONE_TYPE_INFORMATION));
+  ddsi_xqos_addtomsg (mqos, tpd->xqos, ~(QP_TYPE_INFORMATION));
   size_t sqos_sz;
   void * sqos = nn_xmsg_payload (&sqos_sz, mqos);
   assert (sqos_sz <= UINT32_MAX);
@@ -5908,7 +5908,7 @@ static struct ddsi_topic_definition * new_topic_definition (struct ddsi_domaingv
   {
     type_id = ddsi_typeid_from_sertype (type);
 #ifndef NDEBUG
-    if (qos->present & QP_CYCLONE_TYPE_INFORMATION)
+    if (qos->present & QP_TYPE_INFORMATION)
     {
       assert (qos->type_information.length == sizeof (*type_id));
       assert (!memcmp (type_id, qos->type_information.value, sizeof (*type_id)));

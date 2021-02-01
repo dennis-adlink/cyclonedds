@@ -78,7 +78,7 @@ static void typelookup_fini (void)
 static struct TypeIdentifier *get_type_identifier(dds_entity_t entity)
 {
   struct dds_entity *e;
-  struct TypeIdentifier *tid = NULL;
+  struct TypeIdentifier *tid = ddsrt_malloc (sizeof (*tid));
   CU_ASSERT_EQUAL_FATAL (dds_entity_pin (entity, &e), 0);
   thread_state_awake (lookup_thread_state (), &e->m_domain->gv);
   struct entity_common *ec = entidx_lookup_guid_untyped (e->m_domain->gv.entity_index, &e->m_guid);

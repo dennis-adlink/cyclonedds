@@ -13,8 +13,8 @@
 #include <assert.h>
 
 #include "dds/ddsi/ddsi_xqos.h"
-#include "dds/ddsi/ddsi_typeid.h"
-#include "dds/ddsi/ddsi_typelookup.h"
+#include "dds/ddsi/ddsi_type_identifier.h"
+#include "dds/ddsi/ddsi_type_lookup.h"
 #include "dds/ddsi/ddsi_domaingv.h"
 #include "dds/ddsi/q_misc.h"
 #include "dds/ddsi/q_qosmatch.h"

@@ -12,7 +12,7 @@
 #ifndef Q_QOSMATCH_H
 #define Q_QOSMATCH_H
 
-#include "dds/ddsi/ddsi_typeid.h"
+#include "dds/ddsi/ddsi_type_identifier.h"
 #if defined (__cplusplus)
 extern "C" {
 #endif

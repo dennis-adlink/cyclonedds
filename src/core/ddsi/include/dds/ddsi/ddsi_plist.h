@@ -17,7 +17,7 @@
 #include "dds/ddsi/ddsi_xqos.h"
 #include "dds/ddsi/ddsi_keyhash.h"
 #include "dds/ddsi/ddsi_tran.h" /* FIXME: eliminate */
-#include "dds/ddsi/ddsi_typelookup.h"
+#include "dds/ddsi/ddsi_type_lookup.h"
 
 #if defined (__cplusplus)
 extern "C" {

@@ -11,7 +11,10 @@
  */
 #ifndef DDSI_TYPE_OBJECT_H
 #define DDSI_TYPE_OBJECT_H
-//#ifdef DDS_HAS_TYPE_DISCOVERY
+
+#include "dds/features.h"
+
+#ifdef DDS_HAS_TYPE_DISCOVERY
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -1158,5 +1161,5 @@ struct TypeObject {
 #if defined (__cplusplus)
 }
 #endif
-//#endif /* DDS_HAS_TYPE_DISCOVERY */
+#endif /* DDS_HAS_TYPE_DISCOVERY */
 #endif /* DDSI_TYPE_OBJECT_H */

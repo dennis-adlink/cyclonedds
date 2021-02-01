@@ -15,7 +15,7 @@
 #include "dds/ddsrt/atomics.h"
 #include "dds/ddsrt/avl.h"
 #include "dds/ddsi/ddsi_xqos.h"
-#include "dds/ddsi/ddsi_typeid.h"
+#include "dds/ddsi/ddsi_type_identifier.h"
 #include "dds/ddsc/dds_public_alloc.h"
 
 #if defined (__cplusplus)

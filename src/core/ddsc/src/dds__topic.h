@@ -43,8 +43,7 @@ DDS_EXPORT dds_entity_t dds_create_topic_impl (
     const dds_qos_t *qos,
     const dds_listener_t *listener,
     const ddsi_plist_t *sedp_plist,
-    bool is_builtin,
-    bool is_find_topic);
+    bool is_builtin);
 
 #if defined (__cplusplus)
 }

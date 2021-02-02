@@ -1284,6 +1284,7 @@ int rtps_init (struct ddsi_domaingv *gv)
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   ddsrt_mutex_init (&gv->new_topic_lock);
   ddsrt_cond_init (&gv->new_topic_cond);
+  gv->new_topic_version = 0;
   ddsrt_mutex_init (&gv->topic_defs_lock);
   gv->topic_defs = ddsrt_hh_new (1, topic_definition_hash_wrap, topic_definition_equal_wrap);
 #endif

@@ -1205,32 +1205,6 @@ DDS_DEPRECATED_EXPORT dds_entity_t
 dds_find_topic(dds_entity_t participant, const char *name);
 
 /**
- * @brief Finds a locally created topic by topic name
- *
- * Finds a locally created topic based on the topic name.
- * In case the topic is not found, this function will wait for
- * the topic to become available until the provided time out.
- *
- * The returned topic should be released with dds_delete.
- *
- * @param[in]  entity       The entity (scope) in which to find the topic, this can be a participant handle, domain handle or DDS_CYCLONEDDS_HANDLE
- * @param[in]  name         The name of the topic to find.
- * @param[in]  timeout      The timeout for waiting for the topic to become available
- *
- * @returns A valid topic handle or an error code.
- *
- * @retval >0
- *             A valid topic handle.
- * @retval 0
- *             No topic of this name existed yet in the given scope
- * @retval DDS_RETCODE_BAD_PARAMETER
- *             Participant was invalid.
- */
-DDS_EXPORT dds_entity_t
-dds_find_topic_locally (dds_entity_t entity, const char *name, dds_duration_t timeout);
-
-#ifdef DDS_HAS_TOPIC_DISCOVERY
-/**
  * @brief Finds a locally created or discovered remote topic by topic name
  *
  * Finds a locally created topic or a discovered remote topic based on the topic
@@ -1244,7 +1218,8 @@ dds_find_topic_locally (dds_entity_t entity, const char *name, dds_duration_t ti
  *
  * The returned topic should be released with dds_delete.
  *
- * @param[in]  entity       The entity (scope) in which to find the topic, this can be a participant handle, domain handle or DDS_CYCLONEDDS_HANDLE
+ * @param[in]  scope        The scope used to find the topic
+ * @param[in]  participant  The handle of the participant the found topic will be created in
  * @param[in]  name         The name of the topic to find.
  * @param[in]  timeout      The timeout for waiting for the topic to become available
  *
@@ -1255,13 +1230,12 @@ dds_find_topic_locally (dds_entity_t entity, const char *name, dds_duration_t ti
  * @retval 0
  *             No topic of this name existed yet
  * @retval DDS_RETCODE_BAD_PARAMETER
- *             Participant was invalid.
+ *             Participant handle or scope invalid
  * @retval DDS_RETCODE_PRECONDITION_NOT_MET
  *             Multiple topics with the provided name were found.
  */
 DDS_EXPORT dds_entity_t
-dds_find_topic_globally (dds_entity_t entity, const char *name, dds_duration_t timeout);
-#endif /* DDS_HAS_TOPIC_DISCOVERY */
+dds_find_topic_scoped (dds_find_scope_t scope, dds_entity_t participant, const char *name, dds_duration_t timeout);
 
 /**
  * @brief Returns the name of a given topic.

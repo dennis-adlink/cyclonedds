@@ -2,7 +2,7 @@
 
 Topic discovery enables the exchange of topic information between endpoints using the built-in topic announcer and detector endpoints, as described in the DDS RTPS Specification section 8.5. Topic discovery is based on the SEDP protocol.
 
-This document describes the design of the topic discovery implementation in Cyclone DDS. First the types (entities) that are used in topic discovery in the DDSC and DDSI layers are described. Next section explains the deisgn of topic discovery using the DDS SEPD protocol and after that the API functions and built-in writers are described.
+This document describes the design of the topic discovery implementation in Cyclone DDS. First the types (entities) that are used in topic discovery in the DDSC and DDSI layers are described. Next section explains the design of topic discovery using the DDS SEDP protocol and after that the API functions and built-in writers are described.
 
 ## DDSC types
 
@@ -22,9 +22,9 @@ dds_ktopics are scoped to a participant: a dds_participant has an AVL tree to ke
 
 This section describes the DDSI types that are used to represent local and discovered topics.
 
-### topic_definition
+### ddsi_topic_definition
 
-The topic discovery implementation introduces the *topic_definition* type. A topic definition has a key, which is a hash value calculated from its type identifier and QoS (the latter also contains the topic name and type name for the topic). It also contains a reference to a DDSI sertype, a QoS struct and a type identifier. Topic definitions are stored in a domain scoped hash table (in the domain global variables).
+The topic discovery implementation introduces the *ddsi_topic_definition* type. A topic definition has a key, which is a hash value calculated from its type identifier and QoS (the latter also contains the topic name and type name for the topic). It also contains a reference to a DDSI sertype, a QoS struct and a type identifier. Topic definitions are stored in a domain scoped hash table (in the domain global variables).
 
 ### topic
 

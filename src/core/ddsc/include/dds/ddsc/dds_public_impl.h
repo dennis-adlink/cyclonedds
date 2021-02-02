@@ -119,6 +119,15 @@ typedef enum dds_entity_kind
 typedef uint64_t dds_instance_handle_t;
 typedef uint32_t dds_domainid_t;
 
+/* Scope for find topic function */
+typedef enum dds_find_scope
+{
+  DDS_FIND_SCOPE_GLOBAL,
+  DDS_FIND_SCOPE_LOCAL_DOMAIN,
+  DDS_FIND_SCOPE_PARTICIPANT
+}
+dds_find_scope_t;
+
 
 /* Topic encoding instruction types */
 

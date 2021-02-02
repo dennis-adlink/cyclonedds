@@ -362,7 +362,7 @@ static void tlm_register_with_proxy_endpoints_locked (struct ddsi_domaingv *gv, 
         ddsrt_mutex_lock (&proxypp->e.lock);
         for (struct proxy_topic *proxytp = proxy_topic_list_iter_first (&proxypp->topics, &proxytp_it); proxytp != NULL; proxytp = proxy_topic_list_iter_next (&proxytp_it))
         {
-          if (proxytp->entityid.u == guid.entityid.u)
+          if (!proxytp->deleted && proxytp->entityid.u == guid.entityid.u)
           {
             if (proxytp->definition->type == NULL)
               proxytp->definition->type = ddsi_sertype_ref (tlm->sertype);

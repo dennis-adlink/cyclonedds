@@ -45,7 +45,7 @@ struct whc_state {
    an iter on the stack without specifying an implementation. If future changes or
    implementations require more, these can be adjusted.  An implementation should check
    things fit at compile time. */
-#define WHC_SAMPLE_ITER_SIZE (7 * sizeof(void *))
+#define WHC_SAMPLE_ITER_SIZE (8 * sizeof(void *))
 struct whc_sample_iter_base {
   struct whc *whc;
 };
@@ -58,7 +58,6 @@ struct whc_sample_iter {
     double y;
     void *p;
   } opaque;
-  uint8_t pad; /* so that bwhc_iter fits in */
 };
 
 typedef seqno_t (*whc_next_seq_t)(const struct whc *whc, seqno_t seq);

@@ -238,9 +238,14 @@ CU_Test(ddsc_topic_get_type_name, deleted, .init = ddsc_topic_init, .fini = ddsc
 /* These will set the topic qos in various ways */
 CU_Test(ddsc_topic_set_qos, valid, .init = ddsc_topic_init, .fini = ddsc_topic_fini)
 {
-  /* Latency is the only one allowed to change. */
+  dds_return_t ret;
+  char data[10];
+  dds_qset_topicdata(g_qos, &data, 10);
+  ret = dds_set_qos(g_topic_rtmdt, g_qos);
+  CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
+
   dds_qset_latency_budget(g_qos, DDS_SECS(1));
-  dds_return_t ret = dds_set_qos(g_topic_rtmdt, g_qos);
+  ret = dds_set_qos(g_topic_rtmdt, g_qos);
   CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_UNSUPPORTED);
 }
 

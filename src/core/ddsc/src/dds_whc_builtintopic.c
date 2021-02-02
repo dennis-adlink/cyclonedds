@@ -158,7 +158,10 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
         if (it->cur_proxypp != NULL)
         {
           ddsrt_mutex_lock (&it->cur_proxypp->e.lock);
-          proxytp = proxy_topic_list_iter_next (&it->proxytp_it);
+          do
+          {
+            proxytp = proxy_topic_list_iter_next (&it->proxytp_it);
+          } while (proxytp != NULL && proxytp->deleted);
         }
         while (proxytp == NULL)
         {
@@ -171,8 +174,10 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
             return false;
           ddsrt_mutex_lock (&it->cur_proxypp->e.lock);
 
-          /* get first topic for this proxypp */
+          /* get first (non-deleted) topic for this proxypp */
           proxytp = proxy_topic_list_iter_first (&it->cur_proxypp->topics, &it->proxytp_it);
+          while (proxytp != NULL && proxytp->deleted)
+            proxytp = proxy_topic_list_iter_next (&it->proxytp_it);
         }
         /* next topic found, make sample and release proxypp lock */
         sample->serdata = dds__builtin_make_sample_topic (proxytp->definition, proxytp->tupdate, true);

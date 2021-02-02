@@ -433,7 +433,7 @@ struct match_entities_range_key *entidx_minmax_new ()
   return minmax;
 }
 
-void entidx_minmax_fini (struct match_entities_range_key *minmax)
+void entidx_minmax_free (struct match_entities_range_key *minmax)
 {
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   ddsrt_free (minmax->entity.tp.definition);
@@ -467,7 +467,7 @@ void entidx_enum_init_topic (struct entidx_enum *st, const struct entity_index *
   entidx_enum_init_minmax_int (st, ei, min);
   if (st->cur && all_entities_compare (st->cur, &max->entity) > 0)
     st->cur = NULL;
-  entidx_minmax_fini (min);
+  entidx_minmax_free (min);
 }
 
 void entidx_enum_init_topic_w_prefix (struct entidx_enum *st, const struct entity_index *ei, enum entity_kind kind, const char *topic, const ddsi_guid_prefix_t *prefix, struct match_entities_range_key *max)
@@ -480,7 +480,7 @@ void entidx_enum_init_topic_w_prefix (struct entidx_enum *st, const struct entit
   entidx_enum_init_minmax_int (st, ei, min);
   if (st->cur && all_entities_compare (st->cur, &max->entity) > 0)
     st->cur = NULL;
-  entidx_minmax_fini (min);
+  entidx_minmax_free (min);
 }
 
 void entidx_enum_init (struct entidx_enum *st, const struct entity_index *ei, enum entity_kind kind)
@@ -490,7 +490,7 @@ void entidx_enum_init (struct entidx_enum *st, const struct entity_index *ei, en
   entidx_enum_init_minmax_int (st, ei, min);
   if (st->cur && st->cur->kind != st->kind)
     st->cur = NULL;
-  entidx_minmax_fini (min);
+  entidx_minmax_free (min);
 }
 
 void entidx_enum_writer_init (struct entidx_enum_writer *st, const struct entity_index *ei)

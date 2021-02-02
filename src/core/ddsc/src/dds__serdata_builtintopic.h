@@ -30,26 +30,24 @@ enum ddsi_sertype_builtintopic_entity_kind {
 
 struct ddsi_serdata_builtintopic {
   struct ddsi_serdata c;
+  union { unsigned char raw[16]; ddsi_guid_t guid; } key;
   dds_qos_t xqos;
 };
 
 struct ddsi_serdata_builtintopic_participant {
   struct ddsi_serdata_builtintopic common;
-  ddsi_guid_t key;
   dds_instance_handle_t pphandle;
 };
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 struct ddsi_serdata_builtintopic_topic {
   struct ddsi_serdata_builtintopic common;
-  unsigned char key[16];
   type_identifier_t type_id;
 };
 #endif
 
 struct ddsi_serdata_builtintopic_endpoint {
   struct ddsi_serdata_builtintopic common;
-  ddsi_guid_t key;
   dds_instance_handle_t pphandle;
 #ifdef DDS_HAS_TYPE_DISCOVERY
   type_identifier_t type_id;

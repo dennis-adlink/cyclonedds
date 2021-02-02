@@ -345,6 +345,7 @@ struct ddsi_domaingv {
 
   ddsrt_mutex_t new_topic_lock;
   ddsrt_cond_t new_topic_cond;
+  uint32_t new_topic_version;
 
   /* security globals */
 #ifdef DDS_HAS_SECURITY

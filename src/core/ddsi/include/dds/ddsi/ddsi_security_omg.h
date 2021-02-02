@@ -146,6 +146,15 @@ bool q_omg_participant_is_rtps_protected(const struct participant *pp);
 bool q_omg_participant_is_liveliness_protected(const struct participant *pp);
 
 /**
+ * @brief Check if discovery is protected for the participant.
+ *
+ * @param[in] pp  Participant to check.
+ *
+ * @returns bool  True  if discovery data for participant is protected
+ */
+bool q_omg_participant_is_discovery_protected(const struct participant *pp);
+
+/**
  * @brief Check if security is enabled for the participant.
  *
  * @param[in] pp  Participant to check if it is secure.
@@ -1137,6 +1146,11 @@ inline bool q_omg_participant_is_rtps_protected(UNUSED_ARG(const struct particip
 }
 
 inline bool q_omg_participant_is_liveliness_protected(UNUSED_ARG(const struct participant *pp))
+{
+  return false;
+}
+
+inline bool q_omg_participant_is_discovery_protected(UNUSED_ARG(const struct participant *pp))
 {
   return false;
 }

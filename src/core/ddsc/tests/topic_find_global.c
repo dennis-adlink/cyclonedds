@@ -89,11 +89,8 @@ CU_Test(ddsc_topic_find_global, domain, .init = topic_find_global_init, .fini = 
   char topic_name_remote[MAX_NAME_SIZE];
   create_remote_topic (topic_name_remote);
 
-  dds_entity_t topic = dds_find_topic_globally (g_domain1, topic_name_remote, DDS_SECS (3));
-  CU_ASSERT_FATAL (topic > 0);
-
-  dds_return_t ret = dds_delete (topic);
-  CU_ASSERT_EQUAL_FATAL (ret, DDS_RETCODE_OK);
+  dds_entity_t topic = dds_find_topic_scoped (DDS_FIND_SCOPE_GLOBAL, g_domain1, topic_name_remote, DDS_SECS (3));
+  CU_ASSERT_EQUAL_FATAL (topic, DDS_RETCODE_BAD_PARAMETER);
 }
 
 CU_Test(ddsc_topic_find_global, participant, .init = topic_find_global_init, .fini = topic_find_global_fini)
@@ -101,7 +98,7 @@ CU_Test(ddsc_topic_find_global, participant, .init = topic_find_global_init, .fi
   char topic_name_remote[MAX_NAME_SIZE];
   create_remote_topic (topic_name_remote);
 
-  dds_entity_t topic = dds_find_topic_globally (g_participant1, topic_name_remote, DDS_SECS (3));
+  dds_entity_t topic = dds_find_topic_scoped (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name_remote, DDS_SECS (3));
   CU_ASSERT_FATAL (topic > 0);
 }
 
@@ -222,7 +219,7 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
     for (uint32_t t = 0; t < create_args[n].num_tp; t++)
     {
       set_topic_name (topic_name, create_args->topic_name_prefix, t);
-      dds_entity_t topic = dds_find_topic_globally (g_participant1, topic_name, DDS_SECS (5));
+      dds_entity_t topic = dds_find_topic_scoped (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name, DDS_SECS (5));
       CU_ASSERT_FATAL (topic > 0);
     }
   }
@@ -235,10 +232,10 @@ CU_Theory ((uint32_t num_local_pp, uint32_t num_remote_pp, uint32_t num_tp), dds
   do
   {
     set_topic_name (topic_name, create_args->topic_name_prefix, t);
-    (void) dds_find_topic_locally (g_participant1, topic_name, 0);
-    (void) dds_find_topic_locally (g_participant1, topic_name, DDS_MSECS (1));
-    (void) dds_find_topic_globally (g_participant1, topic_name, 0);
-    (void) dds_find_topic_globally (g_participant1, topic_name, DDS_MSECS (1));
+    (void) dds_find_topic_scoped (DDS_FIND_SCOPE_PARTICIPANT, g_participant1, topic_name, 0);
+    (void) dds_find_topic_scoped (DDS_FIND_SCOPE_PARTICIPANT, g_participant1, topic_name, DDS_MSECS (1));
+    (void) dds_find_topic_scoped (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name, 0);
+    (void) dds_find_topic_scoped (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name, DDS_MSECS (1));
     dds_sleepfor (DDS_MSECS (1));
     if (++t == num_local_pp + num_remote_pp)
       t = 0;
@@ -290,6 +287,6 @@ CU_Test (ddsc_topic_find_global, same_name, .init = topic_find_global_init, .fin
 
   /* find topic should return DDS_RETCODE_PRECONDITION_NOT_MET because
      multiple topics with this name are found */
-  dds_entity_t topic = dds_find_topic_globally (g_participant1, topic_name, DDS_SECS (5));
+  dds_entity_t topic = dds_find_topic_scoped (DDS_FIND_SCOPE_GLOBAL, g_participant1, topic_name, DDS_SECS (5));
   CU_ASSERT_EQUAL_FATAL (topic, DDS_RETCODE_PRECONDITION_NOT_MET);
 }

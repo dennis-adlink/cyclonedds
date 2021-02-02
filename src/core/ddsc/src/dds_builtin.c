@@ -88,7 +88,7 @@ dds_entity_t dds__get_builtin_topic (dds_entity_t entity, dds_entity_t topic)
   }
 
   dds_qos_t *qos = dds__create_builtin_qos ();
-  if ((tp = dds_create_topic_impl (par->m_entity.m_hdllink.hdl, topic_name, true, &sertype, qos, NULL, NULL, true, false)) > 0)
+  if ((tp = dds_create_topic_impl (par->m_entity.m_hdllink.hdl, topic_name, true, &sertype, qos, NULL, NULL, true)) > 0)
   {
     /* keep ownership for built-in sertypes because there are re-used, lifetime for these
        sertypes is bound to domain */
@@ -247,7 +247,7 @@ struct ddsi_serdata *dds__builtin_make_sample (const struct entity_common *e, dd
 }
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
-struct ddsi_serdata *dds__builtin_make_sample_topic (const struct topic_definition *tpd, ddsrt_wctime_t timestamp, bool alive)
+struct ddsi_serdata *dds__builtin_make_sample_topic (const struct ddsi_topic_definition *tpd, ddsrt_wctime_t timestamp, bool alive)
 {
   struct dds_domain *dom = tpd->gv->builtin_topic_interface->arg;
   struct ddsi_sertype *type = dom->builtin_topic_type;
@@ -261,7 +261,7 @@ struct ddsi_serdata *dds__builtin_make_sample_topic (const struct topic_definiti
 }
 #endif
 
-static void dds__builtin_write (const struct entity_common *e, ddsrt_wctime_t timestamp, bool alive, void *vdomain)
+static void dds__builtin_write_endpoint (const struct entity_common *e, ddsrt_wctime_t timestamp, bool alive, void *vdomain)
 {
   struct dds_domain *dom = vdomain;
   if (dds__builtin_is_visible (&e->guid, get_entity_vendorid (e), dom))
@@ -293,7 +293,7 @@ static void dds__builtin_write (const struct entity_common *e, ddsrt_wctime_t ti
 }
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
-static void dds__builtin_write_topic (const struct topic_definition *tpd, ddsrt_wctime_t timestamp, bool alive, void *vdomain)
+static void dds__builtin_write_topic (const struct ddsi_topic_definition *tpd, ddsrt_wctime_t timestamp, bool alive, void *vdomain)
 {
   struct dds_domain *dom = vdomain;
   struct local_orphan_writer *bwr = dom->builtintopic_writer_topics;
@@ -320,7 +320,7 @@ void dds__builtin_init (struct dds_domain *dom)
   dom->btif.builtintopic_get_tkmap_entry = dds__builtin_get_tkmap_entry;
   dom->btif.builtintopic_is_builtintopic = dds__builtin_is_builtintopic;
   dom->btif.builtintopic_is_visible = dds__builtin_is_visible;
-  dom->btif.builtintopic_write = dds__builtin_write;
+  dom->btif.builtintopic_write_endpoint = dds__builtin_write_endpoint;
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   dom->btif.builtintopic_write_topic = dds__builtin_write_topic;
 #endif

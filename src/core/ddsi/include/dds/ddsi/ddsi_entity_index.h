@@ -101,7 +101,7 @@ struct entidx_enum_proxy_writer { struct entidx_enum st; };
 struct entidx_enum_proxy_reader { struct entidx_enum st; };
 
 struct match_entities_range_key *entidx_minmax_new (void);
-void entidx_minmax_fini (struct match_entities_range_key *minmax);
+void entidx_minmax_free (struct match_entities_range_key *minmax);
 
 void entidx_enum_init (struct entidx_enum *st, const struct entity_index *ei, enum entity_kind kind) ddsrt_nonnull_all;
 void entidx_enum_init_topic (struct entidx_enum *st, const struct entity_index *gh, enum entity_kind kind, const char *topic, struct match_entities_range_key *max) ddsrt_nonnull_all;

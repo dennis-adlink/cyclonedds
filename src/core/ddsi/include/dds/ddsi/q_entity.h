@@ -259,7 +259,7 @@ struct participant
 };
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
-struct topic_definition {
+struct ddsi_topic_definition {
   unsigned char key[16]; /* key for this topic definition (MD5 hash of the type_id and qos */
   type_identifier_t type_id; /* type identifier for this topic */
   const struct ddsi_sertype * type;
@@ -270,7 +270,7 @@ struct topic_definition {
 
 struct topic {
   struct entity_common e;
-  struct topic_definition *definition; /* ref to (shared) topic definition */
+  struct ddsi_topic_definition *definition; /* ref to (shared) topic definition */
   struct participant *pp; /* backref to the participant */
 };
 #endif /* DDS_HAS_TOPIC_DISCOVERY */
@@ -454,8 +454,10 @@ struct proxy_participant
 struct proxy_topic
 {
   ddsi_entityid_t entityid;
-  struct topic_definition *definition; /* ref to (shared) topic definition */
+  struct ddsi_topic_definition *definition; /* ref to (shared) topic definition */
   ddsrt_wctime_t tupdate; /* timestamp of last update */
+  seqno_t seq; /* sequence number of most recent SEDP message */
+  unsigned deleted: 1;
 };
 #endif
 
@@ -778,13 +780,17 @@ void proxy_participant_reassign_lease (struct proxy_participant *proxypp, struct
 void purge_proxy_participants (struct ddsi_domaingv *gv, const ddsi_locator_t *loc, bool delete_from_as_disc);
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
-dds_return_t new_topic (struct topic **tp_out, struct ddsi_guid *tpguid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, bool is_builtin, bool *new_topic_def);
+dds_return_t ddsi_new_topic (struct topic **tp_out, struct ddsi_guid *tpguid, struct participant *pp, const char *topic_name, const struct ddsi_sertype *type, const struct dds_qos *xqos, bool is_builtin, bool *new_topic_def);
+void update_topic_qos (struct topic *tp, const dds_qos_t *xqos);
 dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
 
-int topic_definition_equal (const struct topic_definition *tp_def_a, const struct topic_definition *tp_def_b);
-uint32_t topic_definition_hash (const struct topic_definition *tp_def);
-dds_return_t lookup_topic_definition_by_name (struct ddsi_domaingv *gv, const char * topic_name, struct topic_definition **topic_definition);
-bool new_proxy_topic (struct proxy_participant *proxypp, const ddsi_guid_t *guid, const type_identifier_t *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp);
+int topic_definition_equal (const struct ddsi_topic_definition *tpd_a, const struct ddsi_topic_definition *tpd_b);
+uint32_t topic_definition_hash (const struct ddsi_topic_definition *tpd);
+dds_return_t lookup_topic_definition_by_name (struct ddsi_domaingv *gv, const char * topic_name, struct ddsi_topic_definition **tpd);
+void new_proxy_topic (struct proxy_participant *proxypp, seqno_t seq, const ddsi_guid_t *guid, const type_identifier_t *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp);
+struct proxy_topic *lookup_proxy_topic (struct proxy_participant *proxypp, const ddsi_guid_t *guid);
+void update_proxy_topic (struct proxy_participant *proxypp, struct proxy_topic *proxytp, seqno_t seq, struct dds_qos *xqos, ddsrt_wctime_t timestamp);
+int delete_proxy_topic_locked (struct proxy_participant *proxypp, struct proxy_topic *proxytp, ddsrt_wctime_t timestamp);
 #endif
 
 /* To create a new proxy writer or reader; the proxy participant is

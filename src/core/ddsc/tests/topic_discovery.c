@@ -56,8 +56,10 @@ static void topic_discovery_init (void)
 
 static void topic_discovery_fini (void)
 {
-  dds_delete (g_domain1);
   dds_delete (g_domain_remote);
+  /* Add a delay so that sedp dispose messages for topics (and endpoints) are sent and processed */
+  dds_sleepfor (DDS_SECS (1));
+  dds_delete (g_domain1);
 }
 
 static void msg (const char *msg, ...)
@@ -69,7 +71,6 @@ static void msg (const char *msg, ...)
   va_start (args, msg);
   vprintf (msg, args);
   va_end (args);
-  printf ("\n");
 }
 
 CU_TheoryDataPoints(ddsc_topic_discovery, remote_topics) = {
@@ -81,7 +82,7 @@ CU_TheoryDataPoints(ddsc_topic_discovery, remote_topics) = {
 
 CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), ddsc_topic_discovery, remote_topics, .init = topic_discovery_init, .fini = topic_discovery_fini, .timeout = 30)
 {
-  msg("ddsc_topic_discovery.remote_topics: %u participants, %u topics,%s%s", num_pp, num_tp, hist_data ? " historical-data" : "", live_data ? " live-data" : "");
+  msg ("ddsc_topic_discovery.remote_topics: %u participants, %u topics,%s%s\n", num_pp, num_tp, hist_data ? " historical-data" : "", live_data ? " live-data" : "");
 
   CU_ASSERT_FATAL (num_pp > 0);
   CU_ASSERT_FATAL (num_tp > 0 && num_tp <= 64);
@@ -174,9 +175,52 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
   ddsrt_free (participant_remote);
 }
 
+static void check_topic_samples (dds_entity_t topic_rd, char *topic_name, uint32_t exp_count, bool equal_keys, unsigned char *key, unsigned char *match_key)
+{
+  dds_time_t t_exp = dds_time () + DDS_SECS (1);
+  uint32_t topic_seen = 0;
+  unsigned char first_key[16];
+  do
+  {
+    void *raw[1] = { 0 };
+    dds_sample_info_t sample_info[1];
+    dds_return_t n;
+    while ((n = dds_take (topic_rd, raw, sample_info, 1, 1)) > 0)
+    {
+      CU_ASSERT_EQUAL_FATAL (n, 1);
+      dds_builtintopic_topic_t *sample = raw[0];
+      bool not_alive = sample_info->instance_state != DDS_IST_ALIVE;
+      msg ("read topic: %s, key={", sample->topic_name);
+      for (uint32_t i = 0; i < sizeof (first_key); i++)
+        printf ("%02x", sample->key[i]);
+      printf ("} %sALIVE\n", not_alive ? "NOT_" : "");
+      if (!not_alive && (topic_name == NULL || !strcmp (sample->topic_name, topic_name)))
+      {
+        if (topic_seen == 0)
+        {
+          memcpy (&first_key, &sample->key, sizeof (first_key));
+          if (key != NULL)
+            memcpy (key, &sample->key, sizeof (first_key));
+        }
+        else
+        {
+          CU_ASSERT_EQUAL_FATAL (memcmp (&first_key, &sample->key, sizeof (first_key)) == 0, equal_keys);
+        }
+        if (match_key != NULL)
+          CU_ASSERT_EQUAL_FATAL (memcmp (match_key, &sample->key, sizeof (first_key)) == 0, equal_keys);
+        assert (topic_seen < exp_count);
+        topic_seen++;
+      }
+      dds_return_loan (topic_rd, raw, n);
+    }
+    dds_sleepfor (DDS_MSECS (10));
+  } while (dds_time () < t_exp);
+  CU_ASSERT_FATAL (topic_seen == exp_count);
+}
+
 CU_Test (ddsc_topic_discovery, single_topic_def, .init = topic_discovery_init, .fini = topic_discovery_fini)
 {
-  msg("ddsc_topic_discovery.single_topic_def");
+  msg ("ddsc_topic_discovery.single_topic_def\n");
 
   char topic_name[100];
   create_unique_topic_name ("ddsc_topic_discovery_test_single_def", topic_name, 100);
@@ -202,33 +246,29 @@ CU_Test (ddsc_topic_discovery, single_topic_def, .init = topic_discovery_init, .
   CU_ASSERT_FATAL (writer_remote > 0);
 
   /* check that a single DCPSTopic sample is received */
-  dds_time_t t_exp = dds_time () + DDS_SECS (1);
-  bool topic_seen = false;
-  do
-  {
-    void *raw[1] = { 0 };
-    dds_sample_info_t sample_info[1];
-    dds_return_t n;
-    while ((n = dds_take (topic_rd, raw, sample_info, 1, 1)) > 0)
-    {
-      CU_ASSERT_EQUAL_FATAL (n, 1);
-      dds_builtintopic_topic_t *sample = raw[0];
-      msg ("read topic: %s", sample->topic_name);
-      if (!strcmp (sample->topic_name, topic_name))
-      {
-        CU_ASSERT_FATAL (!topic_seen);
-        topic_seen = true;
-      }
-      dds_return_loan (topic_rd, raw, n);
-    }
-    dds_sleepfor (DDS_MSECS (10));
-  } while (dds_time () < t_exp);
-  CU_ASSERT_FATAL (topic_seen);
+  unsigned char key[16];
+  check_topic_samples (topic_rd, topic_name, 1, false, key, NULL);
+
+  /* Update topic QoS (topic_data) */
+  dds_qos_t *qos = dds_create_qos ();
+  dds_qset_topicdata (qos, "test", 5);
+
+  /* check that a new DCPSTopic sample is received for remote topic */
+  dds_return_t ret = dds_set_qos(topic_remote, qos);
+  CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
+  check_topic_samples (topic_rd, topic_name, 1, false, NULL, key);
+
+  /* .. and for local topic: no new sample received because it is using the same topic definition as the updated remote topic */
+  ret = dds_set_qos(topic, qos);
+  CU_ASSERT_EQUAL_FATAL(ret, DDS_RETCODE_OK);
+  check_topic_samples (topic_rd, topic_name, 0, false, NULL, NULL);
+
+  dds_delete_qos (qos);
 }
 
 CU_Test (ddsc_topic_discovery, different_type, .init = topic_discovery_init, .fini = topic_discovery_fini)
 {
-  msg("ddsc_topic_discovery.different_type");
+  msg ("ddsc_topic_discovery.different_type\n");
 
   char topic_name[100];
   create_unique_topic_name ("ddsc_topic_discovery_test_type", topic_name, 100);
@@ -248,30 +288,5 @@ CU_Test (ddsc_topic_discovery, different_type, .init = topic_discovery_init, .fi
   CU_ASSERT_FATAL (topic_remote > 0);
 
   /* check that a DCPSTopic sample is received for local topic and remote topic (with different key) */
-  dds_time_t t_exp = dds_time () + DDS_SECS (1);
-  uint32_t topic_seen = 0;
-  unsigned char key[16];
-  do
-  {
-    void *raw[1] = { 0 };
-    dds_sample_info_t sample_info[1];
-    dds_return_t n;
-    while ((n = dds_take (topic_rd, raw, sample_info, 1, 1)) > 0)
-    {
-      CU_ASSERT_EQUAL_FATAL (n, 1);
-      dds_builtintopic_topic_t *sample = raw[0];
-      msg ("read topic: %s", sample->topic_name);
-      if (!strcmp (sample->topic_name, topic_name))
-      {
-        topic_seen++;
-        if (topic_seen == 0)
-          memcpy (&key, &sample->key, sizeof (key));
-        else
-          CU_ASSERT_FATAL (memcmp (&key, &sample->key, sizeof (key)) != 0);
-      }
-      dds_return_loan (topic_rd, raw, n);
-    }
-    dds_sleepfor (DDS_MSECS (10));
-  } while (dds_time () < t_exp);
-  CU_ASSERT_EQUAL_FATAL (topic_seen, 2);
+  check_topic_samples (topic_rd, topic_name, 2, false, NULL, NULL);
 }

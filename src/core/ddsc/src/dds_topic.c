@@ -229,10 +229,24 @@ static dds_return_t dds_topic_delete (dds_entity *e)
 
 static dds_return_t dds_topic_qos_set (dds_entity *e, const dds_qos_t *qos, bool enabled)
 {
-  /* We never actually set the qos of a struct dds_topic and really shouldn't be here,
-     but the code to check whether set_qos is supported uses the entity's qos_set
-     function as a proxy.  */
+  /* note: e->m_qos is still the old one to allow for failure here */
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+  if (enabled)
+  {
+    struct dds_ktopic * const ktp = ((struct dds_topic *) e)->m_ktopic;
+    thread_state_awake (lookup_thread_state (), &e->m_domain->gv);
+    struct ddsrt_hh_iter it;
+    for (struct ktopic_type_guid *obj = ddsrt_hh_iter_first(ktp->topic_guid_map, &it); obj; obj = ddsrt_hh_iter_next(&it))
+    {
+      struct topic *tp;
+      if ((tp = entidx_lookup_topic_guid (e->m_domain->gv.entity_index, &obj->guid)) != NULL)
+        update_topic_qos (tp, qos);
+    }
+    thread_state_asleep (lookup_thread_state ());
+  }
+#else
   (void) e; (void) qos; (void) enabled;
+#endif
   return DDS_RETCODE_OK;
 }
 
@@ -347,8 +361,7 @@ dds_entity_t dds_create_topic_impl (
     const dds_qos_t *qos,
     const dds_listener_t *listener,
     const ddsi_plist_t *sedp_plist,
-    bool is_builtin,
-    bool is_find_topic)
+    bool is_builtin)
 {
   dds_return_t rc;
   dds_participant *pp;
@@ -476,7 +489,7 @@ dds_entity_t dds_create_topic_impl (
       m = ddsrt_malloc (sizeof (*m));
       m->type_id = tid;
       m->refc = 1;
-      rc = new_topic (&m->tp, &m->guid, pp_ddsi, ktp->name, sertype_registered, ktp->qos, is_builtin, &new_topic_def);
+      rc = ddsi_new_topic (&m->tp, &m->guid, pp_ddsi, ktp->name, sertype_registered, ktp->qos, is_builtin, &new_topic_def);
       assert (rc == DDS_RETCODE_OK); /* FIXME: can be out-of-resources at the very least */
       ddsrt_hh_add (ktp->topic_guid_map, m);
       thread_state_asleep (lookup_thread_state ());
@@ -500,13 +513,10 @@ dds_entity_t dds_create_topic_impl (
 
   if (new_topic_def)
   {
-    /* In case we're creating this topic for a find topic, we have already
-       taken the new_topic_lock */
-    if (!is_find_topic)
-      ddsrt_mutex_lock (&gv->new_topic_lock);
+    ddsrt_mutex_lock (&gv->new_topic_lock);
+    gv->new_topic_version++;
     ddsrt_cond_broadcast (&gv->new_topic_cond);
-    if (!is_find_topic)
-      ddsrt_mutex_unlock (&gv->new_topic_lock);
+    ddsrt_mutex_unlock (&gv->new_topic_lock);
   }
 
   dds_entity_unpin (&pp->m_entity);
@@ -521,7 +531,7 @@ dds_entity_t dds_create_topic_impl (
 
 dds_entity_t dds_create_topic_sertype (dds_entity_t participant, const char *name, struct ddsi_sertype **sertype, const dds_qos_t *qos, const dds_listener_t *listener, const ddsi_plist_t *sedp_plist)
 {
-  return dds_create_topic_impl (participant, name, false, sertype, qos, listener, sedp_plist, false, false);
+  return dds_create_topic_impl (participant, name, false, sertype, qos, listener, sedp_plist, false);
 }
 
 dds_entity_t dds_create_topic_generic (dds_entity_t participant, struct ddsi_sertopic **sertopic, const dds_qos_t *qos, const dds_listener_t *listener, const ddsi_plist_t *sedp_plist)
@@ -531,7 +541,7 @@ dds_entity_t dds_create_topic_generic (dds_entity_t participant, struct ddsi_ser
 
   dds_entity_t ret;
   struct ddsi_sertype *sertype = ddsi_sertype_from_sertopic (*sertopic);
-  ret = dds_create_topic_impl (participant, (*sertopic)->name, false, &sertype, qos, listener, sedp_plist, false, false);
+  ret = dds_create_topic_impl (participant, (*sertopic)->name, false, &sertype, qos, listener, sedp_plist, false);
   if (ret < 0)
   {
     // sertype_from_sertopic incremented the refcount, so decrementing it on failure will
@@ -629,207 +639,161 @@ dds_entity_t dds_create_topic (dds_entity_t participant, const dds_topic_descrip
   return hdl;
 }
 
-/* this function is deprecated, replaced by dds_find_topic_locally and
-   dds_find_topic_globally */
+/* this function is deprecated, replaced by dds_find_topic_scoped */
 dds_entity_t dds_find_topic (dds_entity_t participant, const char *name)
 {
-  dds_entity_t tp = dds_find_topic_locally (participant, name, 0);
+  dds_entity_t tp = dds_find_topic_scoped (DDS_FIND_SCOPE_PARTICIPANT, participant, name, 0);
   return tp != 0 ? tp : DDS_RETCODE_PRECONDITION_NOT_MET;
 }
 
-static dds_entity_t find_local_topic_impl (dds_entity_t entity, const char *name)
+static dds_entity_t find_local_topic_pp (dds_participant *pp, const char *name, dds_participant *pp_topic)
 {
-  dds_entity *e;
-  dds_return_t ret;
-  dds_domain *dom;
-
-  if ((ret = dds_entity_pin (entity, &e)) != DDS_RETCODE_OK)
-    return ret;
-
-  switch (dds_entity_kind (e))
+  ddsrt_mutex_lock (&pp->m_entity.m_mutex);
+  ddsrt_avl_iter_t it;
+  for (dds_entity *e_pp_child = ddsrt_avl_iter_first (&dds_entity_children_td, &pp->m_entity.m_children, &it); e_pp_child != NULL; e_pp_child = ddsrt_avl_iter_next (&it))
   {
-    case DDS_KIND_PARTICIPANT:
-      dom = e->m_domain;
-      break;
-    case DDS_KIND_DOMAIN:
-      dom = (dds_domain *) e;
-      break;
-    default:
-      dds_entity_unpin (e);
-      return DDS_RETCODE_ILLEGAL_OPERATION;
-  }
+    if (dds_entity_kind (e_pp_child) != DDS_KIND_TOPIC)
+      continue;
 
+    struct dds_topic * const tp = (struct dds_topic *) e_pp_child;
+    if (strcmp (tp->m_ktopic->name, name) != 0)
+      continue;
+
+    /* found a topic with the provided topic name */
+    struct ddsi_sertype * const sertype = ddsi_sertype_ref (tp->m_stype);
+    struct dds_ktopic * const ktp = tp->m_ktopic;
+    ktp->refc++;
+#ifdef DDS_HAS_TOPIC_DISCOVERY
+    /* reference ktopic-sertype meta-data entry, this should be an existing
+      entry because the topic already exists locally */
+    topic_guid_map_ref (ktp, sertype);
+#endif
+    ddsrt_mutex_unlock (&pp->m_entity.m_mutex);
+
+    /* create the topic on the provided pp */
+    ddsrt_mutex_lock (&pp_topic->m_entity.m_mutex);
+    dds_entity_t hdl = create_topic_pp_locked (pp_topic, ktp, false, name, sertype, NULL, NULL);
+    ddsrt_mutex_unlock (&pp_topic->m_entity.m_mutex);
+#ifdef DDS_HAS_TYPE_DISCOVERY
+    struct ddsi_domaingv *gv = ddsrt_atomic_ldvoidp (&sertype->gv);
+    ddsi_tl_meta_local_ref (gv, NULL, sertype);
+#endif
+    return hdl;
+  }
+  ddsrt_mutex_unlock (&pp->m_entity.m_mutex);
+  return 0;
+}
+
+static dds_entity_t find_local_topic_impl (dds_find_scope_t scope, dds_participant *pp_topic, const char *name)
+{
+  dds_entity *e_pp, *e_domain_child;
   dds_instance_handle_t last_iid = 0;
+
+  if (scope == DDS_FIND_SCOPE_PARTICIPANT)
+    return find_local_topic_pp (pp_topic, name, pp_topic);
+  dds_domain *dom = pp_topic->m_entity.m_domain;
   ddsrt_mutex_lock (&dom->m_entity.m_mutex);
-  dds_entity *e_domain_child;
   while ((e_domain_child = ddsrt_avl_lookup_succ (&dds_entity_children_td, &dom->m_entity.m_children, &last_iid)) != NULL)
   {
     last_iid = e_domain_child->m_iid;
     if (dds_entity_kind (e_domain_child) != DDS_KIND_PARTICIPANT)
       continue;
 
+    if (dds_entity_pin (e_domain_child->m_hdllink.hdl, &e_pp) != DDS_RETCODE_OK)
+      continue;
+
     dds_participant *pp = (dds_participant *) e_domain_child;
     ddsrt_mutex_unlock (&dom->m_entity.m_mutex);
-
-    ddsrt_mutex_lock (&pp->m_entity.m_mutex);
-    ddsrt_avl_iter_t it;
-    for (dds_entity *e_pp_child = ddsrt_avl_iter_first (&dds_entity_children_td, &pp->m_entity.m_children, &it); e_pp_child != NULL; e_pp_child = ddsrt_avl_iter_next (&it))
-    {
-      if (dds_entity_kind (e_pp_child) != DDS_KIND_TOPIC)
-        continue;
-
-      struct dds_entity *x;
-      if (dds_entity_pin (e_pp_child->m_hdllink.hdl, &x) != DDS_RETCODE_OK)
-        continue;
-
-      struct dds_topic * const tp = (struct dds_topic *) e_pp_child;
-      if (x != e_pp_child || strcmp (tp->m_ktopic->name, name) != 0)
-      {
-        dds_entity_unpin (x);
-        continue;
-      }
-
-      /* found a topic with the provided topic name */
-      struct ddsi_sertype * const sertype = ddsi_sertype_ref (tp->m_stype);
-      struct dds_ktopic * const ktp = tp->m_ktopic;
-      ktp->refc++;
-      dds_entity_unpin (x);
-
-  #ifdef DDS_HAS_TOPIC_DISCOVERY
-      /* reference ktopic-sertype meta-data entry, this should be an existing
-        entry because the topic already exists locally */
-      topic_guid_map_ref (ktp, sertype);
-  #endif
-
-      dds_entity_t hdl = create_topic_pp_locked (pp, ktp, false, name, sertype, NULL, NULL);
-      ddsrt_mutex_unlock (&pp->m_entity.m_mutex);
-      dds_entity_unpin (e);
-  #ifdef DDS_HAS_TYPE_DISCOVERY
-      struct ddsi_domaingv *gv = ddsrt_atomic_ldvoidp (&sertype->gv);
-      ddsi_tl_meta_local_ref (gv, NULL, sertype);
-  #endif
+    dds_entity_t hdl = find_local_topic_pp (pp, name, pp_topic);
+    dds_entity_unpin (e_pp);
+    if (hdl != 0)
       return hdl;
-    }
-    ddsrt_mutex_unlock (&pp->m_entity.m_mutex);
     ddsrt_mutex_lock (&dom->m_entity.m_mutex);
   }
   ddsrt_mutex_unlock (&dom->m_entity.m_mutex);
-  dds_entity_unpin (e);
   return 0;
 }
 
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 
-static dds_entity_t find_remote_topic_impl (dds_entity_t entity, const char *name, dds_duration_t timeout)
+static dds_entity_t find_remote_topic_impl (dds_participant *pp_topic, const char *name, dds_duration_t timeout)
 {
-  dds_entity_t ret = 0, pp_entity;
-  dds_entity *e;
-
-  if ((ret = dds_entity_pin (entity, &e)) != DDS_RETCODE_OK)
-    return ret;
-
-  switch (dds_entity_kind (e))
-  {
-    case DDS_KIND_DOMAIN:
-      pp_entity = 0;
-      break;
-    case DDS_KIND_PARTICIPANT:
-      pp_entity = entity;
-      break;
-    default:
-      dds_entity_unpin (e);
-      return DDS_RETCODE_ILLEGAL_OPERATION;
-  }
-
-  struct topic_definition *tpd;
-  if ((ret = lookup_topic_definition_by_name (&e->m_domain->gv, name, &tpd)) != DDS_RETCODE_OK)
-    goto err;
-  if (tpd == NULL)
-    goto not_found;
-
+  dds_entity_t ret;
+  struct ddsi_topic_definition *tpd;
   struct ddsi_sertype *sertype;
+
+  if ((ret = lookup_topic_definition_by_name (&pp_topic->m_entity.m_domain->gv, name, &tpd)) != DDS_RETCODE_OK)
+    return ret;
+  if (tpd == NULL)
+    return DDS_RETCODE_OK;
   if (tpd->type == NULL)
   {
     /* if topic definition is found, but the type for this topic is not resolved
         and timeout 0 means we don't want to request and wait the type to be retrieved */
     if (timeout == 0)
-      goto not_found;
-    if ((ret = dds_domain_resolve_type (entity, tpd->type_id.hash, sizeof (tpd->type_id.hash), timeout, &sertype)) != DDS_RETCODE_OK)
-      goto err;
+      return DDS_RETCODE_OK;
+    if ((ret = dds_domain_resolve_type (pp_topic->m_entity.m_hdllink.hdl, tpd->type_id.hash, sizeof (tpd->type_id.hash), timeout, &sertype)) != DDS_RETCODE_OK)
+      return ret;
   }
   else
   {
     sertype = ddsi_sertype_ref (tpd->type);
   }
-
-  if (pp_entity == 0)
-  {
-    /* find first participant in domain, will be used for creating the topic */
-    ddsrt_avl_iter_t it;
-    ddsrt_mutex_lock (&e->m_mutex);
-    for (struct dds_entity *e_domain_child = ddsrt_avl_iter_first (&dds_entity_children_td, &e->m_children, &it); e_domain_child != NULL && pp_entity == 0; e_domain_child = ddsrt_avl_iter_next (&it))
-    {
-      if (e_domain_child->m_kind == DDS_KIND_PARTICIPANT)
-        pp_entity = e_domain_child->m_hdllink.hdl;
-    }
-    assert (pp_entity > 0);
-    ddsrt_mutex_unlock (&e->m_mutex);
-  }
-  ret = dds_create_topic_impl (pp_entity, name, false, &sertype, tpd->xqos, NULL, NULL, false, true);
-
-not_found:
-err:
-  dds_entity_unpin (e);
-  return ret;
+  return dds_create_topic_impl (pp_topic->m_entity.m_hdllink.hdl, name, false, &sertype, tpd->xqos, NULL, NULL, false);
 }
 
 #endif /* DDS_HAS_TOPIC_DISCOVERY */
 
-
-static dds_entity_t find_topic_impl (dds_entity_t entity, const char *name, bool only_local, dds_duration_t timeout)
+dds_entity_t dds_find_topic_scoped (dds_find_scope_t scope, dds_entity_t participant, const char *name, dds_duration_t timeout)
 {
   dds_entity_t hdl;
   dds_return_t ret;
   dds_entity *e;
 
+#ifndef DDS_HAS_TOPIC_DISCOVERY
+  if (scope == DDS_FIND_SCOPE_GLOBAL)
+    return DDS_RETCODE_BAD_PARAMETER;
+#endif
+
   if (name == NULL || !is_valid_name (name))
     return DDS_RETCODE_BAD_PARAMETER;
-  if ((ret = dds_entity_pin (entity, &e)) < 0)
+  if ((ret = dds_entity_pin (participant, &e)) < 0)
     return ret;
-
+  if (e->m_kind != DDS_KIND_PARTICIPANT)
+  {
+    dds_entity_unpin (e);
+    return DDS_RETCODE_BAD_PARAMETER;
+  }
+  dds_participant *pp_topic = (dds_participant *) e;
   struct ddsi_domaingv * gv = &e->m_domain->gv;
   const dds_time_t tnow = dds_time ();
   const dds_time_t abstimeout = (DDS_INFINITY - timeout <= tnow) ? DDS_NEVER : (tnow + timeout);
-  ddsrt_mutex_lock (&gv->new_topic_lock);
   do
   {
-    if ((hdl = find_local_topic_impl (entity, name)) == 0 && !only_local)
+    ddsrt_mutex_lock (&gv->new_topic_lock);
+    uint32_t tv = gv->new_topic_version;
+    ddsrt_mutex_unlock (&gv->new_topic_lock);
+    if ((hdl = find_local_topic_impl (scope, pp_topic, name)) == 0 && scope == DDS_FIND_SCOPE_GLOBAL)
     {
 #ifdef DDS_HAS_TOPIC_DISCOVERY
-      hdl = find_remote_topic_impl (entity, name, timeout);
+      hdl = find_remote_topic_impl (pp_topic, name, timeout);
 #endif
     }
     if (hdl == 0 && timeout > 0)
-      if (!ddsrt_cond_waituntil (&gv->new_topic_cond, &gv->new_topic_lock, abstimeout))
-        hdl = DDS_RETCODE_TIMEOUT;
-  } while (hdl == 0 && dds_time () < abstimeout);
-  ddsrt_mutex_unlock (&gv->new_topic_lock);
+    {
+      ddsrt_mutex_lock (&gv->new_topic_lock);
+      while (hdl != DDS_RETCODE_TIMEOUT && gv->new_topic_version == tv)
+      {
+        if (!ddsrt_cond_waituntil (&gv->new_topic_cond, &gv->new_topic_lock, abstimeout))
+          hdl = DDS_RETCODE_TIMEOUT;
+      }
+      ddsrt_mutex_unlock (&gv->new_topic_lock);
+    }
+  } while (hdl == 0 && timeout > 0);
   dds_entity_unpin (e);
   return hdl;
 }
-
-dds_entity_t dds_find_topic_locally (dds_entity_t entity, const char *name, dds_duration_t timeout)
-{
-  return find_topic_impl (entity, name, true, timeout);
-}
-
-#ifdef DDS_HAS_TOPIC_DISCOVERY
-dds_entity_t dds_find_topic_globally (dds_entity_t entity, const char *name, dds_duration_t timeout)
-{
-  return find_topic_impl (entity, name, false, timeout);
-}
-#endif
 
 dds_return_t dds_set_topic_filter_extended (dds_entity_t topic, const struct dds_topic_filter *filter)
 {

@@ -44,51 +44,30 @@ static uint32_t hash_guid (const ddsi_guid_t *g)
 
 static struct ddsi_serdata *fix_serdata_builtin(struct ddsi_serdata_builtintopic *d, enum ddsi_sertype_builtintopic_entity_kind kind, uint32_t basehash)
 {
-  if (kind == DSBT_PARTICIPANT)
-    d->c.hash = hash_guid (&((struct ddsi_serdata_builtintopic_participant *) d)->key) ^ basehash;
-  else if (kind == DSBT_READER || kind == DSBT_WRITER)
-    d->c.hash = hash_guid (&((struct ddsi_serdata_builtintopic_endpoint *) d)->key) ^ basehash;
-  else if (kind == DSBT_TOPIC)
-#ifdef DDS_HAS_TOPIC_DISCOVERY
-    d->c.hash = (* (uint32_t *) ((struct ddsi_serdata_builtintopic_topic *) d)->key) ^ basehash;
-#else
-    assert (0);
+#ifndef DDS_HAS_TOPIC_DISCOVERY
+  assert (kind != DSBT_TOPIC);
 #endif
+  if (kind == DSBT_TOPIC)
+    d->c.hash = (* (uint32_t *) d->key.raw) ^ basehash;
+  else
+    d->c.hash = hash_guid (&d->key.guid) ^ basehash;
   return &d->c;
 }
 
 static bool serdata_builtin_eqkey(const struct ddsi_serdata *acmn, const struct ddsi_serdata *bcmn)
 {
-#define BUILTINTOPIC_KEYEQ(type_, acmn_, bcmn_) \
-    { \
-      const void *key_a = NULL, *key_b = NULL; \
-      size_t sz = 0; \
-      key_a = &((const type_ *) acmn_)->key; \
-      key_b = &((const type_ *) bcmn_)->key; \
-      sz = sizeof (((const type_ *) acmn_)->key); \
-      return memcmp (key_a, key_b, sz) == 0; \
-    }
-
-  switch (((struct ddsi_sertype_builtintopic *)acmn->type)->entity_kind)
-  {
-    case DSBT_PARTICIPANT:
-      BUILTINTOPIC_KEYEQ (struct ddsi_serdata_builtintopic_participant, acmn, bcmn)
-    case DSBT_READER:
-    case DSBT_WRITER:
-      BUILTINTOPIC_KEYEQ (struct ddsi_serdata_builtintopic_endpoint, acmn, bcmn)
-#ifdef DDS_HAS_TOPIC_DISCOVERY
-    case DSBT_TOPIC:
-      BUILTINTOPIC_KEYEQ (struct ddsi_serdata_builtintopic_topic, acmn, bcmn)
+  struct ddsi_serdata_builtintopic *a = (struct ddsi_serdata_builtintopic *) acmn;
+  struct ddsi_serdata_builtintopic *b = (struct ddsi_serdata_builtintopic *) bcmn;
+  DDSRT_STATIC_ASSERT(sizeof(a->key.raw) == sizeof(a->key.guid));
+#ifndef DDS_HAS_TOPIC_DISCOVERY
+  assert (((struct ddsi_sertype_builtintopic *)acmn->type)->entity_kind != DSBT_TOPIC);
 #endif
-    default:
-      abort ();
-  }
-#undef BUILTINTOPIC_KEYEQ
+  return memcmp (&a->key, &b->key, sizeof (a->key)) == 0;
 }
 
 static void serdata_builtin_free(struct ddsi_serdata *dcmn)
 {
-  struct ddsi_serdata_builtintopic *d = (struct ddsi_serdata_builtintopic *)dcmn;
+  struct ddsi_serdata_builtintopic *d = (struct ddsi_serdata_builtintopic *) dcmn;
   if (d->c.kind == SDK_DATA)
     ddsi_xqos_fini (&d->xqos);
   ddsrt_free (d);
@@ -105,6 +84,8 @@ static struct ddsi_serdata_builtintopic *serdata_builtin_new(const struct ddsi_s
     case DSBT_TOPIC:
 #ifdef DDS_HAS_TOPIC_DISCOVERY
       size = sizeof (struct ddsi_serdata_builtintopic_topic);
+#else
+      assert(0);
 #endif
       break;
     case DSBT_READER:
@@ -142,7 +123,7 @@ static void from_entity_rd (struct ddsi_serdata_builtintopic_endpoint *d, const 
 #ifdef DDS_HAS_TYPE_DISCOVERY
   d->type_id = rd->c.type_id;
 #endif
-  from_qos ((struct ddsi_serdata_builtintopic *) d, rd->xqos);
+  from_qos (&d->common, rd->xqos);
 }
 
 static void from_entity_wr (struct ddsi_serdata_builtintopic_endpoint *d, const struct writer *wr)
@@ -151,7 +132,7 @@ static void from_entity_wr (struct ddsi_serdata_builtintopic_endpoint *d, const 
 #ifdef DDS_HAS_TYPE_DISCOVERY
   d->type_id = wr->c.type_id;
 #endif
-  from_qos ((struct ddsi_serdata_builtintopic *) d, wr->xqos);
+  from_qos (&d->common, wr->xqos);
 }
 
 static void from_proxy_endpoint_common (struct ddsi_serdata_builtintopic_endpoint *d, const struct proxy_endpoint_common *pec)
@@ -160,7 +141,7 @@ static void from_proxy_endpoint_common (struct ddsi_serdata_builtintopic_endpoin
 #ifdef DDS_HAS_TYPE_DISCOVERY
   d->type_id = pec->type_id;
 #endif
-  from_qos ((struct ddsi_serdata_builtintopic *) d, pec->xqos);
+  from_qos (&d->common, pec->xqos);
 }
 
 static void from_entity_proxy_rd (struct ddsi_serdata_builtintopic_endpoint *d, const struct proxy_reader *proxyrd)
@@ -177,18 +158,14 @@ static struct ddsi_serdata *ddsi_serdata_builtin_from_keyhash (const struct ddsi
 {
   /* FIXME: not quite elegant to manage the creation of a serdata for a built-in topic via this function, but I also find it quite unelegant to let from_sample read straight from the underlying internal entity, and to_sample convert to the external format ... I could claim the internal entity is the "serialised form", but that forces wrapping it in a fragchain in one way or another, which, though possible, is also a bit lacking in elegance. */
   const struct ddsi_sertype_builtintopic *tp = (const struct ddsi_sertype_builtintopic *)tpcmn;
+  assert (tp->entity_kind != DSBT_TOPIC);
   union { ddsi_guid_t guid; ddsi_keyhash_t keyhash; } x;
   x.keyhash = *keyhash;
   x.guid = nn_ntoh_guid (x.guid);
   struct ddsi_domaingv * const gv = ddsrt_atomic_ldvoidp (&tp->c.gv);
   struct entity_common *entity = entidx_lookup_guid_untyped (gv->entity_index, &x.guid);
   struct ddsi_serdata_builtintopic *d = serdata_builtin_new (tp, entity != NULL ? SDK_DATA : SDK_KEY);
-  if (tp->entity_kind == DSBT_PARTICIPANT)
-    ((struct ddsi_serdata_builtintopic_participant *)d)->key = x.guid;
-  else if (tp->entity_kind == DSBT_READER || tp->entity_kind == DSBT_WRITER)
-    ((struct ddsi_serdata_builtintopic_endpoint *)d)->key = x.guid;
-  else
-    abort();
+  d->key.guid = x.guid;
 
   if (entity)
   {
@@ -220,6 +197,7 @@ static struct ddsi_serdata *ddsi_serdata_builtin_from_keyhash (const struct ddsi
         from_entity_proxy_wr ((struct ddsi_serdata_builtintopic_endpoint *) d, (const struct proxy_writer *) entity);
         break;
       case EK_TOPIC:
+        abort ();
         break;
     }
     ddsrt_mutex_unlock (&entity->qos_lock);
@@ -308,7 +286,7 @@ static dds_qos_t *dds_qos_from_xqos_reuse (dds_qos_t *old, const dds_qos_t *src)
 
 static bool to_sample_pp (const struct ddsi_serdata_builtintopic_participant *d, struct dds_builtintopic_participant *sample)
 {
-  convkey (&sample->key, &d->key);
+  convkey (&sample->key, &d->common.key.guid);
   if (d->common.c.kind == SDK_DATA)
     sample->qos = dds_qos_from_xqos_reuse (sample->qos, &d->common.xqos);
   return true;
@@ -317,8 +295,8 @@ static bool to_sample_pp (const struct ddsi_serdata_builtintopic_participant *d,
 static bool to_sample_endpoint (const struct ddsi_serdata_builtintopic_endpoint *dep, struct dds_builtintopic_endpoint *sample)
 {
   ddsi_guid_t ppguid;
-  convkey (&sample->key, &dep->key);
-  ppguid = dep->key;
+  convkey (&sample->key, &dep->common.key.guid);
+  ppguid = dep->common.key.guid;
   ppguid.entityid.u = NN_ENTITYID_PARTICIPANT;
   convkey (&sample->participant_key, &ppguid);
   sample->participant_instance_handle = dep->pphandle;
@@ -345,7 +323,7 @@ static bool to_sample_endpoint (const struct ddsi_serdata_builtintopic_endpoint 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 static bool to_sample_topic (const struct ddsi_serdata_builtintopic_topic *dtp, struct dds_builtintopic_topic *sample)
 {
-  memcpy (&sample->key, &dtp->key, sizeof (sample->key));
+  memcpy (&sample->key, &dtp->common.key.raw, sizeof (sample->key));
   if (dtp->common.c.kind == SDK_DATA)
   {
     assert (dtp->common.xqos.present & QP_TOPIC_NAME);
@@ -449,21 +427,21 @@ static struct ddsi_serdata *ddsi_serdata_builtin_from_keyhash_topic (const struc
   assert (tp->entity_kind == DSBT_TOPIC);
   union { unsigned char key[16]; ddsi_keyhash_t keyhash; } x = { .keyhash = *keyhash };
 
-  struct topic_definition templ;
+  struct ddsi_topic_definition templ;
   memset (&templ, 0, sizeof (templ));
   memcpy (&templ.key, &x.key, sizeof (templ.key));
   ddsrt_mutex_lock (&gv->topic_defs_lock);
-  struct topic_definition *tpd = ddsrt_hh_lookup (gv->topic_defs, &templ);
+  struct ddsi_topic_definition *tpd = ddsrt_hh_lookup (gv->topic_defs, &templ);
 
   struct ddsi_serdata_builtintopic_topic *d = (struct ddsi_serdata_builtintopic_topic *) serdata_builtin_new (tp, tpd != NULL ? SDK_DATA : SDK_KEY);
-  memcpy (&d->key, &x.key, sizeof (d->key));
+  memcpy (&d->common.key.raw, &x.key, sizeof (d->common.key.raw));
   if (tpd != NULL)
   {
     d->type_id = tpd->type_id;
-    from_qos ((struct ddsi_serdata_builtintopic *) d, tpd->xqos);
+    from_qos (&d->common, tpd->xqos);
   }
   ddsrt_mutex_unlock (&gv->topic_defs_lock);
-  return fix_serdata_builtin((struct ddsi_serdata_builtintopic *) d, DSBT_TOPIC, tp->c.serdata_basehash);
+  return fix_serdata_builtin(&d->common, DSBT_TOPIC, tp->c.serdata_basehash);
 }
 
 static struct ddsi_serdata *ddsi_serdata_builtin_from_sample_topic (const struct ddsi_sertype *tpcmn, enum ddsi_serdata_kind kind, const void *sample)

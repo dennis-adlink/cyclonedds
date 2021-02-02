@@ -1314,6 +1314,10 @@ bool q_omg_participant_is_liveliness_protected(const struct participant *pp)
   return ((pp->sec_attr != NULL) && pp->sec_attr->attr.is_liveliness_protected);
 }
 
+bool q_omg_participant_is_discovery_protected(const struct participant *pp)
+{
+  return ((pp->sec_attr != NULL) && pp->sec_attr->attr.is_discovery_protected);
+}
 
 static bool maybe_rtps_protected(ddsi_entityid_t entityid)
 {
@@ -1727,8 +1731,8 @@ unsigned determine_publication_writer (const struct writer *wr)
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 unsigned determine_topic_writer (const struct topic *tp)
 {
-  // FIXME: secure topic writer required?
-  DDSRT_UNUSED_ARG (tp);
+  if (q_omg_participant_is_discovery_protected (tp->pp))
+    abort (); /* FIXME: not implemented */
   return NN_ENTITYID_SEDP_BUILTIN_TOPIC_WRITER;
 }
 #endif
@@ -3901,6 +3905,7 @@ extern inline bool q_omg_security_enabled(void);
 extern inline bool q_omg_participant_is_access_protected(UNUSED_ARG(const struct participant *pp));
 extern inline bool q_omg_participant_is_rtps_protected(UNUSED_ARG(const struct participant *pp));
 extern inline bool q_omg_participant_is_liveliness_protected(UNUSED_ARG(const struct participant *pp));
+extern inline bool q_omg_participant_is_discovery_protected(UNUSED_ARG(const struct participant *pp));
 extern inline bool q_omg_participant_is_secure(UNUSED_ARG(const struct participant *pp));
 extern inline bool q_omg_proxy_participant_is_secure(UNUSED_ARG(const struct proxy_participant *proxypp));
 

@@ -143,13 +143,13 @@ CU_Test(ddsc_builtin_topics, availability_builtin_topics, .init = setup, .fini =
 {
   dds_entity_t topic;
 
-  topic = dds_find_topic_locally (g_participant, "DCPSParticipant", 0);
+  topic = dds_find_topic_scoped (DDS_FIND_SCOPE_PARTICIPANT, g_participant, "DCPSParticipant", 0);
   CU_ASSERT_EQUAL_FATAL (topic, 0);
-  topic = dds_find_topic_locally (g_participant, "DCPSTopic", 0);
+  topic = dds_find_topic_scoped (DDS_FIND_SCOPE_PARTICIPANT, g_participant, "DCPSTopic", 0);
   CU_ASSERT_EQUAL_FATAL (topic, 0);
-  topic = dds_find_topic_locally (g_participant, "DCPSSubscription", 0);
+  topic = dds_find_topic_scoped (DDS_FIND_SCOPE_PARTICIPANT, g_participant, "DCPSSubscription", 0);
   CU_ASSERT_EQUAL_FATAL (topic, 0);
-  topic = dds_find_topic_locally (g_participant, "DCPSPublication", 0);
+  topic = dds_find_topic_scoped (DDS_FIND_SCOPE_PARTICIPANT, g_participant, "DCPSPublication", 0);
   CU_ASSERT_EQUAL_FATAL (topic, 0);
 }
 

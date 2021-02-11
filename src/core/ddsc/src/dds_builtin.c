@@ -199,27 +199,21 @@ static bool dds__builtin_is_visible (const ddsi_guid_t *guid, nn_vendorid_t vend
 static struct ddsi_tkmap_instance *dds__builtin_get_tkmap_entry (const struct ddsi_guid *guid, void *vdomain)
 {
   struct dds_domain *domain = vdomain;
-  struct ddsi_tkmap_instance *tk;
-  struct ddsi_serdata *sd;
-  union { ddsi_guid_t guid; struct ddsi_keyhash keyhash; } x;
-  x.guid = nn_hton_guid (*guid);
   /* any random builtin topic will do (provided it has a GUID for a key), because what matters is the "class"
      of the topic, not the actual topic; also, this is called early in the initialisation of the entity with
      this GUID, which simply causes serdata_from_keyhash to create a key-only serdata because the key lookup
      fails. */
-  sd = ddsi_serdata_from_keyhash (domain->builtin_participant_type, &x.keyhash);
-  tk = ddsi_tkmap_find (domain->gv.m_tkmap, sd, true);
+  struct ddsi_serdata *sd = dds_serdata_builtin_from_endpoint (domain->builtin_participant_type, guid, NULL, SDK_KEY);
+  struct ddsi_tkmap_instance *tk = ddsi_tkmap_find (domain->gv.m_tkmap, sd, true);
   ddsi_serdata_unref (sd);
   return tk;
 }
 
-struct ddsi_serdata *dds__builtin_make_sample (const struct entity_common *e, ddsrt_wctime_t timestamp, bool alive)
+struct ddsi_serdata *dds__builtin_make_sample_endpoint (const struct entity_common *e, ddsrt_wctime_t timestamp, bool alive)
 {
   /* initialize to avoid gcc warning ultimately caused by C's horrible type system */
   struct dds_domain *dom = e->gv->builtin_topic_interface->arg;
   struct ddsi_sertype *type = NULL;
-  struct ddsi_serdata *serdata;
-  union { ddsi_guid_t guid; struct ddsi_keyhash keyhash; } x;
   switch (e->kind)
   {
     case EK_PARTICIPANT:
@@ -239,27 +233,39 @@ struct ddsi_serdata *dds__builtin_make_sample (const struct entity_common *e, dd
       break;
   }
   assert (type != NULL);
-  x.guid = nn_hton_guid (e->guid);
-  serdata = ddsi_serdata_from_keyhash (type, &x.keyhash);
+  struct ddsi_serdata *serdata = dds_serdata_builtin_from_endpoint (type, &e->guid, (struct entity_common *) e, alive ? SDK_DATA : SDK_KEY);
   serdata->timestamp = timestamp;
   serdata->statusinfo = alive ? 0 : NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER;
   return serdata;
 }
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
-struct ddsi_serdata *dds__builtin_make_sample_topic (const struct ddsi_topic_definition *tpd, ddsrt_wctime_t timestamp, bool alive)
+
+static struct ddsi_serdata *dds__builtin_make_sample_topic_impl (const struct ddsi_topic_definition *tpd, ddsrt_wctime_t timestamp, bool alive)
 {
   struct dds_domain *dom = tpd->gv->builtin_topic_interface->arg;
   struct ddsi_sertype *type = dom->builtin_topic_type;
-  struct ddsi_serdata *serdata;
-  union { unsigned char key[16]; struct ddsi_keyhash keyhash; } x;
-  memcpy (&x.key, &tpd->key, sizeof (x.key));
-  serdata = ddsi_serdata_from_keyhash (type, &x.keyhash);
+  struct ddsi_serdata *serdata = dds_serdata_builtin_from_topic_definition (type, (dds_builtintopic_topic_key_t *) &tpd->key, tpd, alive ? SDK_DATA : SDK_KEY);
   serdata->timestamp = timestamp;
   serdata->statusinfo = alive ? 0 : NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER;
   return serdata;
 }
-#endif
+
+struct ddsi_serdata *dds__builtin_make_sample_topic (const struct entity_common *e, ddsrt_wctime_t timestamp, bool alive)
+{
+  struct topic *tp = (struct topic *) e;
+  ddsrt_mutex_lock (&tp->e.qos_lock);
+  struct ddsi_serdata *sd = dds__builtin_make_sample_topic_impl (tp->definition, timestamp, alive);
+  ddsrt_mutex_unlock (&tp->e.qos_lock);
+  return sd;
+}
+
+struct ddsi_serdata *dds__builtin_make_sample_proxy_topic (const struct proxy_topic *proxytp, ddsrt_wctime_t timestamp, bool alive)
+{
+  return dds__builtin_make_sample_topic_impl (proxytp->definition, timestamp, alive);
+}
+
+#endif /* DDS_HAS_TOPIC_DISCOVERY  */
 
 static void dds__builtin_write_endpoint (const struct entity_common *e, ddsrt_wctime_t timestamp, bool alive, void *vdomain)
 {
@@ -268,7 +274,7 @@ static void dds__builtin_write_endpoint (const struct entity_common *e, ddsrt_wc
   {
     /* initialize to avoid gcc warning ultimately caused by C's horrible type system */
     struct local_orphan_writer *bwr = NULL;
-    struct ddsi_serdata *serdata = dds__builtin_make_sample (e, timestamp, alive);
+    struct ddsi_serdata *serdata = dds__builtin_make_sample_endpoint (e, timestamp, alive);
     assert (e->tk != NULL);
     switch (e->kind)
     {
@@ -297,7 +303,7 @@ static void dds__builtin_write_topic (const struct ddsi_topic_definition *tpd, d
 {
   struct dds_domain *dom = vdomain;
   struct local_orphan_writer *bwr = dom->builtintopic_writer_topics;
-  struct ddsi_serdata *serdata = dds__builtin_make_sample_topic (tpd, timestamp, alive);
+  struct ddsi_serdata *serdata = dds__builtin_make_sample_topic_impl (tpd, timestamp, alive);
   dds_writecdr_impl (&bwr->wr, NULL, serdata, true);
 }
 #endif

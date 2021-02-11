@@ -258,7 +258,7 @@ typedef struct dds_publisher {
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 /* type_id -> <topic guid, ddsi topic> mapping for ktopics */
 struct ktopic_type_guid {
-  const type_identifier_t *type_id;
+  type_identifier_t *type_id;
   uint32_t refc;
   ddsi_guid_t guid;
   struct topic *tp;

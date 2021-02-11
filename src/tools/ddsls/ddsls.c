@@ -419,7 +419,7 @@ static void print_dcps_topic (FILE *fp, dds_entity_t pp)
     {
       dds_builtintopic_topic_t *data = ptrs[i];
       fprintf (fp,"TOPIC:\n");
-      print_key_topic (fp, "  key =", data->key);
+      print_key_topic (fp, "  key =", data->key.d);
       fprintf (fp, "  name = %s\n", data->topic_name);
       fprintf (fp, "  type name = %s\n", data->type_name);
       if (info[i].valid_data)

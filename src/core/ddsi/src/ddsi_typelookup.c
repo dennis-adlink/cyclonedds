@@ -351,7 +351,7 @@ static void tlm_register_with_proxy_endpoints_locked (struct ddsi_domaingv *gv, 
   struct tlm_proxy_guid_list_iter proxy_guid_it;
   for (ddsi_guid_t guid = tlm_proxy_guid_list_iter_first (&tlm->proxy_guids, &proxy_guid_it); !is_null_guid (&guid); guid = tlm_proxy_guid_list_iter_next (&proxy_guid_it))
   {
-#ifdef DDS_HAS_TOPIC_DISCOVERY
+#ifdef FIXME_DDS_HAS_TOPIC_DISCOVERY
     if (is_topic_entityid (guid.entityid))
     {
       ddsi_guid_t proxypp_guid = { .prefix = guid.prefix, .entityid.u = NN_ENTITYID_PARTICIPANT };

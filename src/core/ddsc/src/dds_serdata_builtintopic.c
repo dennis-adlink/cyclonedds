@@ -154,20 +154,17 @@ static void from_entity_proxy_wr (struct ddsi_serdata_builtintopic_endpoint *d, 
   from_proxy_endpoint_common (d, &proxywr->c);
 }
 
-static struct ddsi_serdata *ddsi_serdata_builtin_from_keyhash (const struct ddsi_sertype *tpcmn, const ddsi_keyhash_t *keyhash)
+struct ddsi_serdata *dds_serdata_builtin_from_endpoint (const struct ddsi_sertype *tpcmn, const ddsi_guid_t *guid, struct entity_common *entity, enum ddsi_serdata_kind kind)
 {
-  /* FIXME: not quite elegant to manage the creation of a serdata for a built-in topic via this function, but I also find it quite unelegant to let from_sample read straight from the underlying internal entity, and to_sample convert to the external format ... I could claim the internal entity is the "serialised form", but that forces wrapping it in a fragchain in one way or another, which, though possible, is also a bit lacking in elegance. */
+  /* FIXME: not quite elegant to manage the creation of a serdata for a built-in topic via this function, but I also find
+     it quite unelegant to let from_sample read straight from the underlying internal entity, and to_sample convert to the
+     external format ... I could claim the internal entity is the "serialised form", but that forces wrapping it in a fragchain
+     in one way or another, which, though possible, is also a bit lacking in elegance. */
   const struct ddsi_sertype_builtintopic *tp = (const struct ddsi_sertype_builtintopic *)tpcmn;
   assert (tp->entity_kind != DSBT_TOPIC);
-  union { ddsi_guid_t guid; ddsi_keyhash_t keyhash; } x;
-  x.keyhash = *keyhash;
-  x.guid = nn_ntoh_guid (x.guid);
-  struct ddsi_domaingv * const gv = ddsrt_atomic_ldvoidp (&tp->c.gv);
-  struct entity_common *entity = entidx_lookup_guid_untyped (gv->entity_index, &x.guid);
-  struct ddsi_serdata_builtintopic *d = serdata_builtin_new (tp, entity != NULL ? SDK_DATA : SDK_KEY);
-  d->key.guid = x.guid;
-
-  if (entity)
+  struct ddsi_serdata_builtintopic *d = serdata_builtin_new (tp, kind);
+  d->key.guid = *guid;
+  if (entity != NULL && kind == SDK_DATA)
   {
     ddsrt_mutex_lock (&entity->qos_lock);
     switch (entity->kind)
@@ -207,9 +204,10 @@ static struct ddsi_serdata *ddsi_serdata_builtin_from_keyhash (const struct ddsi
 
 static struct ddsi_serdata *ddsi_serdata_builtin_from_sample (const struct ddsi_sertype *tpcmn, enum ddsi_serdata_kind kind, const void *sample)
 {
-  const struct ddsi_sertype_builtintopic *tp = (const struct ddsi_sertype_builtintopic *)tpcmn;
+  const struct ddsi_sertype_builtintopic *tp = (const struct ddsi_sertype_builtintopic *) tpcmn;
   union {
     dds_guid_t extguid;
+    ddsi_guid_t guid;
     ddsi_keyhash_t keyhash;
   } x;
 
@@ -239,8 +237,10 @@ static struct ddsi_serdata *ddsi_serdata_builtin_from_sample (const struct ddsi_
       break;
     }
   }
-
-  return ddsi_serdata_from_keyhash (tpcmn, &x.keyhash);
+  struct ddsi_domaingv * const gv = ddsrt_atomic_ldvoidp (&tp->c.gv);
+  x.guid = nn_ntoh_guid (x.guid);
+  struct entity_common *entity = entidx_lookup_guid_untyped (gv->entity_index, &x.guid);
+  return dds_serdata_builtin_from_endpoint (tpcmn, &x.guid, entity, kind);
 }
 
 static struct ddsi_serdata *serdata_builtin_to_untyped (const struct ddsi_serdata *serdata_common)
@@ -406,7 +406,7 @@ const struct ddsi_serdata_ops ddsi_serdata_ops_builtintopic = {
   .free = serdata_builtin_free,
   .from_ser = 0,
   .from_ser_iov = 0,
-  .from_keyhash = ddsi_serdata_builtin_from_keyhash,
+  .from_keyhash = 0,
   .from_sample = ddsi_serdata_builtin_from_sample,
   .to_ser = serdata_builtin_to_ser,
   .to_sample = serdata_builtin_to_sample,
@@ -420,46 +420,41 @@ const struct ddsi_serdata_ops ddsi_serdata_ops_builtintopic = {
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 
-static struct ddsi_serdata *ddsi_serdata_builtin_from_keyhash_topic (const struct ddsi_sertype *tpcmn, const ddsi_keyhash_t *keyhash)
+struct ddsi_serdata *dds_serdata_builtin_from_topic_definition (const struct ddsi_sertype *tpcmn, const dds_builtintopic_topic_key_t *key, const struct ddsi_topic_definition *tpd, enum ddsi_serdata_kind kind)
 {
-  const struct ddsi_sertype_builtintopic *tp = (const struct ddsi_sertype_builtintopic *)tpcmn;
-  struct ddsi_domaingv *gv = ddsrt_atomic_ldvoidp (&tp->c.gv);
+  const struct ddsi_sertype_builtintopic *tp = (const struct ddsi_sertype_builtintopic *) tpcmn;
   assert (tp->entity_kind == DSBT_TOPIC);
-  union { unsigned char key[16]; ddsi_keyhash_t keyhash; } x = { .keyhash = *keyhash };
-
-  struct ddsi_topic_definition templ;
-  memset (&templ, 0, sizeof (templ));
-  memcpy (&templ.key, &x.key, sizeof (templ.key));
-  ddsrt_mutex_lock (&gv->topic_defs_lock);
-  struct ddsi_topic_definition *tpd = ddsrt_hh_lookup (gv->topic_defs, &templ);
-
-  struct ddsi_serdata_builtintopic_topic *d = (struct ddsi_serdata_builtintopic_topic *) serdata_builtin_new (tp, tpd != NULL ? SDK_DATA : SDK_KEY);
-  memcpy (&d->common.key.raw, &x.key, sizeof (d->common.key.raw));
-  if (tpd != NULL)
+  struct ddsi_serdata_builtintopic_topic *d = (struct ddsi_serdata_builtintopic_topic *) serdata_builtin_new (tp, kind);
+  memcpy (&d->common.key.raw, key, sizeof (d->common.key.raw));
+  if (tpd != NULL && kind == SDK_DATA)
   {
     d->type_id = tpd->type_id;
     from_qos (&d->common, tpd->xqos);
   }
-  ddsrt_mutex_unlock (&gv->topic_defs_lock);
-  return fix_serdata_builtin(&d->common, DSBT_TOPIC, tp->c.serdata_basehash);
+  return fix_serdata_builtin (&d->common, DSBT_TOPIC, tp->c.serdata_basehash);
 }
 
 static struct ddsi_serdata *ddsi_serdata_builtin_from_sample_topic (const struct ddsi_sertype *tpcmn, enum ddsi_serdata_kind kind, const void *sample)
 {
-  union {
-    unsigned char key[16];
-    ddsi_keyhash_t keyhash;
-  } x;
-
   /* no-one should be trying to convert user-provided data into a built-in topic sample, but converting
      a key is something that can be necessary, e.g., dds_lookup_instance depends on it */
   if (kind != SDK_KEY)
     return NULL;
 
-  memset (&x, 0, sizeof (x));
+  const struct ddsi_sertype_builtintopic *tp = (const struct ddsi_sertype_builtintopic *) tpcmn;
+  struct ddsi_domaingv *gv = ddsrt_atomic_ldvoidp (&tp->c.gv);
   const dds_builtintopic_topic_t *s = sample;
-  memcpy (&x.key, &s->key, sizeof (x.key));
-  return ddsi_serdata_from_keyhash (tpcmn, &x.keyhash);
+  union { ddsi_guid_t guid; dds_builtintopic_topic_key_t key; } x;
+  x.key = s->key;
+  x.guid = nn_ntoh_guid (x.guid);
+  struct ddsi_topic_definition templ;
+  memset (&templ, 0, sizeof (templ));
+  memcpy (&templ.key, &x.key, sizeof (templ.key));
+  ddsrt_mutex_lock (&gv->topic_defs_lock);
+  struct ddsi_topic_definition *tpd = ddsrt_hh_lookup (gv->topic_defs, &templ);
+  struct ddsi_serdata *sd = dds_serdata_builtin_from_topic_definition (tpcmn, &x.key, tpd, kind);
+  ddsrt_mutex_unlock (&gv->topic_defs_lock);
+  return sd;
 }
 
 const struct ddsi_serdata_ops ddsi_serdata_ops_builtintopic_topic = {
@@ -468,7 +463,7 @@ const struct ddsi_serdata_ops ddsi_serdata_ops_builtintopic_topic = {
   .free = serdata_builtin_free,
   .from_ser = 0,
   .from_ser_iov = 0,
-  .from_keyhash = ddsi_serdata_builtin_from_keyhash_topic,
+  .from_keyhash = 0,
   .from_sample = ddsi_serdata_builtin_from_sample_topic,
   .to_ser = serdata_builtin_to_ser,
   .to_sample = serdata_builtin_to_sample,

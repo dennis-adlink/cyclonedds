@@ -109,12 +109,12 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
 #ifdef DDS_HAS_TOPIC_DISCOVERY
         if (kind == EK_TOPIC)
         {
-          sample->serdata = dds__builtin_make_sample_topic (((struct topic *)entity)->definition, entity->tupdate, true);
+          sample->serdata = dds__builtin_make_sample_topic (entity, entity->tupdate, true);
         }
         else
 #endif
         {
-          sample->serdata = dds__builtin_make_sample (entity, entity->tupdate, true);
+          sample->serdata = dds__builtin_make_sample_endpoint (entity, entity->tupdate, true);
         }
         it->have_sample = true;
         return true;
@@ -180,7 +180,7 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
             proxytp = proxy_topic_list_iter_next (&it->proxytp_it);
         }
         /* next topic found, make sample and release proxypp lock */
-        sample->serdata = dds__builtin_make_sample_topic (proxytp->definition, proxytp->tupdate, true);
+        sample->serdata = dds__builtin_make_sample_proxy_topic (proxytp, proxytp->tupdate, true);
         it->have_sample = true;
         ddsrt_mutex_unlock (&it->cur_proxypp->e.lock);
         return true;
@@ -196,7 +196,7 @@ static bool bwhc_sample_iter_borrow_next (struct whc_sample_iter *opaque_it, str
           entidx_enum_fini (&it->it);
           return false;
         }
-        sample->serdata = dds__builtin_make_sample (entity, entity->tupdate, true);
+        sample->serdata = dds__builtin_make_sample_endpoint (entity, entity->tupdate, true);
         it->have_sample = true;
         return true;
       }

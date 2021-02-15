@@ -206,9 +206,14 @@ typedef struct dds_builtintopic_participant
 dds_builtintopic_participant_t;
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
+
+typedef struct dds_builtintopic_topic_key {
+  unsigned char d[16];
+} dds_builtintopic_topic_key_t;
+
 typedef struct dds_builtintopic_topic
 {
-  unsigned char key[16];
+  dds_builtintopic_topic_key_t key;
   char *topic_name;
   char *type_name;
   dds_qos_t *qos;

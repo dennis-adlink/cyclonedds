@@ -17,6 +17,7 @@
 #include "dds/ddsrt/threads.h"
 #include "dds/ddsrt/environ.h"
 #include "dds/ddsrt/heap.h"
+#include "dds/ddsrt/random.h"
 #include "dds/ddsi/ddsi_entity_index.h"
 #include "dds/ddsi/q_entity.h"
 #include "dds/ddsi/q_whc.h"
@@ -107,7 +108,7 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
       for (uint32_t t = 0; t < num_tp; t++)
       {
         topic_names[p * num_tp + t] = ddsrt_malloc (101);
-        create_unique_topic_name ("ddsc_topic_discovery_test", topic_names[p * num_tp + t], 100);
+        create_unique_topic_name ("ddsc_topic_discovery_rem_tp", topic_names[p * num_tp + t], 100);
         dds_entity_t topic = dds_create_topic (participant_remote[p], &Space_Type1_desc, topic_names[p * num_tp + t], NULL, NULL);
         CU_ASSERT_FATAL (topic > 0);
       }
@@ -129,7 +130,7 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
       for (uint32_t t = 0; t < num_tp; t++)
       {
         topic_names[offs + p * num_tp + t] = ddsrt_malloc (101);
-        create_unique_topic_name ("ddsc_topic_discovery_test_remote", topic_names[offs + p * num_tp + t], 100);
+        create_unique_topic_name ("ddsc_topic_discovery_rem2_tp", topic_names[offs + p * num_tp + t], 100);
         dds_entity_t topic = dds_create_topic (participant_remote[p], &Space_Type1_desc, topic_names[offs + p * num_tp + t], NULL, NULL);
         CU_ASSERT_FATAL (topic > 0);
       }
@@ -148,7 +149,7 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
       if (sample_info[0].valid_data)
       {
         dds_builtintopic_topic_t *sample = raw[0];
-        // msg ("read topic: %s", sample->topic_name);
+        // msg ("read topic: %s\n", sample->topic_name);
         for (uint32_t p = 0; p < 2 * num_pp; p++)
           for (uint32_t t = 0; t < num_tp; t++)
             if (((hist_data && p < num_pp) || (live_data && p >= num_pp)) && !strcmp (sample->topic_name, topic_names[p * num_tp + t]))
@@ -192,7 +193,7 @@ static void check_topic_samples (dds_entity_t topic_rd, char *topic_name, uint32
       bool not_alive = sample_info->instance_state != DDS_IST_ALIVE;
       msg ("read topic: %s, key={", sample->topic_name);
       for (uint32_t i = 0; i < sizeof (first_key); i++)
-        printf ("%02x", sample->key[i]);
+        printf ("%02x", sample->key.d[i]);
       printf ("} %sALIVE\n", not_alive ? "NOT_" : "");
       if (!not_alive && (topic_name == NULL || !strcmp (sample->topic_name, topic_name)))
       {
@@ -289,4 +290,119 @@ CU_Test (ddsc_topic_discovery, different_type, .init = topic_discovery_init, .fi
 
   /* check that a DCPSTopic sample is received for local topic and remote topic (with different key) */
   check_topic_samples (topic_rd, topic_name, 2, false, NULL, NULL);
+}
+
+#define NUM_PP 10
+#define NUM_TP 50
+#define DELAY_MSECS 50
+static ddsrt_atomic_uint32_t terminate;
+static dds_entity_t participants[NUM_PP], participants_remote[NUM_PP];
+static dds_entity_t topics[NUM_PP][NUM_TP], topics_remote[NUM_PP][NUM_TP];
+static dds_entity_t topic_rds[NUM_PP];
+
+static uint32_t delete_participants_thread (void *varg)
+{
+  (void) varg;
+  uint32_t n = NUM_PP;
+  while (n-- > 0)
+  {
+    dds_delete (participants[n]);
+    dds_delete (participants_remote[n]);
+    dds_sleepfor (DDS_MSECS (DELAY_MSECS));
+  }
+  ddsrt_atomic_st32 (&terminate, 1);
+  return 0;
+}
+
+static uint32_t delete_topics_thread (void *varg)
+{
+  (void) varg;
+  while (!ddsrt_atomic_ld32 (&terminate))
+  {
+    dds_delete (((dds_entity_t *) topics)[ddsrt_random () % (NUM_PP * NUM_TP)]);
+    dds_delete (((dds_entity_t *) topics_remote)[ddsrt_random () % (NUM_PP * NUM_TP)]);
+    dds_sleepfor (DDS_MSECS (DELAY_MSECS / NUM_TP));
+  }
+  return 0;
+}
+
+static uint32_t read_topic_thread (void *varg)
+{
+  dds_sample_info_t sample_info[1];
+  dds_return_t n;
+  (void) varg;
+  while (!ddsrt_atomic_ld32 (&terminate))
+  {
+    for (uint32_t p = 0; p < NUM_PP; p++)
+    {
+      dds_return_t ret;
+      void *raw[1] = { NULL };
+      while ((n = dds_take (topic_rds[p], raw, sample_info, 1, 1)) > 0)
+      {
+        ret = dds_return_loan (topic_rds[p], raw, n);
+        CU_ASSERT (ret == DDS_RETCODE_OK || ret == DDS_RETCODE_BAD_PARAMETER); /* topic may be deleted */
+      }
+    }
+  }
+  return 0;
+}
+
+CU_Test (ddsc_topic_discovery, topic_qos_update, .init = topic_discovery_init, .fini = topic_discovery_fini)
+{
+  ddsrt_thread_t tid;
+  ddsrt_threadattr_t tattr;
+  ddsrt_threadattr_init (&tattr);
+  dds_return_t ret;
+  ddsrt_atomic_st32 (&terminate, 0);
+
+  for (uint32_t p = 0; p < NUM_PP; p++)
+  {
+    participants[p] = dds_create_participant (DDS_DOMAINID1, NULL, NULL);
+    CU_ASSERT_FATAL (participants[p] > 0);
+    participants_remote[p] = dds_create_participant (DDS_DOMAINID2, NULL, NULL);
+    CU_ASSERT_FATAL (participants_remote[p] > 0);
+    topic_rds[p] = dds_create_reader (participants[p], DDS_BUILTIN_TOPIC_DCPSTOPIC, NULL, NULL);
+    CU_ASSERT_FATAL (topic_rds[p] > 0);
+  }
+
+  ret = ddsrt_thread_create (&tid, "ddsc_topic_discovery_test_rd", &tattr, read_topic_thread, 0);
+  CU_ASSERT_FATAL (ret == DDS_RETCODE_OK);
+
+  dds_qos_t *qos = dds_create_qos ();
+  for (uint32_t p = 0; p < NUM_PP; p++)
+    for (uint32_t t = 0; t < NUM_TP; t++)
+    {
+      uint32_t v = p * NUM_TP + t;
+      dds_qset_topicdata (qos, &v, sizeof (v));
+      char topic_name[100];
+      create_unique_topic_name ("ddsc_topic_discovery_qos_upd", topic_name, 100);
+      topics[p][t] = dds_create_topic (participants[p], &Space_Type1_desc, topic_name, qos, NULL);
+      CU_ASSERT_FATAL (topics[p][t] > 0);
+      topics_remote[p][t] = dds_create_topic (participants_remote[p], &Space_Type1_desc, topic_name, NULL, NULL);
+      CU_ASSERT_FATAL (topics_remote[p][t] > 0);
+    }
+
+  ret = ddsrt_thread_create (&tid, "ddsc_topic_discovery_test_pp", &tattr, delete_participants_thread, 0);
+  CU_ASSERT_FATAL (ret == DDS_RETCODE_OK);
+  ret = ddsrt_thread_create (&tid, "ddsc_topic_discovery_test_tp", &tattr, delete_topics_thread, 0);
+  CU_ASSERT_FATAL (ret == DDS_RETCODE_OK);
+
+  uint32_t v;
+  while (!ddsrt_atomic_ld32 (&terminate))
+  {
+    for (uint32_t p = 0; p < NUM_PP; p++)
+      for (uint32_t t = 0; t < NUM_TP; t++)
+      {
+        v = ddsrt_random ();
+        dds_qset_topicdata (qos, &v, sizeof (v));
+        ret = dds_set_qos (topics[p][t], qos);
+        CU_ASSERT_FATAL (ret == DDS_RETCODE_OK || ret == DDS_RETCODE_BAD_PARAMETER); /* topic may be deleted */
+
+        v = ddsrt_random ();
+        dds_qset_topicdata (qos, &v, sizeof (v));
+        ret = dds_set_qos(topics_remote[p][t], qos);
+        CU_ASSERT_FATAL(ret == DDS_RETCODE_OK || ret == DDS_RETCODE_BAD_PARAMETER); /* topic may be deleted */
+      }
+  }
+  dds_delete_qos (qos);
 }

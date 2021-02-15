@@ -32,7 +32,7 @@ static dds_entity_t g_participant2 = 0;
 static dds_entity_t g_topic1 = 0;
 
 #define MAX_NAME_SIZE (100)
-char g_topic_name1[MAX_NAME_SIZE];
+char g_topic_name_local[MAX_NAME_SIZE];
 
 static void topic_find_local_init (void)
 {
@@ -45,8 +45,8 @@ static void topic_find_local_init (void)
   g_participant2 = dds_create_participant (DDS_DOMAINID1, NULL, NULL);
   CU_ASSERT_FATAL (g_participant2 > 0);
 
-  create_unique_topic_name("ddsc_topic_find_test1", g_topic_name1, MAX_NAME_SIZE);
-  g_topic1 = dds_create_topic (g_participant1, &Space_Type1_desc, g_topic_name1, NULL, NULL);
+  create_unique_topic_name("ddsc_topic_find_test1", g_topic_name_local, MAX_NAME_SIZE);
+  g_topic1 = dds_create_topic (g_participant1, &Space_Type1_desc, g_topic_name_local, NULL, NULL);
   CU_ASSERT_FATAL (g_topic1 > 0);
 }
 
@@ -58,10 +58,10 @@ static void topic_find_local_fini (void)
 CU_Test(ddsc_topic_find_local, domain, .init = topic_find_local_init, .fini = topic_find_local_fini)
 {
   dds_return_t ret;
-  dds_entity_t topic1 = dds_find_topic_scoped (DDS_FIND_SCOPE_LOCAL_DOMAIN, g_participant1, g_topic_name1, 0);
+  dds_entity_t topic1 = dds_find_topic_scoped (DDS_FIND_SCOPE_LOCAL_DOMAIN, g_participant1, g_topic_name_local, 0);
   CU_ASSERT_FATAL (topic1 > 0);
   CU_ASSERT_NOT_EQUAL_FATAL (topic1, g_topic1);
-  dds_entity_t topic2 = dds_find_topic_scoped (DDS_FIND_SCOPE_LOCAL_DOMAIN, g_participant2, g_topic_name1, 0);
+  dds_entity_t topic2 = dds_find_topic_scoped (DDS_FIND_SCOPE_LOCAL_DOMAIN, g_participant2, g_topic_name_local, 0);
   CU_ASSERT_FATAL (topic2 > 0);
   CU_ASSERT_NOT_EQUAL_FATAL (topic2, topic1);
   CU_ASSERT_NOT_EQUAL_FATAL (topic2, g_topic1);
@@ -73,7 +73,7 @@ CU_Test(ddsc_topic_find_local, domain, .init = topic_find_local_init, .fini = to
 
 CU_Test(ddsc_topic_find_local, participant, .init = topic_find_local_init, .fini = topic_find_local_fini)
 {
-  dds_entity_t topic = dds_find_topic_scoped (DDS_FIND_SCOPE_PARTICIPANT, g_participant1, g_topic_name1, 0);
+  dds_entity_t topic = dds_find_topic_scoped (DDS_FIND_SCOPE_PARTICIPANT, g_participant1, g_topic_name_local, 0);
   CU_ASSERT_FATAL (topic > 0);
   CU_ASSERT_NOT_EQUAL_FATAL (topic, g_topic1);
 }
@@ -101,6 +101,6 @@ CU_Test(ddsc_topic_find_local, unknown, .init = topic_find_local_init, .fini = t
 CU_Test(ddsc_topic_find_local, deleted, .init = topic_find_local_init, .fini = topic_find_local_fini)
 {
   dds_delete (g_topic1);
-  dds_entity_t topic = dds_find_topic_scoped (DDS_FIND_SCOPE_PARTICIPANT, g_participant1, g_topic_name1, 0);
+  dds_entity_t topic = dds_find_topic_scoped (DDS_FIND_SCOPE_PARTICIPANT, g_participant1, g_topic_name_local, 0);
   CU_ASSERT_EQUAL_FATAL (topic, 0);
 }

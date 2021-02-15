@@ -21,6 +21,9 @@
 extern "C" {
 #endif
 
+struct entity_common;
+struct ddsi_topic_definition;
+
 enum ddsi_sertype_builtintopic_entity_kind {
   DSBT_PARTICIPANT,
   DSBT_TOPIC,
@@ -63,11 +66,14 @@ extern const struct ddsi_sertype_ops ddsi_sertype_ops_builtintopic;
 extern const struct ddsi_serdata_ops ddsi_serdata_ops_builtintopic;
 
 struct ddsi_sertype *new_sertype_builtintopic (enum ddsi_sertype_builtintopic_entity_kind entity_kind, const char *typename);
+struct ddsi_serdata *dds_serdata_builtin_from_endpoint (const struct ddsi_sertype *tpcmn, const ddsi_guid_t *guid, struct entity_common *entity, enum ddsi_serdata_kind kind);
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 extern const struct ddsi_serdata_ops ddsi_serdata_ops_builtintopic_topic;
 struct ddsi_sertype *new_sertype_builtintopic_topic (enum ddsi_sertype_builtintopic_entity_kind entity_kind, const char *typename);
+struct ddsi_serdata *dds_serdata_builtin_from_topic_definition (const struct ddsi_sertype *tpcmn, const dds_builtintopic_topic_key_t *key, const struct ddsi_topic_definition *tpd, enum ddsi_serdata_kind kind);
 #endif
+
 
 #if defined (__cplusplus)
 }

@@ -270,7 +270,7 @@ struct ddsi_topic_definition {
 
 struct topic {
   struct entity_common e;
-  struct ddsi_topic_definition *definition; /* ref to (shared) topic definition */
+  struct ddsi_topic_definition *definition; /* ref to (shared) topic definition, protected by e.qos_lock */
   struct participant *pp; /* backref to the participant */
 };
 #endif /* DDS_HAS_TOPIC_DISCOVERY */

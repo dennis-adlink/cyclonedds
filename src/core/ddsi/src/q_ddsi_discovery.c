@@ -1039,31 +1039,20 @@ static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_
   return write_and_fini_plist (wr, &ps, alive);
 }
 
-int sedp_write_topic (struct topic *tp)
+int sedp_write_topic (struct topic *tp, bool alive)
 {
   int res = 0;
   if (!(tp->pp->bes & NN_DISC_BUILTIN_ENDPOINT_TOPICS_ANNOUNCER))
     return res;
-  if (!is_builtin_entityid(tp->e.guid.entityid, NN_VENDORID_ECLIPSE) && !tp->e.onlylocal)
+  if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE) && !tp->e.onlylocal)
   {
     unsigned entityid = determine_topic_writer (tp);
     struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
-    res = sedp_write_topic_impl (sedp_wr, 1, &tp->e.guid, tp->definition->xqos, &tp->definition->type_id);
+    ddsrt_mutex_lock (&tp->e.qos_lock);
+    res = sedp_write_topic_impl (sedp_wr, alive, &tp->e.guid, tp->definition->xqos, &tp->definition->type_id);
+    ddsrt_mutex_unlock (&tp->e.qos_lock);
   }
   return res;
-}
-
-int sedp_dispose_unregister_topic (struct topic *tp)
-{
-  if (!(tp->pp->bes & NN_DISC_BUILTIN_ENDPOINT_TOPICS_ANNOUNCER))
-    return 0;
-  if (!is_builtin_entityid (tp->e.guid.entityid, NN_VENDORID_ECLIPSE))
-  {
-    unsigned entityid = determine_topic_writer (tp);
-    struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
-    return sedp_write_topic_impl (sedp_wr, 0, &tp->e.guid, tp->definition->xqos, &tp->definition->type_id);
-  }
-  return 0;
 }
 
 #endif /* DDS_HAS_TOPIC_DISCOVERY */

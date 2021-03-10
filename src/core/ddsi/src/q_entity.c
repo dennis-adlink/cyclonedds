@@ -3278,7 +3278,7 @@ static void generic_do_match (struct entity_common *e, ddsrt_mtime_t tnow, bool 
     /* Non-builtins need matching on topics, the local orphan endpoints
        are a bit weird because they reuse the builtin entityids but
        otherwise need to be treated as normal readers */
-    struct match_entities_range_key *max = entidx_minmax_new ();
+    struct match_entities_range_key max;
     const char *tp = entity_topic_name (e);
     EELOGDISC (e, "match_%s_with_%ss(%s "PGUIDFMT") scanning all %ss%s%s\n",
                kindstr[e->kind].full_us, kindstr[mkind].full_us,
@@ -3290,10 +3290,9 @@ static void generic_do_match (struct entity_common *e, ddsrt_mtime_t tnow, bool 
        deleted between our calling init and our reaching it while
        enumerating), but we may visit a single proxy reader multiple
        times. */
-    entidx_enum_init_topic (&it, entidx, mkind, tp, max);
-    while ((em = entidx_enum_next_max (&it, max)) != NULL)
+    entidx_enum_init_topic (&it, entidx, mkind, tp, &max);
+    while ((em = entidx_enum_next_max (&it, &max)) != NULL)
       generic_do_match_connect (e, em, tnow, local);
-    entidx_minmax_free (max);
     entidx_enum_fini (&it);
   }
   else if (!local)
@@ -3451,16 +3450,15 @@ static void update_proxy_participant_endpoint_matching (struct proxy_participant
     {
       struct entidx_enum it;
       struct entity_common *em;
-      struct match_entities_range_key *max = entidx_minmax_new ();
+      struct match_entities_range_key max;
       const char *tp = entity_topic_name (e);
 
-      entidx_enum_init_topic(&it, entidx, mkind, tp, max);
-      while ((em = entidx_enum_next_max (&it, max)) != NULL)
+      entidx_enum_init_topic(&it, entidx, mkind, tp, &max);
+      while ((em = entidx_enum_next_max (&it, &max)) != NULL)
       {
         if (&pp->e == get_entity_parent(em))
           generic_do_match_connect (e, em, tnow, false);
       }
-      entidx_minmax_free (max);
       entidx_enum_fini (&it);
     }
     else
@@ -3489,17 +3487,16 @@ void update_proxy_endpoint_matching (const struct ddsi_domaingv *gv, struct gene
   assert (!is_builtin_entityid (proxy_ep->e.guid.entityid, NN_VENDORID_ECLIPSE));
   struct entidx_enum it;
   struct entity_common *em;
-  struct match_entities_range_key *max = entidx_minmax_new ();
+  struct match_entities_range_key max;
   const char *tp = entity_topic_name (&proxy_ep->e);
   ddsrt_mtime_t tnow = ddsrt_time_monotonic ();
 
-  entidx_enum_init_topic (&it, gv->entity_index, mkind, tp, max);
-  while ((em = entidx_enum_next_max (&it, max)) != NULL)
+  entidx_enum_init_topic (&it, gv->entity_index, mkind, tp, &max);
+  while ((em = entidx_enum_next_max (&it, &max)) != NULL)
   {
     GVLOGDISC ("match proxy ep "PGUIDFMT" with "PGUIDFMT"\n", PGUID (proxy_ep->e.guid), PGUID (em->guid));
     generic_do_match_connect (&proxy_ep->e, em, tnow, false);
   }
-  entidx_minmax_free (max);
   entidx_enum_fini (&it);
 }
 

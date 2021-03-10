@@ -26,19 +26,6 @@
 #include "dds/ddsi/q_rtps.h" /* guid_t */
 #include "dds/ddsi/q_thread.h" /* for assert(thread is awake) */
 
-struct match_entities_range_key {
-  union {
-#ifdef DDS_HAS_TOPIC_DISCOVERY
-    struct topic tp;
-#endif
-    struct writer wr;
-    struct reader rd;
-    struct entity_common e;
-    struct generic_proxy_endpoint gpe;
-  } entity;
-  struct dds_qos xqos;
-};
-
 struct entity_index {
   struct ddsrt_chh *guid_hash;
   ddsrt_mutex_t all_entities_lock;
@@ -167,6 +154,8 @@ static void match_endpoint_range (enum entity_kind kind, const char *tp, struct 
       break;
     case EK_TOPIC:
 #ifdef DDS_HAS_TOPIC_DISCOVERY
+      min->entity.tp.definition = &min->tpdef;
+      max->entity.tp.definition = &max->tpdef;
       min->entity.tp.definition->xqos = &min->xqos;
       max->entity.tp.definition->xqos = &max->xqos;
 #endif
@@ -204,6 +193,7 @@ static void match_entity_kind_min (enum entity_kind kind, struct match_entities_
       break;
     case EK_TOPIC:
 #ifdef DDS_HAS_TOPIC_DISCOVERY
+      min->entity.tp.definition = &min->tpdef;
       min->entity.tp.definition->xqos = &min->xqos;
 #endif
       break;
@@ -423,25 +413,8 @@ struct proxy_reader *entidx_lookup_proxy_reader_guid (const struct entity_index 
 }
 
 /* Enumeration */
-struct match_entities_range_key *entidx_minmax_new ()
-{
-  struct match_entities_range_key *minmax;
-  minmax = ddsrt_malloc (sizeof (*minmax));
-#ifdef DDS_HAS_TOPIC_DISCOVERY
-  minmax->entity.tp.definition = ddsrt_malloc (sizeof (*minmax->entity.tp.definition));
-#endif
-  return minmax;
-}
 
-void entidx_minmax_free (struct match_entities_range_key *minmax)
-{
-#ifdef DDS_HAS_TOPIC_DISCOVERY
-  ddsrt_free (minmax->entity.tp.definition);
-#endif
-  ddsrt_free (minmax);
-}
-
-static void entidx_enum_init_minmax_int (struct entidx_enum *st, const struct entity_index *ei, struct match_entities_range_key *min)
+static void entidx_enum_init_minmax_int (struct entidx_enum *st, const struct entity_index *ei, const struct match_entities_range_key *min)
 {
   /* Use a lock to protect against concurrent modification and rely on the GC not deleting
      any entities while enumerating so we can rely on the (kind, topic, GUID) triple to
@@ -462,35 +435,32 @@ static void entidx_enum_init_minmax_int (struct entidx_enum *st, const struct en
 void entidx_enum_init_topic (struct entidx_enum *st, const struct entity_index *ei, enum entity_kind kind, const char *topic, struct match_entities_range_key *max)
 {
   assert (kind == EK_READER || kind == EK_WRITER || kind == EK_PROXY_READER || kind == EK_PROXY_WRITER);
-  struct match_entities_range_key *min = entidx_minmax_new ();
-  match_endpoint_range (kind, topic, min, max);
-  entidx_enum_init_minmax_int (st, ei, min);
+  struct match_entities_range_key min;
+  match_endpoint_range (kind, topic, &min, max);
+  entidx_enum_init_minmax_int (st, ei, &min);
   if (st->cur && all_entities_compare (st->cur, &max->entity) > 0)
     st->cur = NULL;
-  entidx_minmax_free (min);
 }
 
 void entidx_enum_init_topic_w_prefix (struct entidx_enum *st, const struct entity_index *ei, enum entity_kind kind, const char *topic, const ddsi_guid_prefix_t *prefix, struct match_entities_range_key *max)
 {
   assert (kind == EK_READER || kind == EK_WRITER || kind == EK_PROXY_READER || kind == EK_PROXY_WRITER);
-  struct match_entities_range_key *min = entidx_minmax_new ();
-  match_endpoint_range (kind, topic, min, max);
-  min->entity.e.guid.prefix = *prefix;
+  struct match_entities_range_key min;
+  match_endpoint_range (kind, topic, &min, max);
+  min.entity.e.guid.prefix = *prefix;
   max->entity.e.guid.prefix = *prefix;
-  entidx_enum_init_minmax_int (st, ei, min);
+  entidx_enum_init_minmax_int (st, ei, &min);
   if (st->cur && all_entities_compare (st->cur, &max->entity) > 0)
     st->cur = NULL;
-  entidx_minmax_free (min);
 }
 
 void entidx_enum_init (struct entidx_enum *st, const struct entity_index *ei, enum entity_kind kind)
 {
-  struct match_entities_range_key *min = entidx_minmax_new ();
-  match_entity_kind_min (kind, min);
-  entidx_enum_init_minmax_int (st, ei, min);
+  struct match_entities_range_key min;
+  match_entity_kind_min (kind, &min);
+  entidx_enum_init_minmax_int (st, ei, &min);
   if (st->cur && st->cur->kind != st->kind)
     st->cur = NULL;
-  entidx_minmax_free (min);
 }
 
 void entidx_enum_writer_init (struct entidx_enum_writer *st, const struct entity_index *ei)

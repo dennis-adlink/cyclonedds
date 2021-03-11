@@ -291,7 +291,6 @@ void dds_builtintopic_free_endpoint (dds_builtintopic_endpoint_t * builtintopic_
   ddsrt_free (builtintopic_endpoint);
 }
 
-#ifdef DDS_HAS_TOPIC_DISCOVERY
 void dds_builtintopic_free_topic (dds_builtintopic_topic_t * builtintopic_topic)
 {
   dds_delete_qos (builtintopic_topic->qos);
@@ -299,7 +298,6 @@ void dds_builtintopic_free_topic (dds_builtintopic_topic_t * builtintopic_topic)
   ddsrt_free (builtintopic_topic->type_name);
   ddsrt_free (builtintopic_topic);
 }
-#endif
 
 void dds_builtintopic_free_participant (dds_builtintopic_participant_t * builtintopic_participant)
 {

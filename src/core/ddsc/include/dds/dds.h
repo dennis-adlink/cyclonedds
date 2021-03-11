@@ -205,8 +205,6 @@ typedef struct dds_builtintopic_participant
 }
 dds_builtintopic_participant_t;
 
-#ifdef DDS_HAS_TOPIC_DISCOVERY
-
 typedef struct dds_builtintopic_topic_key {
   unsigned char d[16];
 } dds_builtintopic_topic_key_t;
@@ -219,7 +217,6 @@ typedef struct dds_builtintopic_topic
   dds_qos_t *qos;
 }
 dds_builtintopic_topic_t;
-#endif
 
 typedef struct dds_builtintopic_endpoint
 {
@@ -3762,7 +3759,6 @@ DDS_EXPORT void
 dds_builtintopic_free_endpoint (
   dds_builtintopic_endpoint_t * builtintopic_endpoint);
 
-#ifdef DDS_HAS_TOPIC_DISCOVERY
 /**
  * @brief Free the provided topic information
  *
@@ -3775,7 +3771,6 @@ dds_builtintopic_free_endpoint (
 DDS_EXPORT void
 dds_builtintopic_free_topic (
   dds_builtintopic_topic_t * builtintopic_topic);
-#endif /* DDS_HAS_TOPIC_DISCOVERY */
 
 /**
  * @brief Free the provided participant information

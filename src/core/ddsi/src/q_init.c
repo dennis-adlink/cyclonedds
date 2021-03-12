@@ -1281,10 +1281,10 @@ int rtps_init (struct ddsi_domaingv *gv)
   ddsrt_cond_init (&gv->tl_resolved_cond);
   gv->tl_admin = ddsrt_hh_new (1, tl_meta_hash_wrap, tl_meta_equal_wrap);
 #endif
-#ifdef DDS_HAS_TOPIC_DISCOVERY
   ddsrt_mutex_init (&gv->new_topic_lock);
   ddsrt_cond_init (&gv->new_topic_cond);
   gv->new_topic_version = 0;
+#ifdef DDS_HAS_TOPIC_DISCOVERY
   ddsrt_mutex_init (&gv->topic_defs_lock);
   gv->topic_defs = ddsrt_hh_new (1, topic_definition_hash_wrap, topic_definition_equal_wrap);
 #endif
@@ -1649,9 +1649,9 @@ err_unicast_sockets:
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   ddsrt_hh_free (gv->topic_defs);
   ddsrt_mutex_destroy (&gv->topic_defs_lock);
+#endif
   ddsrt_mutex_destroy (&gv->new_topic_lock);
   ddsrt_cond_destroy (&gv->new_topic_cond);
-#endif
 #ifdef DDS_HAS_TYPE_DISCOVERY
   ddsrt_hh_free (gv->tl_admin);
   ddsrt_mutex_destroy (&gv->tl_admin_lock);

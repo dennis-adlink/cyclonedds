@@ -36,7 +36,9 @@ char g_topic_name_local[MAX_NAME_SIZE];
 
 static void topic_find_local_init (void)
 {
-  g_domain1 = dds_create_domain (DDS_DOMAINID1, NULL);
+  const char *cyclonedds_uri = "";
+  (void) ddsrt_getenv ("CYCLONEDDS_URI", &cyclonedds_uri);
+  g_domain1 = dds_create_domain (DDS_DOMAINID1, cyclonedds_uri);
   CU_ASSERT_FATAL (g_domain1 > 0);
 
   g_participant1 = dds_create_participant (DDS_DOMAINID1, NULL, NULL);

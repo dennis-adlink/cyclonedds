@@ -6114,9 +6114,7 @@ void update_proxy_topic (struct proxy_participant *proxypp, struct proxy_topic *
   dds_delete_qos (newqos);
   if (new_tpd)
   {
-    ddsrt_mutex_lock (&gv->topic_defs_lock);
     builtintopic_write_topic (gv->builtin_topic_interface, tpd1, timestamp, true);
-    ddsrt_mutex_unlock (&gv->topic_defs_lock);
 
     ddsrt_mutex_lock (&gv->new_topic_lock);
     gv->new_topic_version++;

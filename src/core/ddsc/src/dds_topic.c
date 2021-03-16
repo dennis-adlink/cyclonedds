@@ -738,18 +738,13 @@ static dds_entity_t find_remote_topic_impl (dds_participant *pp_topic, const cha
     return ret;
   if (tpd == NULL)
     return DDS_RETCODE_OK;
-  if (tpd->type == NULL)
+  if ((ret = dds_domain_resolve_type (pp_topic->m_entity.m_hdllink.hdl, tpd->type_id.hash, sizeof (tpd->type_id.hash), timeout, &sertype)) != DDS_RETCODE_OK)
   {
     /* if topic definition is found, but the type for this topic is not resolved
-        and timeout 0 means we don't want to request and wait the type to be retrieved */
-    if (timeout == 0)
-      return DDS_RETCODE_OK;
-    if ((ret = dds_domain_resolve_type (pp_topic->m_entity.m_hdllink.hdl, tpd->type_id.hash, sizeof (tpd->type_id.hash), timeout, &sertype)) != DDS_RETCODE_OK)
-      return ret;
-  }
-  else
-  {
-    sertype = ddsi_sertype_ref (tpd->type);
+        and timeout 0 means we don't want to request and wait for the type to be retrieved */
+    if (ret == DDS_RETCODE_TIMEOUT && timeout == 0)
+      ret = DDS_RETCODE_OK;
+    return ret;
   }
   return dds_create_topic_impl (pp_topic->m_entity.m_hdllink.hdl, name, false, &sertype, tpd->xqos, NULL, NULL, false);
 }

@@ -4894,7 +4894,7 @@ void update_topic_qos (struct topic *tp, const dds_qos_t *xqos)
   ddsi_xqos_mergein_missing (newqos, xqos, mask);
   ddsi_xqos_mergein_missing (newqos, tpd->xqos, ~(uint64_t)0);
   ddsrt_mutex_lock (&gv->topic_defs_lock);
-  tp->definition = ref_topic_definition_locked (gv, tpd->type, &tpd->type_id, newqos, &new_tpd);
+  tp->definition = ref_topic_definition_locked (gv, NULL, &tpd->type_id, newqos, &new_tpd);
   unref_topic_definition_locked (tpd, ddsrt_time_wallclock());
   ddsrt_mutex_unlock (&gv->topic_defs_lock);
   if (new_tpd)
@@ -5895,7 +5895,6 @@ static struct ddsi_topic_definition * new_topic_definition (struct ddsi_domaingv
   tpd->gv = gv;
   if (type != NULL)
   {
-    tpd->type = ddsi_sertype_ref (type);
     type_identifier_t *type_id = ddsi_typeid_from_sertype (type);
     memcpy (&tpd->type_id, type_id, sizeof (tpd->type_id));
     ddsrt_free (type_id);
@@ -5909,7 +5908,6 @@ static struct ddsi_topic_definition * new_topic_definition (struct ddsi_domaingv
   }
   else
   {
-    tpd->type = NULL;
     assert (qos->present & QP_CYCLONE_TYPE_INFORMATION);
     assert (qos->type_information.length == sizeof (tpd->type_id));
     memcpy (&tpd->type_id, qos->type_information.value, sizeof (tpd->type_id));
@@ -5993,8 +5991,6 @@ static void gc_delete_topic_definition (struct gcreq *gcreq)
   struct ddsi_domaingv *gv = tpd->gv;
   GVLOGDISC ("gcreq_delete_topic_definition(%p)\n", (void *) gcreq);
   builtintopic_write_topic (gv->builtin_topic_interface, tpd, gcdata->timestamp, false);
-  if (tpd->type != NULL)
-    ddsi_sertype_unref ((struct ddsi_sertype *) tpd->type);
   ddsi_xqos_fini (tpd->xqos);
   ddsrt_free (tpd->xqos);
   ddsrt_free (tpd);
@@ -6106,7 +6102,7 @@ void update_proxy_topic (struct proxy_participant *proxypp, struct proxy_topic *
   ddsi_xqos_mergein_missing (newqos, xqos, mask);
   ddsi_xqos_mergein_missing (newqos, tpd0->xqos, ~(uint64_t)0);
   bool new_tpd = false;
-  struct ddsi_topic_definition *tpd1 = ref_topic_definition_locked (gv, tpd0->type, &tpd0->type_id, newqos, &new_tpd);
+  struct ddsi_topic_definition *tpd1 = ref_topic_definition_locked (gv, NULL, &tpd0->type_id, newqos, &new_tpd);
   unref_topic_definition_locked (tpd0, timestamp);
   proxytp->definition = tpd1;
   ddsrt_mutex_unlock (&gv->topic_defs_lock);

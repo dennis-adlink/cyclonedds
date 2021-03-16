@@ -352,27 +352,12 @@ static void tlm_register_with_proxy_endpoints_locked (struct ddsi_domaingv *gv, 
   for (ddsi_guid_t guid = tlm_proxy_guid_list_iter_first (&tlm->proxy_guids, &proxy_guid_it); !is_null_guid (&guid); guid = tlm_proxy_guid_list_iter_next (&proxy_guid_it))
   {
 #ifdef DDS_HAS_TOPIC_DISCOVERY
-    if (is_topic_entityid (guid.entityid))
-    {
-      ddsi_guid_t proxypp_guid = { .prefix = guid.prefix, .entityid.u = NN_ENTITYID_PARTICIPANT };
-      struct proxy_participant *proxypp = entidx_lookup_proxy_participant_guid (gv->entity_index, &proxypp_guid);
-      if (proxypp != NULL)
-      {
-        proxy_topic_list_iter_t proxytp_it;
-        ddsrt_mutex_lock (&proxypp->e.lock);
-        for (struct proxy_topic *proxytp = proxy_topic_list_iter_first (&proxypp->topics, &proxytp_it); proxytp != NULL; proxytp = proxy_topic_list_iter_next (&proxytp_it))
-        {
-          if (!proxytp->deleted && proxytp->entityid.u == guid.entityid.u)
-          {
-            if (proxytp->definition->type == NULL)
-              proxytp->definition->type = ddsi_sertype_ref (tlm->sertype);
-            break;
-          }
-        }
-        ddsrt_mutex_unlock (&proxypp->e.lock);
-      }
-    }
-    else
+    /* For proxy topics the type is not registered (in its topic definition),
+       becauses (besides that it causes some locking-order trouble) it would
+       only be used when searching for topics and at that point it can easily
+       be retrieved using the type identifier via a lookup in the type_lookup
+       administration. */
+    if (!is_topic_entityid (guid.entityid))
 #endif
     {
       struct entity_common *ec;

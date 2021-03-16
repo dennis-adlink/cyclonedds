@@ -449,6 +449,12 @@ dds_return_t dds_domain_resolve_type (dds_entity_t entity, unsigned char *type_i
     *sertype = ddsi_sertype_ref (tlm->sertype);
     ddsrt_mutex_unlock (&gv->tl_admin_lock);
   }
+  else if (timeout == 0)
+  {
+    ddsrt_mutex_unlock (&gv->tl_admin_lock);
+    rc = DDS_RETCODE_TIMEOUT;
+    goto failed;
+  }
   else
   {
     ddsrt_mutex_unlock (&gv->tl_admin_lock);

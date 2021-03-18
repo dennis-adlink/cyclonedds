@@ -75,13 +75,13 @@ static void msg (const char *msg, ...)
 }
 
 CU_TheoryDataPoints(ddsc_topic_discovery, remote_topics) = {
-    CU_DataPoints(uint32_t,     1,     1,     5,     5,    30,     1,     1,     5,     5,    30,    1,    5), /* number of participants */
-    CU_DataPoints(uint32_t,     1,     5,     1,    64,     3,     1,     5,     1,    64,     3,    1,   30), /* number of topics per participant */
+    CU_DataPoints(uint32_t,     1,     1,     5,     5,    20,     1,     1,     5,     5,    20,    1,    5), /* number of participants */
+    CU_DataPoints(uint32_t,     1,     5,     1,    30,     3,     1,     5,     1,    30,     3,    1,   30), /* number of topics per participant */
     CU_DataPoints(bool,      true,  true,  true,  true,  true, false, false, false, false, false, true, true), /* test historical data for topic discovery */
     CU_DataPoints(bool,     false, false, false, false, false,  true,  true,  true,  true,  true, true, true), /* test live topic discovery */
 };
 
-CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), ddsc_topic_discovery, remote_topics, .init = topic_discovery_init, .fini = topic_discovery_fini, .timeout = 40)
+CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), ddsc_topic_discovery, remote_topics, .init = topic_discovery_init, .fini = topic_discovery_fini, .timeout = 60)
 {
   msg ("ddsc_topic_discovery.remote_topics: %u participants, %u topics,%s%s\n", num_pp, num_tp, hist_data ? " historical-data" : "", live_data ? " live-data" : "");
 
@@ -137,7 +137,7 @@ CU_Theory ((uint32_t num_pp, uint32_t num_tp, bool hist_data, bool live_data), d
   }
 
   /* read DCPSTopic and check if all topics seen */
-  dds_time_t t_exp = dds_time () + DDS_SECS (20);
+  dds_time_t t_exp = dds_time () + DDS_SECS (30);
   do
   {
     void *raw[1] = { 0 };
@@ -293,7 +293,7 @@ CU_Test (ddsc_topic_discovery, different_type, .init = topic_discovery_init, .fi
 }
 
 #define NUM_PP 10
-#define NUM_TP 50
+#define NUM_TP 30
 #define DELAY_MSECS 50
 static ddsrt_atomic_uint32_t terminate;
 static dds_entity_t participants[NUM_PP], participants_remote[NUM_PP];
@@ -347,13 +347,15 @@ static uint32_t read_topic_thread (void *varg)
   return 0;
 }
 
-CU_Test (ddsc_topic_discovery, topic_qos_update, .init = topic_discovery_init, .fini = topic_discovery_fini)
+CU_Test (ddsc_topic_discovery, topic_qos_update, .init = topic_discovery_init, .fini = topic_discovery_fini, .timeout = 60)
 {
   ddsrt_thread_t tid;
   ddsrt_threadattr_t tattr;
   ddsrt_threadattr_init (&tattr);
   dds_return_t ret;
   ddsrt_atomic_st32 (&terminate, 0);
+
+  msg ("ddsc_topic_discovery.topic_qos_update\n");
 
   for (uint32_t p = 0; p < NUM_PP; p++)
   {
@@ -388,9 +390,11 @@ CU_Test (ddsc_topic_discovery, topic_qos_update, .init = topic_discovery_init, .
   CU_ASSERT_FATAL (ret == DDS_RETCODE_OK);
 
   uint32_t v;
+  uint32_t c = 0;
   while (!ddsrt_atomic_ld32 (&terminate))
   {
     for (uint32_t p = 0; p < NUM_PP; p++)
+    {
       for (uint32_t t = 0; t < NUM_TP; t++)
       {
         v = ddsrt_random ();
@@ -402,7 +406,13 @@ CU_Test (ddsc_topic_discovery, topic_qos_update, .init = topic_discovery_init, .
         dds_qset_topicdata (qos, &v, sizeof (v));
         ret = dds_set_qos(topics_remote[p][t], qos);
         CU_ASSERT_FATAL(ret == DDS_RETCODE_OK || ret == DDS_RETCODE_BAD_PARAMETER); /* topic may be deleted */
+
+        dds_sleepfor (DDS_MSECS (1));
+        c++;
       }
+    }
+    dds_sleepfor (DDS_MSECS (DELAY_MSECS));
   }
   dds_delete_qos (qos);
+  msg ("%u qos updates\n", c);
 }

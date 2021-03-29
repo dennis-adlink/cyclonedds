@@ -10,6 +10,7 @@
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
  */
 
+#include "dds/ddsrt/heap.h"
 #include "dds/ddsc/dds_public_impl.h"
 #include "dds/ddsi/ddsi_type_information.h"
 #include "dds/ddsi/ddsi_type_lookup.h"
@@ -44,9 +45,9 @@ bool ddsi_type_information_equal (const struct TypeInformation *a, const struct 
   return type_id_with_deps_equal (&a->minimal, &b->minimal) && type_id_with_deps_equal (&a->complete, &b->complete);
 }
 
-struct TypeInformation *ddsi_type_information_lookup (const struct ddsi_domaingv *gv, const struct TypeIdentifier *typeid)
+struct TypeInformation *ddsi_type_information_lookup (struct ddsi_domaingv *gv, const struct TypeIdentifier *typeid)
 {
-  struct tl_meta tlm = ddsi_tl_meta_lookup (gv, typeid);
+  struct tl_meta *tlm = ddsi_tl_meta_lookup (gv, typeid);
   if (tlm == NULL)
     return NULL;
   struct TypeInformation *type_info = ddsrt_calloc (1, sizeof (*type_info));
@@ -60,7 +61,14 @@ struct TypeInformation *ddsi_type_information_lookup (const struct ddsi_domaingv
   return type_info;
 }
 
-void ddsi_type_information_fini (struct TypeInformation *typeinfo)
+void ddsi_type_information_copy (struct TypeInformation *dst, const struct TypeInformation *src)
+{
+  (void) dst;
+  (void) src;
+  // FIXME
+}
+
+void ddsi_type_information_free (struct TypeInformation *typeinfo)
 {
   ddsrt_free (typeinfo);
 }

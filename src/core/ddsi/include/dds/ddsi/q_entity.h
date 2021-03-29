@@ -29,7 +29,7 @@
 #include "dds/ddsi/ddsi_serdata_default.h"
 #include "dds/ddsi/ddsi_handshake.h"
 #include "dds/ddsi/ddsi_type_identifier.h"
-#include "dds/ddsi/ddsi_typelookup.h"
+#include "dds/ddsi/ddsi_type_lookup.h"
 #include "dds/ddsi/ddsi_tran.h"
 #include "dds/ddsi/ddsi_list_genptr.h"
 
@@ -261,7 +261,7 @@ struct participant
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 struct ddsi_topic_definition {
   unsigned char key[16]; /* key for this topic definition (MD5 hash of the type_id and qos */
-  type_identifier_t type_id; /* type identifier for this topic */
+  struct TypeIdentifier type_id; /* type identifier for this topic */
   const struct ddsi_sertype * type;
   struct dds_qos *xqos; /* contains also the topic name and type name */
   uint32_t refc;
@@ -784,20 +784,13 @@ dds_return_t ddsi_new_topic (struct topic **tp_out, struct ddsi_guid *tpguid, st
 void update_topic_qos (struct topic *tp, const dds_qos_t *xqos);
 dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *guid);
 
-<<<<<<< HEAD
 int topic_definition_equal (const struct ddsi_topic_definition *tpd_a, const struct ddsi_topic_definition *tpd_b);
 uint32_t topic_definition_hash (const struct ddsi_topic_definition *tpd);
 dds_return_t lookup_topic_definition_by_name (struct ddsi_domaingv *gv, const char * topic_name, struct ddsi_topic_definition **tpd);
-void new_proxy_topic (struct proxy_participant *proxypp, seqno_t seq, const ddsi_guid_t *guid, const type_identifier_t *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp);
+void new_proxy_topic (struct proxy_participant *proxypp, seqno_t seq, const ddsi_guid_t *guid, const struct TypeIdentifier *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp);
 struct proxy_topic *lookup_proxy_topic (struct proxy_participant *proxypp, const ddsi_guid_t *guid);
 void update_proxy_topic (struct proxy_participant *proxypp, struct proxy_topic *proxytp, seqno_t seq, struct dds_qos *xqos, ddsrt_wctime_t timestamp);
 int delete_proxy_topic_locked (struct proxy_participant *proxypp, struct proxy_topic *proxytp, ddsrt_wctime_t timestamp);
-=======
-int topic_definition_equal (const struct topic_definition *tp_def_a, const struct topic_definition *tp_def_b);
-uint32_t topic_definition_hash (const struct topic_definition *tp_def);
-dds_return_t lookup_topic_definition_by_name (struct ddsi_domaingv *gv, const char * topic_name, struct topic_definition **topic_definition);
-bool new_proxy_topic (struct proxy_participant *proxypp, const ddsi_guid_t *guid, const struct TypeIdentifier *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp);
->>>>>>> 8d8fa672... [wip] assignability checking
 #endif
 
 /* To create a new proxy writer or reader; the proxy participant is

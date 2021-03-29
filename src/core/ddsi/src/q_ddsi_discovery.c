@@ -997,8 +997,8 @@ static int sedp_write_endpoint_impl
 #ifdef DDS_HAS_TYPE_DISCOVERY
     ps.qos.present |= QP_TYPE_INFORMATION;
     struct TypeInformation *type_info = ddsi_type_information_lookup (gv, type_id);
-    ddsi_typeid_copy (&ps.qos.type_information, type_info);
-    ddsi_type_information_fini (type_info);
+    ddsi_type_information_copy (ps.qos.type_information, type_info);
+    ddsi_type_information_free (type_info);
 #endif
   }
 
@@ -1032,8 +1032,9 @@ static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_
   if (!ddsi_typeid_none (type_id))
   {
     ps.qos.present |= QP_TYPE_INFORMATION;
-    ddsi_typeid_copy (ps.qos.type_information.value, &type_id);
-    (void) type_id;
+    // FIXME
+    ps.qos.type_information = ddsrt_calloc (1, sizeof (*ps.qos.type_information));
+    ddsi_typeid_copy (&ps.qos.type_information->minimal.typeid_with_size.type_id, type_id);
   }
   if (xqos)
     ddsi_xqos_mergein_missing (&ps.qos, xqos, qosdiff);
@@ -1317,11 +1318,12 @@ static void handle_sedp_alive_endpoint (const struct receiver_state *rst, seqno_
              ((xqos->present & QP_PARTITION) && xqos->partition.n > 1) ? "+" : "",
              xqos->topic_name, xqos->type_name);
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  type_identifier_t type_id;
-  if ((xqos->present & QP_CYCLONE_TYPE_INFORMATION) && xqos->type_information.length == sizeof (type_id.hash))
+  struct TypeIdentifier type_id;
+  if (xqos->present & QP_TYPE_INFORMATION)
   {
-    memcpy (type_id.hash, xqos->type_information.value, sizeof (type_id.hash));
-    GVLOGDISC (" type-hash "PTYPEIDFMT, PTYPEID (type_id));
+    ddsi_typeid_copy (&type_id, &xqos->type_information->minimal.typeid_with_size.type_id);
+    // FIXME
+    // GVLOGDISC (" type-hash "PTYPEIDFMT, PTYPEID (type_id));
   }
 #endif
 
@@ -1462,7 +1464,7 @@ static void handle_sedp_alive_topic (const struct receiver_state *rst, seqno_t s
   ddsi_guid_t ppguid;
   dds_qos_t *xqos;
   int reliable;
-  struct TypeIdentifier type_id; // FIXME = { .hash = { 0 }};
+  struct TypeIdentifier type_id;
 
   assert (datap);
   assert (datap->present & PP_CYCLONE_TOPIC_GUID);
@@ -1485,10 +1487,11 @@ static void handle_sedp_alive_topic (const struct receiver_state *rst, seqno_t s
              reliable ? "reliable" : "best-effort",
              durability_to_string (xqos->durability.kind),
              "topic", xqos->topic_name, xqos->type_name);
-  if ((xqos->present & QP_CYCLONE_TYPE_INFORMATION) && xqos->type_information.length == sizeof (type_id.hash))
+  if (xqos->present & QP_TYPE_INFORMATION)
   {
-    memcpy (type_id.hash, xqos->type_information.value, sizeof (type_id.hash));
-    GVLOGDISC (" type-hash "PTYPEIDFMT, PTYPEID(type_id));
+    ddsi_typeid_copy (&type_id, &xqos->type_information->minimal.typeid_with_size.type_id);
+    // FIXME
+    // GVLOGDISC (" type-hash "PTYPEIDFMT, PTYPEID(type_id));
   }
   GVLOGDISC (" QOS={");
   ddsi_xqos_log (DDS_LC_DISCOVERY, &gv->logconfig, xqos);

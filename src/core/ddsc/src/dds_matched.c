@@ -270,18 +270,13 @@ dds_builtintopic_endpoint_t *dds_get_matched_publication_data (dds_entity_t read
 }
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
-dds_return_t dds_builtintopic_get_endpoint_typeid (dds_builtintopic_endpoint_t * builtintopic_endpoint, unsigned char **type_identifier, size_t *size)
+dds_return_t dds_builtintopic_get_endpoint_typeid (dds_builtintopic_endpoint_t * builtintopic_endpoint, struct TypeIdentifier **type_identifier)
 {
   if (builtintopic_endpoint == NULL)
     return DDS_RETCODE_BAD_PARAMETER;
   *type_identifier = NULL;
-  *size = 0;
-  // FIXME
-  // if ((builtintopic_endpoint->qos->present & QP_TYPE_INFORMATION)
-  //   && (*size = builtintopic_endpoint->qos->type_information.length) > 0)
-  // {
-  //   *type_identifier = ddsrt_memdup (builtintopic_endpoint->qos->type_information, *size);
-  // }
+  if (builtintopic_endpoint->qos->present & QP_TYPE_INFORMATION)
+    ddsi_typeid_copy (*type_identifier, &builtintopic_endpoint->qos->type_information->minimal.typeid_with_size.type_id);
   return DDS_RETCODE_OK;
 }
 #endif

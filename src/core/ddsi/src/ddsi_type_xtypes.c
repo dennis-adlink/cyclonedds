@@ -897,5 +897,5 @@ bool ddsi_xt_is_assignable_from (const struct ddsi_domaingv *gv, const struct xt
 
 bool ddsi_xt_has_complete_typeid (const struct xt_type *xt)
 {
-  return xt_is_fully_descriptive_typeid (xt->ti);
+  return xt_is_fully_descriptive_typeid (xt);
 }

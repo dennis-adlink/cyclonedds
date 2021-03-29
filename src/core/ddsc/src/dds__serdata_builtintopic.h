@@ -45,7 +45,7 @@ struct ddsi_serdata_builtintopic_participant {
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 struct ddsi_serdata_builtintopic_topic {
   struct ddsi_serdata_builtintopic common;
-  type_identifier_t type_id;
+  struct TypeIdentifier type_id;
 };
 #endif
 

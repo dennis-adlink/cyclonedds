@@ -67,20 +67,6 @@ typedef struct dds_topic_descriptor
 }
 dds_topic_descriptor_t;
 
-/* Topic descriptor flag values */
-
-#define DDS_TOPIC_FLAGS_MASK                    0x7fffffff
-#define DDS_TOPIC_NO_OPTIMIZE                   (1u << 0)
-#define DDS_TOPIC_FIXED_KEY                     (1u << 1)
-#define DDS_TOPIC_CONTAINS_UNION                (1u << 2)
-#define DDS_TOPIC_DISABLE_TYPECHECK             (1u << 3)
-
-#define DDS_TOPIC_TYPE_EXTENSIBILITY_MASK       0xc0000000
-#define DDS_TOPIC_TYPE_EXTENSIBILITY(fs)        (((fs) & DDS_TOPIC_TYPE_EXTENSIBILITY_MASK) >> 30)
-#define DDS_TOPIC_TYPE_EXTENSIBILITY_FINAL      (0u << 30)
-#define DDS_TOPIC_TYPE_EXTENSIBILITY_APPENDABLE (1u << 30)
-#define DDS_TOPIC_TYPE_EXTENSIBILITY_MUTABLE    (2u << 30)
-
 /*
   Masks for read condition, read, take: there is only one mask here,
   which combines the sample, view and instance states.

@@ -55,6 +55,7 @@ struct ddsi_plist;
 struct ddsi_sertype;
 struct ddsi_serdata;
 struct ddsi_sertopic; // deprecated, binary compatibility only
+struct TypeIdentifier;
 
 #define DDS_MIN_PSEUDO_HANDLE ((dds_entity_t) 0x7fff0000)
 
@@ -3832,14 +3833,12 @@ dds_get_matched_publication_data (
  * dds_get_matched_publication_data
  *
  * @param[in] builtintopic_endpoint  The builtintopic endpoint struct
- * @param[out] type_identifier       Buffer that will be allocated for the type identifier. Needs to be freed by the caller of this function.
- * @param[out] size                  Number of bytes in type_identifier buffer
+ * @param[out] type_identifier       Type identifier that will be allocated by this function in case of success. Needs to be freed by the caller.
  */
 DDS_EXPORT dds_return_t
 dds_builtintopic_get_endpoint_typeid (
   dds_builtintopic_endpoint_t * builtintopic_endpoint,
-  unsigned char **type_identifier,
-  size_t *size);
+  struct TypeIdentifier **type_identifier);
 #endif
 
 /**
@@ -3948,8 +3947,7 @@ dds_domain_set_deafmute (
  *
  * @param[in]   entity              A domain entity or an entity bound to a domain, such
  *                                  as a participant, reader or writer.
- * @param[in]   type_identifier     Type identifier data
- * @param[in]   type_identifier_sz  Length of the type identifier data
+ * @param[in]   type_id             Type identifier
  * @param[in]   timeout             Timeout for waiting for requested type information to be available
  * @param[out]  sertype             The type information, or NULL if the type could not be resolved
  *
@@ -3974,8 +3972,7 @@ dds_domain_set_deafmute (
 DDS_EXPORT dds_return_t
 dds_domain_resolve_type (
   dds_entity_t entity,
-  unsigned char *type_identifier,
-  size_t type_identifier_sz,
+  struct TypeIdentifier *type_id,
   dds_duration_t timeout,
   struct ddsi_sertype **sertype);
 

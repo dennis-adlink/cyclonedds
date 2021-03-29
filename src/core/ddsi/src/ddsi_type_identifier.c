@@ -28,7 +28,6 @@ void ddsi_typeid_copy (struct TypeIdentifier *dst, const struct TypeIdentifier *
   assert (dst);
 
   abort ();
-  return t;
 }
 
 bool ddsi_typeid_equal (const struct TypeIdentifier *a, const struct TypeIdentifier *b)

@@ -23,6 +23,8 @@
 extern "C" {
 #endif
 
+struct ddsi_domaingv;
+
 // @extensibility(APPENDABLE)
 // struct TypeIdentfierWithSize {
 //  TypeIdentifier type_id;
@@ -181,7 +183,9 @@ static const uint32_t TypeInformation_ops [] =
 };
 
 bool ddsi_type_information_equal (const struct TypeInformation *a, const struct TypeInformation *b);
-struct TypeInformation *ddsi_type_information_lookup (const struct ddsi_domaingv *gv, const struct TypeIdentifier *typeid);
+void ddsi_type_information_copy (struct TypeInformation *dst, const struct TypeInformation *src);
+struct TypeInformation *ddsi_type_information_lookup (struct ddsi_domaingv *gv, const struct TypeIdentifier *typeid);
+void ddsi_type_information_free (struct TypeInformation *typeinfo);
 
 #if defined (__cplusplus)
 }

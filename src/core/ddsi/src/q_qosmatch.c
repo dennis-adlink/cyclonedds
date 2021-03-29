@@ -77,10 +77,10 @@ static bool check_assignability (struct tl_meta *rd_tlm, struct tl_meta *wr_tlm)
   return ddsi_sertype_assignable_from (rd_tlm->sertype, wr_tlm->sertype);
 }
 
-static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const type_identifier_t *type_id, struct tl_meta **tlm, bool *req_lookup)
+static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, struct tl_meta **tlm, bool *req_lookup)
   ddsrt_nonnull((1, 2, 3));
 
-static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const type_identifier_t *type_id, struct tl_meta **tlm, bool *req_lookup)
+static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, struct tl_meta **tlm, bool *req_lookup)
 {
   assert (tlm != NULL);
 

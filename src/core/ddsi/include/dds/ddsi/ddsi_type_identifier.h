@@ -16,10 +16,13 @@
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
 #include <stdint.h>
+#include <stdbool.h>
 
 #if defined (__cplusplus)
 extern "C" {
 #endif
+
+struct ddsi_sertype;
 
 #define PTYPEIDFMT "%u"
 #define PTYPEID(x) ((x)._d)
@@ -399,7 +402,7 @@ typedef struct TypeIdentifierTypeObjectPairSeq {
 } TypeIdentifierTypeObjectPairSeq_t;
 
 DDS_EXPORT struct TypeIdentifier * ddsi_typeid_from_sertype (const struct ddsi_sertype * type);
-DDS_EXPORT void ddsi_typeid_copy (struct TypeIdentifier *dst, const struct TypeIdentifier *src)
+DDS_EXPORT void ddsi_typeid_copy (struct TypeIdentifier *dst, const struct TypeIdentifier *src);
 DDS_EXPORT bool ddsi_typeid_equal (const struct TypeIdentifier *a, const struct TypeIdentifier *b);
 DDS_EXPORT bool ddsi_typeid_none (const struct TypeIdentifier *typeid);
 

@@ -45,10 +45,11 @@ static bool sertype_pserop_equal (const struct ddsi_sertype *acmn, const struct 
   return true;
 }
 
-static bool sertype_pserop_typeid_hash (const struct ddsi_sertype *tpcmn, unsigned char *buf)
+static uint32_t sertype_pserop_hash (const struct ddsi_sertype *tpcmn)
 {
-  const struct ddsi_sertype_pserop *tp = (struct ddsi_sertype_pserop *) tpcmn;
-
+  assert (tpcmn);
+  struct ddsi_sertype_pserop *tp = (struct ddsi_sertype_pserop *) tpcmn;
+  unsigned char buf[16];
   ddsrt_md5_state_t md5st;
   ddsrt_md5_init (&md5st);
   ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) &tp->encoding_format, sizeof (tp->encoding_format));
@@ -59,18 +60,12 @@ static bool sertype_pserop_typeid_hash (const struct ddsi_sertype *tpcmn, unsign
   if (tp->ops_key)
     ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) tp->ops_key, (uint32_t) tp->nops_key * sizeof (*tp->ops_key));
   ddsrt_md5_finish (&md5st, (ddsrt_md5_byte_t *) buf);
-  return true;
-}
-
-static uint32_t sertype_pserop_hash (const struct ddsi_sertype *tpcmn)
-{
-  unsigned char buf[16];
-  sertype_pserop_typeid_hash (tpcmn, buf);
   return *(uint32_t *) buf;
 }
 
 static void sertype_pserop_free (struct ddsi_sertype *tpcmn)
 {
+  assert (tpcmn);
   struct ddsi_sertype_pserop *tp = (struct ddsi_sertype_pserop *) tpcmn;
   ddsi_sertype_fini (&tp->c);
   ddsrt_free (tp);
@@ -124,7 +119,8 @@ const struct ddsi_sertype_ops ddsi_sertype_ops_pserop = {
   .arg = 0,
   .equal = sertype_pserop_equal,
   .hash = sertype_pserop_hash,
-  .typeid_hash = sertype_pserop_typeid_hash,
+  .typeid = 0,
+  .typeobj = 0,
   .free = sertype_pserop_free,
   .zero_samples = sertype_pserop_zero_samples,
   .realloc_samples = sertype_pserop_realloc_samples,

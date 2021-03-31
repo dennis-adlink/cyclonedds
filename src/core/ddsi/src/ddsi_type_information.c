@@ -18,7 +18,7 @@
 
 static bool type_id_with_size_equal (const struct TypeIdentifierWithSize *a, const struct TypeIdentifierWithSize *b)
 {
-  return ddsi_typeid_equal (&a->type_id, &b->type_id) && a->typeobject_serialized_size == b->typeobject_serialized_size;
+  return !ddsi_typeid_compare (&a->type_id, &b->type_id) && a->typeobject_serialized_size == b->typeobject_serialized_size;
 }
 
 static bool type_id_with_sizeseq_equal (const struct TypeIdentifierWithSizeSeq *a, const struct TypeIdentifierWithSizeSeq *b)
@@ -45,30 +45,3 @@ bool ddsi_type_information_equal (const struct TypeInformation *a, const struct 
   return type_id_with_deps_equal (&a->minimal, &b->minimal) && type_id_with_deps_equal (&a->complete, &b->complete);
 }
 
-struct TypeInformation *ddsi_type_information_lookup (struct ddsi_domaingv *gv, const struct TypeIdentifier *typeid)
-{
-  struct tl_meta *tlm = ddsi_tl_meta_lookup (gv, typeid);
-  if (tlm == NULL)
-    return NULL;
-  struct TypeInformation *type_info = ddsrt_calloc (1, sizeof (*type_info));
-  ddsi_typeid_copy (&type_info->minimal.typeid_with_size.type_id, &tlm->type_id);
-  type_info->minimal.typeid_with_size.typeobject_serialized_size = 0; /* FIXME */
-  if (ddsi_xt_has_complete_typeid (tlm->xt))
-  {
-    ddsi_typeid_copy (&type_info->complete.typeid_with_size.type_id, &tlm->type_id_complete);
-    type_info->complete.typeid_with_size.typeobject_serialized_size = 0; /* FIXME */
-  }
-  return type_info;
-}
-
-void ddsi_type_information_copy (struct TypeInformation *dst, const struct TypeInformation *src)
-{
-  (void) dst;
-  (void) src;
-  // FIXME
-}
-
-void ddsi_type_information_free (struct TypeInformation *typeinfo)
-{
-  ddsrt_free (typeinfo);
-}

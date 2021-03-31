@@ -132,7 +132,7 @@ static dds_builtintopic_endpoint_t *make_builtintopic_endpoint (
     dds_instance_handle_t ppiid,
     const dds_qos_t *qos
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    , const struct TypeIdentifier *type_id
+    , const struct tl_meta *tlm
 #endif
 )
 {
@@ -150,11 +150,23 @@ static dds_builtintopic_endpoint_t *make_builtintopic_endpoint (
   ep->type_name = dds_string_dup (qos->type_name);
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  ep->qos->present |= QP_TYPE_INFORMATION;
-  // FIXME
-  (void) type_id;
-  // ep->qos->type_information.length = (uint32_t) sizeof (*type_id);
-  // ep->qos->type_information.value = ddsrt_memdup (&type_id->hash, ep->qos->type_information.length);
+  if (tlm != NULL && (!ddsi_typeid_is_none (&tlm->type_id) || !ddsi_typeid_is_none (&tlm->type_id_minimal)))
+  {
+    ep->qos->present |= QP_TYPE_INFORMATION;
+    ep->qos->type_information = ddsrt_calloc (1, sizeof (*ep->qos->type_information));
+    if (!ddsi_typeid_is_none (&tlm->type_id))
+    {
+      ddsi_typeid_copy (&ep->qos->type_information->complete.typeid_with_size.type_id, &tlm->type_id);
+      if (tlm->sertype != NULL)
+        (void) ddsi_sertype_typeobj (tlm->sertype, false, &ep->qos->type_information->complete.typeid_with_size.typeobject_serialized_size);
+    }
+    else if (!ddsi_typeid_is_none (&tlm->type_id_minimal))
+    {
+      ddsi_typeid_copy (&ep->qos->type_information->minimal.typeid_with_size.type_id, &tlm->type_id_minimal);
+      if (tlm->sertype != NULL)
+        (void) ddsi_sertype_typeobj (tlm->sertype, true, &ep->qos->type_information->minimal.typeid_with_size.typeobject_serialized_size);
+    }
+  }
 #endif
 
   return ep;
@@ -183,7 +195,7 @@ dds_builtintopic_endpoint_t *dds_get_matched_subscription_data (dds_entity_t wri
         if (prd->e.iid == ih)
         {
 #ifdef DDS_HAS_TYPE_DISCOVERY
-          ret = make_builtintopic_endpoint (&prd->e.guid, &prd->c.proxypp->e.guid, prd->c.proxypp->e.iid, prd->c.xqos, prd->c.tlm ? &prd->c.tlm->type_id : NULL);
+          ret = make_builtintopic_endpoint (&prd->e.guid, &prd->c.proxypp->e.guid, prd->c.proxypp->e.iid, prd->c.xqos, prd->c.tlm);
 #else
           ret = make_builtintopic_endpoint (&prd->e.guid, &prd->c.proxypp->e.guid, prd->c.proxypp->e.iid, prd->c.xqos);
 #endif
@@ -200,7 +212,7 @@ dds_builtintopic_endpoint_t *dds_get_matched_subscription_data (dds_entity_t wri
         if (rd->e.iid == ih)
         {
 #ifdef DDS_HAS_TYPE_DISCOVERY
-          ret = make_builtintopic_endpoint (&rd->e.guid, &rd->c.pp->e.guid, rd->c.pp->e.iid, rd->xqos, rd->c.tlm ? &rd->c.tlm->type_id : NULL);
+          ret = make_builtintopic_endpoint (&rd->e.guid, &rd->c.pp->e.guid, rd->c.pp->e.iid, rd->xqos, rd->c.tlm);
 #else
           ret = make_builtintopic_endpoint (&rd->e.guid, &rd->c.pp->e.guid, rd->c.pp->e.iid, rd->xqos);
 #endif
@@ -238,7 +250,7 @@ dds_builtintopic_endpoint_t *dds_get_matched_publication_data (dds_entity_t read
         if (pwr->e.iid == ih)
         {
 #ifdef DDS_HAS_TYPE_DISCOVERY
-          ret = make_builtintopic_endpoint (&pwr->e.guid, &pwr->c.proxypp->e.guid, pwr->c.proxypp->e.iid, pwr->c.xqos, pwr->c.tlm ? &pwr->c.tlm->type_id : NULL);
+          ret = make_builtintopic_endpoint (&pwr->e.guid, &pwr->c.proxypp->e.guid, pwr->c.proxypp->e.iid, pwr->c.xqos, pwr->c.tlm);
 #else
           ret = make_builtintopic_endpoint (&pwr->e.guid, &pwr->c.proxypp->e.guid, pwr->c.proxypp->e.iid, pwr->c.xqos);
 #endif
@@ -255,7 +267,7 @@ dds_builtintopic_endpoint_t *dds_get_matched_publication_data (dds_entity_t read
         if (wr->e.iid == ih)
         {
 #ifdef DDS_HAS_TYPE_DISCOVERY
-          ret = make_builtintopic_endpoint (&wr->e.guid, &wr->c.pp->e.guid, wr->c.pp->e.iid, wr->xqos, wr->c.tlm ? &wr->c.tlm->type_id : NULL);
+          ret = make_builtintopic_endpoint (&wr->e.guid, &wr->c.pp->e.guid, wr->c.pp->e.iid, wr->xqos, wr->c.tlm);
 #else
           ret = make_builtintopic_endpoint (&wr->e.guid, &wr->c.pp->e.guid, wr->c.pp->e.iid, wr->xqos);
 #endif

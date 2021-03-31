@@ -905,7 +905,7 @@ static int sedp_write_endpoint_impl
    const struct entity_common *common, const struct endpoint_common *epcommon,
    const dds_qos_t *xqos, struct addrset *as, nn_security_info_t *security
 #ifdef DDS_HAS_TYPE_DISCOVERY
-   , struct TypeIdentifier *type_id
+   , struct tl_meta *tlm
 #endif
 )
 {
@@ -995,11 +995,10 @@ static int sedp_write_endpoint_impl
     }
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    if (type_id)
+    if (tlm != NULL)
     {
-      ps.qos.present |= QP_CYCLONE_TYPE_INFORMATION;
-      ps.qos.type_information.length = sizeof (*type_id);
-      ps.qos.type_information.value = ddsrt_memdup (&type_id->hash, ps.qos.type_information.length);
+      ps.qos.present |= QP_TYPE_INFORMATION;
+      ps.qos.type_information = ddsi_tl_meta_to_typeinfo (tlm);
     }
 #endif
   }
@@ -1011,7 +1010,7 @@ static int sedp_write_endpoint_impl
 
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 
-static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_t *guid, const dds_qos_t *xqos, struct TypeIdentifier *type_id)
+static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_t *guid, const dds_qos_t *xqos, struct tl_meta *tlm)
 {
   struct ddsi_domaingv * const gv = wr->e.gv;
   const dds_qos_t *defqos = &gv->default_xqos_tp;
@@ -1031,12 +1030,10 @@ static int sedp_write_topic_impl (struct writer *wr, int alive, const ddsi_guid_
   if (gv->config.explicitly_publish_qos_set_to_default)
     qosdiff |= ~QP_UNRECOGNIZED_INCOMPATIBLE_MASK;
 
-  if (!ddsi_typeid_none (type_id))
+  if (tlm != NULL)
   {
     ps.qos.present |= QP_TYPE_INFORMATION;
-    // FIXME
-    ps.qos.type_information = ddsrt_calloc (1, sizeof (*ps.qos.type_information));
-    ddsi_typeid_copy (&ps.qos.type_information->minimal.typeid_with_size.type_id, type_id);
+    ps.qos.type_information = ddsi_tl_meta_to_typeinfo (tlm);
   }
   if (xqos)
     ddsi_xqos_mergein_missing (&ps.qos, xqos, qosdiff);
@@ -1053,7 +1050,7 @@ int sedp_write_topic (struct topic *tp, bool alive)
     unsigned entityid = determine_topic_writer (tp);
     struct writer *sedp_wr = get_sedp_writer (tp->pp, entityid);
     ddsrt_mutex_lock (&tp->e.qos_lock);
-    res = sedp_write_topic_impl (sedp_wr, alive, &tp->e.guid, tp->definition->xqos, &tp->definition->tlm->type_id);
+    res = sedp_write_topic_impl (sedp_wr, alive, &tp->e.guid, tp->definition->xqos, tp->definition->tlm);
     ddsrt_mutex_unlock (&tp->e.qos_lock);
   }
   return res;
@@ -1081,7 +1078,7 @@ int sedp_write_writer (struct writer *wr)
     }
 #endif
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    return sedp_write_endpoint_impl (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security, wr->c.tlm ? &wr->c.tlm->type_id : NULL);
+    return sedp_write_endpoint_impl (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security, wr->c.tlm);
 #else
     return sedp_write_endpoint_impl (sedp_wr, 1, &wr->e.guid, &wr->e, &wr->c, wr->xqos, as, security);
 #endif
@@ -1109,7 +1106,7 @@ int sedp_write_reader (struct reader *rd)
     }
 #endif
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    return sedp_write_endpoint_impl (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, rd->c.tlm ? &rd->c.tlm->type_id : NULL);
+    return sedp_write_endpoint_impl (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security, rd->c.tlm);
 #else
     return sedp_write_endpoint_impl (sedp_wr, 1, &rd->e.guid, &rd->e, &rd->c, rd->xqos, as, security);
 #endif

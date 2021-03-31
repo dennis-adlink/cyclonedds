@@ -2976,7 +2976,10 @@ static bool topickind_qos_match_p_lock (
     /* In case qos_match_p returns false, one of rd_type_look and wr_type_lookup could
        be set to indicate that type information is missing. At this point, we know this
        is the case so pass either rd_type_id or wr_typeid to the tl_request_type function. */
-    (void) ddsi_tl_request_type (gv, rd_type_lookup ? rd_typeid : wr_typeid);
+    if (rd_type_lookup)
+      (void) ddsi_tl_request_type (gv, rd_typeid, rdqos->type_name);
+    else
+      (void) ddsi_tl_request_type (gv, wr_typeid, wrqos->type_name);
     return false;
   }
 #endif
@@ -3549,17 +3552,7 @@ static void endpoint_common_init (struct entity_common *e, struct endpoint_commo
     memset (&c->group_guid, 0, sizeof (c->group_guid));
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  struct TypeIdentifier * type_id = ddsi_typeid_from_sertype (type);
-  if (type_id)
-  {
-    c->tlm = ddsi_tl_meta_local_ref (pp->e.gv, type_id, type);
-    assert (c->tlm);
-    ddsrt_free (type_id);
-  }
-  else
-  {
-    c->tlm = NULL;
-  }
+  c->tlm = ddsi_tl_meta_local_ref (pp->e.gv, type);
 #endif
 }
 
@@ -4839,12 +4832,10 @@ dds_return_t ddsi_new_topic
   assert (tp_qos->aliased == 0);
 
   /* Set topic name, type name and type id in qos */
-  struct TypeIdentifier * type_id = ddsi_typeid_from_sertype (type);
-  assert (type_id != NULL);
-  // FIXME
-  // tp_qos->present |= QP_CYCLONE_TYPE_INFORMATION;
-  // tp_qos->type_information.length = (uint32_t) sizeof (*type_id);
-  // tp_qos->type_information.value = ddsrt_memdup (&type_id->hash, tp_qos->type_information.length);
+  struct TypeIdentifier * tid = &type->tlm->type_id;
+  assert (!ddsi_typeid_is_none (tid));
+  tp_qos->present |= QP_TYPE_INFORMATION;
+  tp_qos->type_information = ddsi_tl_meta_to_typeinfo (type->tlm);
   set_topic_type_name (tp_qos, topic_name, type->type_name);
 
   if (gv->logconfig.c.mask & DDS_LC_DISCOVERY)
@@ -4854,12 +4845,11 @@ dds_return_t ddsi_new_topic
     ELOGDISC (tp, "}\n");
   }
 
-  tp->definition = ref_topic_definition (gv, type, type_id, tp_qos, new_topic_def);
+  tp->definition = ref_topic_definition (gv, type, tid, tp_qos, new_topic_def);
   if (new_topic_def)
     builtintopic_write_topic (gv->builtin_topic_interface, tp->definition, timestamp, true);
   ddsi_xqos_fini (tp_qos);
   ddsrt_free (tp_qos);
-  ddsrt_free (type_id);
 
   ddsrt_mutex_lock (&tp->e.lock);
   entidx_insert_topic_guid (gv->entity_index, tp);
@@ -5860,9 +5850,10 @@ int topic_definition_equal (const struct ddsi_topic_definition *tpd_a, const str
 {
   if (tpd_a != NULL && tpd_b != NULL)
   {
+    // The complete type identifier and qos should always be set for a topic definition
     assert (tpd_a->xqos != NULL && tpd_b->xqos != NULL);
-    return !memcmp (&tpd_a->tlm->type_id, &tpd_b->tlm->type_id, sizeof (tpd_a->tlm->type_id))
-        && !ddsi_xqos_delta (tpd_a->xqos, tpd_b->xqos, ~(QP_CYCLONE_TYPE_INFORMATION));
+    return !ddsi_typeid_compare (&tpd_a->tlm->type_id, &tpd_b->tlm->type_id)
+        && !ddsi_xqos_delta (tpd_a->xqos, tpd_b->xqos, ~(QP_TYPE_INFORMATION));
   }
   return tpd_a == tpd_b;
 }
@@ -5875,17 +5866,22 @@ uint32_t topic_definition_hash (const struct ddsi_topic_definition *tpd)
 
 static void set_topic_definition_hash (struct ddsi_topic_definition *tpd)
 {
-  assert (!ddsi_typeid_none (&tpd->tlm->type_id));
+  assert (!ddsi_typeid_is_none (&tpd->tlm->type_id));
   assert (tpd->xqos != NULL);
 
   ddsrt_md5_state_t md5st;
   ddsrt_md5_init (&md5st);
 
-  /* Add type id to the key, the complete type_id is used here */
-  // FIXME: assert complete type_id available
-  ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) &tpd->tlm->type_id, sizeof (tpd->tlm->type_id));
+  /* Add type id to the key */
+  unsigned char *buf = NULL;
+  uint32_t sz = 0;
+  ddsi_typeid_ser (&tpd->tlm->type_id, &buf, &sz);
+  ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) buf, sz);
 
-  /* Add serialized qos as part of the key */
+  /* Add serialized qos as part of the key. The type_information field
+     of the QoS is not included, as this field may contain a list of
+     dependent type ids and therefore may be different for equal
+     type definitions */
   struct nn_xmsg *mqos = nn_xmsg_new (tpd->gv->xmsgpool, &nullguid, NULL, 0, NN_XMSG_KIND_DATA);
   ddsi_xqos_addtomsg (mqos, tpd->xqos, ~(QP_TYPE_INFORMATION));
   size_t sqos_sz;
@@ -5903,31 +5899,40 @@ static struct ddsi_topic_definition * new_topic_definition (struct ddsi_domaingv
   tpd->xqos = ddsi_xqos_dup (qos);
   tpd->refc = 0;
   tpd->gv = gv;
-  type_identifier_t *type_id;
+  struct TypeIdentifier *tid;
   if (type != NULL)
   {
-    type_id = ddsi_typeid_from_sertype (type);
+    if (type->tlm == NULL)
+      return NULL;
+    if (!ddsi_typeid_is_none (&type->tlm->type_id))
+      tid = &type->tlm->type_id;
+    else if (!ddsi_typeid_is_none (&type->tlm->type_id_minimal))
+      tid = &type->tlm->type_id_minimal;
+    else
+      return NULL;
 #ifndef NDEBUG
     if (qos->present & QP_TYPE_INFORMATION)
     {
-      assert (qos->type_information.length == sizeof (*type_id));
-      assert (!memcmp (type_id, qos->type_information.value, sizeof (*type_id)));
+      // FIXME: assert that qos->type_information does not conflict with type id from sertype
     }
 #endif
   }
   else
   {
-    assert (qos->present & QP_CYCLONE_TYPE_INFORMATION);
-    assert (qos->type_information.length == sizeof (*type_id));
-    type_id = ddsrt_memdup (qos->type_information.value, sizeof (*type_id));
+    assert (qos->present & QP_TYPE_INFORMATION);
+    if (!ddsi_typeid_is_none (&qos->type_information->complete.typeid_with_size.type_id))
+      tid = &qos->type_information->complete.typeid_with_size.type_id;
+    else if (!ddsi_typeid_is_none (&qos->type_information->minimal.typeid_with_size.type_id))
+      tid = &qos->type_information->minimal.typeid_with_size.type_id;
+    else
+      return NULL;
   }
-  tpd->tlm = ddsi_tl_meta_proxy_ref (gv, type_id, NULL);
+  tpd->tlm = ddsi_tl_meta_proxy_ref (gv, tid, qos->type_name, NULL);
   assert (tpd->tlm);
-  ddsrt_free (type_id);
   set_topic_definition_hash (tpd);
   if (gv->logconfig.c.mask & DDS_LC_DISCOVERY)
   {
-    GVLOGDISC (" TOPIC-DEFINITION 0x%p: key 0x", tpd);
+    GVLOGDISC (" topic-definition 0x%p: key 0x", tpd);
     for (size_t i = 0; i < sizeof (tpd->key); i++)
       GVLOGDISC ("%02x", tpd->key[i]);
     GVLOGDISC (" QOS={");
@@ -5948,12 +5953,8 @@ static struct ddsi_topic_definition *lookup_topic_definition_locked (struct ddsi
   struct ddsi_topic_definition templ;
   memset (&templ, 0, sizeof (templ));
   templ.xqos = qos;
-<<<<<<< HEAD
   templ.tlm = ddsrt_malloc (sizeof (*templ.tlm));
   memcpy (&templ.tlm->type_id, type_id, sizeof (templ.tlm->type_id));
-=======
-  ddsi_typeid_copy (&templ.type_id, type_id);
->>>>>>> df18914a... [wip] some fixes and refactoring after rebase on master
   templ.gv = gv;
   set_topic_definition_hash (&templ);
   struct ddsi_topic_definition *tpd = ddsrt_hh_lookup (gv->topic_defs, &templ);
@@ -6188,14 +6189,17 @@ static int proxy_endpoint_common_init (struct entity_common *e, struct proxy_end
   c->vendor = proxypp->vendor;
   c->seq = seq;
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  type_identifier_t type_id;
-  if ((plist->qos.present & QP_CYCLONE_TYPE_INFORMATION) && plist->qos.type_information.length == sizeof (type_id.hash))
+  c->tlm = NULL;
+  if (plist->qos.present & QP_TYPE_INFORMATION)
   {
-    memcpy (&type_id.hash, plist->qos.type_information.value, sizeof (type_id.hash));
-    c->tlm = ddsi_tl_meta_proxy_ref (proxypp->e.gv, &type_id, guid);
+    struct TypeIdentifier * tid = NULL;
+    if (!ddsi_typeid_is_none (&plist->qos.type_information->complete.typeid_with_size.type_id))
+      tid = &plist->qos.type_information->complete.typeid_with_size.type_id;
+    else if (!ddsi_typeid_is_none (&plist->qos.type_information->minimal.typeid_with_size.type_id))
+      tid = &plist->qos.type_information->minimal.typeid_with_size.type_id;
+    if (tid != NULL)
+      c->tlm = ddsi_tl_meta_proxy_ref (proxypp->e.gv, tid, plist->qos.type_name, guid);
   }
-  else
-    c->tlm = NULL;
   c->type = NULL;
 #endif
 

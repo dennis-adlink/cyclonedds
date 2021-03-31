@@ -18,7 +18,9 @@
 #include "dds/ddsrt/avl.h"
 #include "dds/ddsi/ddsi_serdata.h"
 #include "dds/ddsi/ddsi_plist_generic.h"
+#include "dds/ddsi/ddsi_type_identifier.h"
 #include "dds/ddsi/ddsi_type_xtypes.h"
+#include "dds/ddsi/ddsi_type_lookup.h"
 
 #include "dds/dds.h"
 
@@ -110,15 +112,21 @@ typedef struct ddsi_sertype_default_cdr_data {
   uint8_t *data;
 } ddsi_sertype_default_cdr_data_t;
 
+
 /* Reduced version of dds_topic_descriptor_t */
 struct ddsi_sertype_default_desc {
   uint32_t size;    /* Size of topic type */
   uint32_t align;   /* Alignment of topic type */
   uint32_t flagset; /* Flags */
   enum ddsi_sertype_extensibility extensibility;  /* Extensibility of the top-level type */
-  struct TypeIdentifier type_identifier;
   ddsi_sertype_default_desc_key_seq_t keys;
   ddsi_sertype_default_desc_op_seq_t ops;
+#ifdef DDS_HAS_TYPE_DISCOVERY
+  ddsi_sertype_default_cdr_data_t typeid_minimal_ser;
+  ddsi_sertype_default_cdr_data_t typeid_ser;
+  ddsi_sertype_default_cdr_data_t typeobj_minimal_ser;
+  ddsi_sertype_default_cdr_data_t typeobj_ser;
+#endif
 };
 
 struct ddsi_sertype_default {

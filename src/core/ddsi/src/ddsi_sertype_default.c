@@ -59,11 +59,39 @@ static bool sertype_default_equal (const struct ddsi_sertype *acmn, const struct
   return true;
 }
 
-static bool sertype_default_typeid_hash (const struct ddsi_sertype *tpcmn, unsigned char *buf)
+static struct TypeIdentifier * sertype_default_typeid (const struct ddsi_sertype *tpcmn, bool minimal)
 {
   assert (tpcmn);
   const struct ddsi_sertype_default *tp = (struct ddsi_sertype_default *) tpcmn;
+  const ddsi_sertype_default_cdr_data_t *ser = NULL;
+  ser = minimal ? &tp->type.typeid_minimal_ser : &tp->type.typeid_ser;
+  if (ser->sz == 0 || ser->data == NULL)
+    return NULL;
+  struct TypeIdentifier *tid = ddsrt_calloc (1, sizeof (*tid));
+  ddsi_typeid_deser (ser->data, ser->sz, &tid);
+  return tid;
+}
 
+static struct TypeObject * sertype_default_typeobj (const struct ddsi_sertype *tpcmn, bool minimal, uint32_t *sersz)
+{
+  assert (tpcmn);
+  assert (sersz);
+  const struct ddsi_sertype_default *tp = (struct ddsi_sertype_default *) tpcmn;
+  const ddsi_sertype_default_cdr_data_t *ser = NULL;
+  ser = minimal ? &tp->type.typeobj_minimal_ser : &tp->type.typeobj_ser;
+  *sersz = ser->sz;
+  if (ser->sz == 0 || ser->data == NULL)
+    return NULL;
+  struct TypeObject *tid = ddsrt_calloc (1, sizeof (*tid));
+  // FIXME ddsi_typeobj_deser (ser->data, ser->sz, &tid);
+  return tid;
+}
+
+static uint32_t sertype_default_hash (const struct ddsi_sertype *tpcmn)
+{
+  assert (tpcmn);
+  const struct ddsi_sertype_default *tp = (struct ddsi_sertype_default *) tpcmn;
+  unsigned char buf[16];
   ddsrt_md5_state_t md5st;
   ddsrt_md5_init (&md5st);
   ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) tp->c.type_name, (uint32_t) strlen (tp->c.type_name));
@@ -75,13 +103,6 @@ static bool sertype_default_typeid_hash (const struct ddsi_sertype *tpcmn, unsig
   ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) tp->type.keys.keys, (uint32_t) (tp->type.keys.nkeys * sizeof (*tp->type.keys.keys)));
   ddsrt_md5_append (&md5st, (ddsrt_md5_byte_t *) tp->type.ops.ops, (uint32_t) (tp->type.ops.nops * sizeof (*tp->type.ops.ops)));
   ddsrt_md5_finish (&md5st, (ddsrt_md5_byte_t *) buf);
-  return true;
-}
-
-static uint32_t sertype_default_hash (const struct ddsi_sertype *tpcmn)
-{
-  unsigned char buf[16];
-  sertype_default_typeid_hash (tpcmn, buf);
   return *(uint32_t *) buf;
 }
 
@@ -180,9 +201,7 @@ static bool sertype_default_assignable_from (const struct ddsi_sertype *type_a, 
     return true;
 
   struct ddsi_domaingv *gv = ddsrt_atomic_ldvoidp (&type_a->gv);
-  struct tl_meta *tla = ddsi_tl_meta_lookup (gv, &a->type.type_identifier);
-  struct tl_meta *tlb = ddsi_tl_meta_lookup (gv, &b->type.type_identifier);
-  return ddsi_xt_is_assignable_from (gv, tla->xt, tlb->xt);
+  return ddsi_xt_is_assignable_from (gv, a->c.tlm->xt, b->c.tlm->xt);
 #else
   DDSRT_UNUSED_ARG (type_a);
   DDSRT_UNUSED_ARG (type_b);
@@ -195,7 +214,8 @@ const struct ddsi_sertype_ops ddsi_sertype_ops_default = {
   .arg = 0,
   .equal = sertype_default_equal,
   .hash = sertype_default_hash,
-  .typeid_hash = sertype_default_typeid_hash,
+  .typeid = sertype_default_typeid,
+  .typeobj = sertype_default_typeobj,
   .free = sertype_default_free,
   .zero_samples = sertype_default_zero_samples,
   .realloc_samples = sertype_default_realloc_samples,

@@ -17,6 +17,7 @@
 #include "dds/ddsrt/iovec.h"
 #include "dds/ddsi/ddsi_sertype.h"
 #include "dds/ddsi/ddsi_keyhash.h"
+#include "dds/ddsi/ddsi_type_identifier.h"
 
 #if defined (__cplusplus)
 extern "C" {

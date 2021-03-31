@@ -77,24 +77,24 @@ static bool check_assignability (struct tl_meta *rd_tlm, struct tl_meta *wr_tlm)
   return ddsi_sertype_assignable_from (rd_tlm->sertype, wr_tlm->sertype);
 }
 
-static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, struct tl_meta **tlm, bool *req_lookup)
+static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, char *type_name, struct tl_meta **tlm, bool *req_lookup)
   ddsrt_nonnull((1, 2, 3));
 
-static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, struct tl_meta **tlm, bool *req_lookup)
+static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, char *type_name, struct tl_meta **tlm, bool *req_lookup)
 {
   assert (tlm != NULL);
-
-  // type_id = NULL is treated the same as type_id = 0...0, so this implies type_id may not be a null pointer
-  assert (!ddsi_typeid_none (type_id));
+  assert (!ddsi_typeid_is_none (type_id));
 
   ddsrt_mutex_lock (&gv->tl_admin_lock);
   /* no refcounting for returned tlm object, but its lifetime is
      at least that of the endpoint that refers to it */
-  *tlm = ddsi_tl_meta_lookup_locked (gv, type_id);
+  *tlm = ddsi_tl_meta_lookup_locked (gv, type_id, type_name);
   assert (*tlm != NULL);
   if ((*tlm)->state != TL_META_RESOLVED)
   {
-    GVTRACE ("typeid unresolved "PTYPEIDFMT"\n", PTYPEID(*type_id));
+    GVTRACE ("typeid unresolved: %s / ", type_name);
+    // FIXME: GVTRACE (type_id)
+    GVTRACE ("\n");
     /* defer requesting unresolved type until after the endpoint qos lock
        has been released, so just set a bool value indicating that a type
        lookup is required */
@@ -174,7 +174,7 @@ bool qos_match_mask_p (
   if (wr_typeid_req_lookup != NULL)
     *wr_typeid_req_lookup = false;
 
-  if (ddsi_typeid_none (rd_typeid) || ddsi_typeid_none (wr_typeid))
+  if (ddsi_typeid_is_none (rd_typeid) || ddsi_typeid_is_none (wr_typeid))
   {
     // Type id missing on either or both: automatic failure if "force type validation"
     // is set.  If it is missing for one, there is no point in requesting it for the
@@ -188,9 +188,9 @@ bool qos_match_mask_p (
   else
   {
     struct tl_meta *rd_tlm = NULL, *wr_tlm = NULL;
-    if (!check_endpoint_typeid (gv, rd_typeid, &rd_tlm, rd_typeid_req_lookup))
+    if (!check_endpoint_typeid (gv, rd_typeid, rd_qos->type_name, &rd_tlm, rd_typeid_req_lookup))
       return false;
-    if (!check_endpoint_typeid (gv, wr_typeid, &wr_tlm, wr_typeid_req_lookup))
+    if (!check_endpoint_typeid (gv, wr_typeid, wr_qos->type_name, &wr_tlm, wr_typeid_req_lookup))
       return false;
     if (!check_assignability (rd_tlm, wr_tlm))
     {

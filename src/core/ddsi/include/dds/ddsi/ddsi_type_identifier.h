@@ -12,11 +12,12 @@
 #ifndef DDSI_TYPE_IDENTIFIER_H
 #define DDSI_TYPE_IDENTIFIER_H
 
-#include "dds/features.h"
-
 #ifdef DDS_HAS_TYPE_DISCOVERY
+
 #include <stdint.h>
 #include <stdbool.h>
+#include "dds/features.h"
+#include "dds/ddsc/dds_opcodes.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -401,11 +402,96 @@ typedef struct TypeIdentifierTypeObjectPairSeq {
   struct TypeIdentifierTypeObjectPair * types;
 } TypeIdentifierTypeObjectPairSeq_t;
 
-DDS_EXPORT struct TypeIdentifier * ddsi_typeid_from_sertype (const struct ddsi_sertype * type);
-DDS_EXPORT void ddsi_typeid_copy (struct TypeIdentifier *dst, const struct TypeIdentifier *src);
-DDS_EXPORT bool ddsi_typeid_equal (const struct TypeIdentifier *a, const struct TypeIdentifier *b);
-DDS_EXPORT bool ddsi_typeid_none (const struct TypeIdentifier *typeid);
+#define CDRSTREAM_OPS_TYPE_IDENTIFIER \
+  /* struct TypeIdentifier */ \
+  DDS_OP_DLC, \
+  DDS_OP_ADR | DDS_OP_TYPE_UNI | DDS_OP_SUBTYPE_ENU, offsetof (struct TypeIdentifier, _d), 13u, (44u << 16) + 5u, 0xffu, \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 40u + 0u, TI_STRING8_SMALL, offsetof (struct TypeIdentifier, _u.string_sdefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 37u + 0u, TI_STRING16_SMALL, offsetof (struct TypeIdentifier, _u.string_sdefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 34u + 3u, TI_STRING8_LARGE, offsetof (struct TypeIdentifier, _u.string_ldefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 31u + 3u, TI_STRING16_LARGE, offsetof (struct TypeIdentifier, _u.string_ldefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 28u + 6u, TI_PLAIN_SEQUENCE_SMALL, offsetof (struct TypeIdentifier, _u.seq_sdefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 25u + 17u, TI_PLAIN_SEQUENCE_LARGE, offsetof (struct TypeIdentifier, _u.seq_ldefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 22u + 28u, TI_PLAIN_ARRAY_SMALL, offsetof (struct TypeIdentifier, _u.array_sdefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 19u + 39u, TI_PLAIN_ARRAY_LARGE, offsetof (struct TypeIdentifier, _u.array_ldefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 16u + 50u, TI_PLAIN_MAP_SMALL, offsetof (struct TypeIdentifier, _u.map_sdefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 13u + 68u, TI_PLAIN_MAP_LARGE, offsetof (struct TypeIdentifier, _u.map_ldefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 10u + 86u, TI_STRONGLY_CONNECTED_COMPONENT, offsetof (struct TypeIdentifier, _u.sc_component_id), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 7u + 87u, EK_COMPLETE, offsetof (struct TypeIdentifier, _u.equivalence_hash), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | 4u + 87u, EK_MINIMAL, offsetof (struct TypeIdentifier, _u.equivalence_hash), \
+  DDS_OP_RTS, \
+  /* struct StringSTypeDefn */ \
+  DDS_OP_ADR | DDS_OP_TYPE_1BY, offsetof (struct StringSTypeDefn, bound), \
+  DDS_OP_RTS, /* (3) */ \
+  /* struct StringLTypeDefn */ \
+  DDS_OP_ADR | DDS_OP_TYPE_4BY, offsetof (struct StringLTypeDefn, bound), \
+  DDS_OP_RTS, /* (3) */ \
+  /* struct PlainSequenceSElemDefn */ \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainSequenceSElemDefn, header), (3u << 16u) + 85u, /* struct PlainCollectionHeader */ \
+  DDS_OP_ADR | DDS_OP_TYPE_1BY, offsetof (struct PlainSequenceSElemDefn, bound), \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainSequenceSElemDefn, element_identifier), (5u << 16u) + 3u, \
+    DDS_OP_JSR | (65536 - 59), DDS_OP_RTS, /* struct TypeIdentifier */ \
+  DDS_OP_RTS, /* (11) */ \
+  /* struct PlainSequenceLElemDefn */ \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainSequenceLElemDefn, header), (3u << 16u) + 74u, /* struct PlainCollectionHeader */ \
+  DDS_OP_ADR | DDS_OP_TYPE_4BY, offsetof (struct PlainSequenceLElemDefn, bound), \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainSequenceLElemDefn, element_identifier), (5u << 16u) + 3u, \
+    DDS_OP_JSR | (65536 - 70), DDS_OP_RTS, /* struct TypeIdentifier */ \
+  DDS_OP_RTS, /* (11) */ \
+  /* struct PlainArraySElemDefn */ \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainArraySElemDefn, header), (3u << 16u) + 63u, /* struct PlainCollectionHeader */ \
+  DDS_OP_ADR | DDS_OP_TYPE_SEQ | DDS_OP_SUBTYPE_1BY, offsetof (struct PlainArraySElemDefn, array_bound_seq), \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainArraySElemDefn, element_identifier), (5u << 16u) + 3u, \
+    DDS_OP_JSR | (65536 - 81), DDS_OP_RTS, /* struct TypeIdentifier */ \
+  DDS_OP_RTS, /* (11) */ \
+  /* struct PlainArrayLElemDefn */ \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainArrayLElemDefn, header), (3u << 16u) + 52u, /* struct PlainCollectionHeader */ \
+  DDS_OP_ADR | DDS_OP_TYPE_SEQ | DDS_OP_SUBTYPE_4BY, offsetof (struct PlainArrayLElemDefn, array_bound_seq), \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainArrayLElemDefn, element_identifier), (5u << 16u) + 3u, \
+    DDS_OP_JSR | (65536 - 92), DDS_OP_RTS, /* struct TypeIdentifier */ \
+  DDS_OP_RTS, /* (11) */ \
+  /* struct PlainMapSTypeDefn */ \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainMapSTypeDefn, header), (3u << 16u) + 41u, /* struct PlainCollectionHeader */ \
+  DDS_OP_ADR | DDS_OP_TYPE_1BY, offsetof (struct PlainMapSTypeDefn, bound), \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainMapSTypeDefn, element_identifier), (5u << 16u) + 3u, \
+    DDS_OP_JSR | (65536 - 103), DDS_OP_RTS, /* struct TypeIdentifier */ \
+  DDS_OP_ADR | DDS_OP_TYPE_2BY, offsetof (struct PlainMapSTypeDefn, key_flags), \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainMapSTypeDefn, key_identifier), (5u << 16u) + 3u, \
+    DDS_OP_JSR | (65536 - 110), DDS_OP_RTS, /* struct TypeIdentifier */ \
+  DDS_OP_RTS, /* (18) */ \
+  /* struct PlainMapLTypeDefn */ \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainMapLTypeDefn, header), (3u << 16u) + 23u, /* struct PlainCollectionHeader */ \
+  DDS_OP_ADR | DDS_OP_TYPE_4BY, offsetof (struct PlainMapLTypeDefn, bound), \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainMapLTypeDefn, element_identifier), (5u << 16u) + 3u, \
+    DDS_OP_JSR | (65536 - 121), DDS_OP_RTS, /* struct TypeIdentifier */ \
+  DDS_OP_ADR | DDS_OP_TYPE_2BY, offsetof (struct PlainMapLTypeDefn, key_flags), \
+  DDS_OP_ADR | DDS_OP_TYPE_EXT, offsetof (struct PlainMapLTypeDefn, key_identifier), (5u << 16u) + 3u, \
+    DDS_OP_JSR | (65536 - 128), DDS_OP_RTS, /* struct TypeIdentifier */ \
+  DDS_OP_RTS, /* (18) */ \
+  /* struct StronglyConnectedComponentId */ \
+  /* FIXME */ \
+  DDS_OP_RTS, /* (1) */ \
+  /* struct EquivalenceHash */ \
+  DDS_OP_ADR | DDS_OP_TYPE_ARR | DDS_OP_SUBTYPE_1BY, offsetof (struct EquivalenceHash, hash), 14, \
+  DDS_OP_RTS, /* (4) */ \
+  /* struct PlainCollectionHeader */ \
+  DDS_OP_ADR | DDS_OP_TYPE_1BY, offsetof (struct PlainCollectionHeader, equiv_kind), \
+  DDS_OP_ADR | DDS_OP_TYPE_2BY, offsetof (struct PlainCollectionHeader, element_flags), \
+  DDS_OP_RTS, /* (5) */
 
+static const uint32_t TypeIdentifier_ops [] =
+{
+  CDRSTREAM_OPS_TYPE_IDENTIFIER
+};
+
+DDS_EXPORT void ddsi_typeid_copy (struct TypeIdentifier *dst, const struct TypeIdentifier *src);
+DDS_EXPORT int ddsi_typeid_compare (const struct TypeIdentifier *a, const struct TypeIdentifier *b);
+DDS_EXPORT void ddsi_typeid_ser (const struct TypeIdentifier *typeid, unsigned char **buf, uint32_t *sz);
+DDS_EXPORT void ddsi_typeid_deser (unsigned char *buf, uint32_t sz, struct TypeIdentifier **typeid);
+DDS_EXPORT bool ddsi_typeid_is_none (const struct TypeIdentifier *typeid);
+DDS_EXPORT bool ddsi_typeid_is_hash (const struct TypeIdentifier *typeid);
+DDS_EXPORT bool ddsi_typeid_is_minimal (const struct TypeIdentifier *typeid);
+DDS_EXPORT bool ddsi_typeid_is_complete (const struct TypeIdentifier *typeid);
 
 #if defined (__cplusplus)
 }

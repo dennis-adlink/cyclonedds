@@ -28,6 +28,7 @@
 #include "dds/ddsi/q_config.h"
 #include "dds/ddsi/q_gc.h"
 #include "dds/ddsi/ddsi_domaingv.h"
+#include "dds/ddsi/ddsi_type_information.h"
 
 static dds_return_t dds_domain_free (dds_entity *vdomain);
 
@@ -417,12 +418,12 @@ void dds_write_set_batch (bool enable)
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
 
-dds_return_t dds_domain_resolve_type (dds_entity_t entity, struct TypeIdentifier *type_id, dds_duration_t timeout, struct ddsi_sertype **sertype)
+dds_return_t dds_domain_resolve_type (dds_entity_t entity, const struct TypeIdentifier *type_id, const char *type_name, dds_duration_t timeout, struct ddsi_sertype **sertype)
 {
   struct dds_entity *e;
   dds_return_t rc;
 
-  if (type_id == NULL)
+  if (type_id == NULL || type_name == NULL || !strlen (type_name))
     return DDS_RETCODE_BAD_PARAMETER;
 
   if ((rc = dds_entity_pin (entity, &e)) < 0)
@@ -435,7 +436,7 @@ dds_return_t dds_domain_resolve_type (dds_entity_t entity, struct TypeIdentifier
 
   struct ddsi_domaingv *gv = &e->m_domain->gv;
   ddsrt_mutex_lock (&gv->tl_admin_lock);
-  struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, type_id);
+  struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, type_id, type_name);
   if (tlm == NULL)
   {
     ddsrt_mutex_unlock (&gv->tl_admin_lock);
@@ -456,7 +457,7 @@ dds_return_t dds_domain_resolve_type (dds_entity_t entity, struct TypeIdentifier
   else
   {
     ddsrt_mutex_unlock (&gv->tl_admin_lock);
-    if (!ddsi_tl_request_type (gv, type_id))
+    if (!ddsi_tl_request_type (gv, type_id, type_name))
     {
       rc = DDS_RETCODE_PRECONDITION_NOT_MET;
       goto failed;

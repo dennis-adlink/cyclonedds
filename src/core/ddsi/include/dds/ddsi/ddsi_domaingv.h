@@ -21,6 +21,7 @@
 #include "dds/ddsrt/sockets.h"
 #include "dds/ddsrt/sync.h"
 #include "dds/ddsrt/fibheap.h"
+#include "dds/ddsrt/avl.h"
 
 #include "dds/ddsi/ddsi_plist.h"
 #include "dds/ddsi/ddsi_ownip.h"
@@ -335,7 +336,8 @@ struct ddsi_domaingv {
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
   ddsrt_mutex_t tl_admin_lock;
-  struct ddsrt_hh *tl_admin;
+  ddsrt_avl_tree_t tl_admin;
+  ddsrt_avl_tree_t tl_admin_minimal;
   ddsrt_cond_t tl_resolved_cond;
 #endif
 #ifdef DDS_HAS_TOPIC_DISCOVERY

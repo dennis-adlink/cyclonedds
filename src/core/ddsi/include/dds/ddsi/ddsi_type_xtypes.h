@@ -30,11 +30,13 @@ struct xt_type;
 struct ddsi_domaingv;
 
 struct xt_applied_type_annotations {
+  // FIXME
   // struct AppliedBuiltinTypeAnnotations ann_builtin;
   // struct AppliedAnnotationSeq ann_custom;
 };
 
 struct xt_applied_member_annotations {
+  // FIXME
   // struct AppliedBuiltinMemberAnnotations ann_builtin;
   // struct AppliedAnnotationSeq ann_custom;
 };
@@ -189,9 +191,12 @@ struct xt_bitmask {
 
 struct xt_type
 {
-  struct TypeIdentifier *ti;
-  struct TypeObject *to;
-  uint8_t to_kind; /* EK_MINIMAL or EK_COMPLETE */
+  bool is_plain_collection;
+  struct StronglyConnectedComponentId sc_component_id;
+  unsigned has_minimal_id : 1;
+  unsigned has_minimal_obj : 1;
+  unsigned has_complete_id : 1;
+  unsigned has_complete_obj : 1;
 
   uint8_t _d;
   union {

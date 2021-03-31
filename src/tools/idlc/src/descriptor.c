@@ -1333,7 +1333,9 @@ static int print_descriptor(FILE *fp, struct descriptor *descriptor)
           "  %3$s_keys,\n" /* key array */
           "  %4$"PRIu32",\n" /* number of ops */
           "  %3$s_ops,\n" /* ops array */
-          "  \"\"\n" /* OpenSplice metadata */
+          "  \"\",\n" /* OpenSplice metadata */
+          "  { (unsigned char[]) { 1, 2, 3}, 3, (unsigned char[]) { 1, 2, 3}, 3 },\n" /* minimal type identifier and type object */
+          "  { (unsigned char[]) { 4, 5, 6}, 3, (unsigned char[]) { 4, 5, 6}, 3 }\n" /* complete type identifier and type object */
           "};\n";
   else
     fmt = "  %1$"PRIu32"u,\n" /* number of keys */
@@ -1341,11 +1343,12 @@ static int print_descriptor(FILE *fp, struct descriptor *descriptor)
           "  NULL,\n" /* key array */
           "  %4$"PRIu32",\n" /* number of ops */
           "  %3$s_ops,\n" /* ops array */
-          "  \"\"\n" /* OpenSplice metadata */
+          "  \"\",\n" /* OpenSplice metadata */
+          "  { (unsigned char[]) { 1, 2, 3}, 3, (unsigned char[]) { 1, 2, 3}, 3 },\n" /* minimal type identifier and type object */
+          "  { (unsigned char[]) { 4, 5, 6}, 3, (unsigned char[]) { 4, 5, 6}, 3 }\n" /* complete type identifier and type object */
           "};\n";
   if (idl_fprintf(fp, fmt, descriptor->keys, name, type, descriptor->opcodes) < 0)
     return -1;
-
   return 0;
 }
 

@@ -26,7 +26,7 @@ struct ddsi_serdata;
 struct ddsi_serdata_ops;
 struct ddsi_sertype_ops;
 struct ddsi_domaingv;
-struct type_identifier;
+struct TypeIdentifier;
 
 #define DDSI_SERTYPE_REGISTERING 0x40000000u // set prior to setting gv
 #define DDSI_SERTYPE_REGISTERED  0x80000000u // set after setting gv
@@ -38,6 +38,7 @@ struct ddsi_sertype {
   uint32_t serdata_basehash;
   bool typekind_no_key;
   char *type_name;
+  struct tl_meta *tlm;
   ddsrt_atomic_voidp_t gv; /* set during registration */
   ddsrt_atomic_uint32_t flags_refc; /* counts refs from entities (topic, reader, writer), not from data */
   void *wrapped_sertopic; /* void pointer because that simplifies the required type-punning */
@@ -76,9 +77,12 @@ typedef bool (*ddsi_sertype_equal_t) (const struct ddsi_sertype *a, const struct
    the fields that are defined in struct ddsi_sertype) */
 typedef uint32_t (*ddsi_sertype_hash_t) (const struct ddsi_sertype *tp);
 
-/* Calculates a hash to be used in a TypeIdentifier, that includes the
-   custom component of the sertype */
-typedef bool (*ddsi_sertype_typeid_hash_t) (const struct ddsi_sertype *tp, unsigned char *buf);
+/* Gets the type identifier of the requested kind (minimal or complete) for this sertype */
+typedef struct TypeIdentifier * (*ddsi_sertype_typeid_t) (const struct ddsi_sertype *tp, bool minimal);
+
+/* Gets the type object of the requested kind (minimal or complete) for this sertype,
+   and sets the serialized size of the type object in the sersz output parameter */
+typedef struct TypeObject * (*ddsi_sertype_typeobj_t) (const struct ddsi_sertype *tp, bool minimal, uint32_t *sersz);
 
 /* Called when the refcount dropped to zero */
 typedef void (*ddsi_sertype_free_t) (struct ddsi_sertype *tp);
@@ -125,7 +129,8 @@ struct ddsi_sertype_ops {
   ddsi_sertype_free_samples_t free_samples;
   ddsi_sertype_equal_t equal;
   ddsi_sertype_hash_t hash;
-  ddsi_sertype_typeid_hash_t typeid_hash;
+  ddsi_sertype_typeid_t typeid;
+  ddsi_sertype_typeobj_t typeobj;
   ddsi_sertype_serialized_size_t serialized_size;
   ddsi_sertype_serialize_t serialize;
   ddsi_sertype_deserialize_t deserialize;
@@ -184,10 +189,20 @@ DDS_EXPORT inline void *ddsi_sertype_alloc_sample (const struct ddsi_sertype *tp
 DDS_EXPORT inline void ddsi_sertype_free_sample (const struct ddsi_sertype *tp, void *sample, dds_free_op_t op) {
   ddsi_sertype_free_samples (tp, &sample, 1, op);
 }
-DDS_EXPORT inline bool ddsi_sertype_typeid_hash (const struct ddsi_sertype *tp, unsigned char *buf) {
-  if (!tp->ops->typeid_hash)
-    return false;
-  return tp->ops->typeid_hash (tp, buf);
+DDS_EXPORT inline struct TypeIdentifier * ddsi_sertype_typeid (const struct ddsi_sertype *tp, bool minimal)
+{
+  if (!tp->ops->typeid)
+    return NULL;
+  return tp->ops->typeid (tp, minimal);
+}
+DDS_EXPORT inline struct TypeObject * ddsi_sertype_typeobj (const struct ddsi_sertype *tp, bool minimal, uint32_t *sersz)
+{
+  if (!tp->ops->typeobj)
+  {
+    *sersz = 0;
+    return NULL;
+  }
+  return tp->ops->typeobj (tp, minimal, sersz);
 }
 DDS_EXPORT inline bool ddsi_sertype_assignable_from (const struct ddsi_sertype *type_a, const struct ddsi_sertype *type_b) {
   /* If one of the types does not have a assignability check function

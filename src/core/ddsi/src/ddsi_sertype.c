@@ -208,6 +208,7 @@ void ddsi_sertype_init (struct ddsi_sertype *tp, const char *type_name, const st
 
   ddsrt_atomic_st32 (&tp->flags_refc, 1);
   tp->type_name = ddsrt_strdup (type_name);
+  tp->tlm = NULL;
   tp->ops = sertype_ops;
   tp->serdata_ops = serdata_ops;
   tp->serdata_basehash = ddsi_sertype_compute_serdata_basehash (tp->serdata_ops);
@@ -298,5 +299,6 @@ extern inline void ddsi_sertype_free_samples (const struct ddsi_sertype *tp, voi
 extern inline void ddsi_sertype_zero_sample (const struct ddsi_sertype *tp, void *sample);
 extern inline void *ddsi_sertype_alloc_sample (const struct ddsi_sertype *tp);
 extern inline void ddsi_sertype_free_sample (const struct ddsi_sertype *tp, void *sample, dds_free_op_t op);
-extern inline bool ddsi_sertype_typeid_hash (const struct ddsi_sertype *tp, unsigned char *buf);
+extern inline struct TypeIdentifier * ddsi_sertype_typeid (const struct ddsi_sertype *tp, bool minimal);
+extern inline struct TypeObject * ddsi_sertype_typeobj (const struct ddsi_sertype *tp, bool minimal, uint32_t *sersz);
 extern inline bool ddsi_sertype_assignable_from (const struct ddsi_sertype *type_a, const struct ddsi_sertype *type_b);

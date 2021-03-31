@@ -1022,17 +1022,6 @@ static uint32_t ddsi_sertype_hash_wrap (const void *tp)
   return ddsi_sertype_hash (tp);
 }
 
-#ifdef DDS_HAS_TYPE_DISCOVERY
-static int tl_meta_equal_wrap (const void *tlm_a, const void *tlm_b)
-{
-  return ddsi_tl_meta_equal (tlm_a, tlm_b);
-}
-static uint32_t tl_meta_hash_wrap (const void *tlm)
-{
-  return ddsi_tl_meta_hash (tlm);
-}
-#endif /* DDS_HAS_TYPE_DISCOVERY */
-
 #ifdef DDS_HAS_TOPIC_DISCOVERY
 static int topic_definition_equal_wrap (const void *tpd_a, const void *tpd_b)
 {
@@ -1279,7 +1268,8 @@ int rtps_init (struct ddsi_domaingv *gv)
 #ifdef DDS_HAS_TYPE_DISCOVERY
   ddsrt_mutex_init (&gv->tl_admin_lock);
   ddsrt_cond_init (&gv->tl_resolved_cond);
-  gv->tl_admin = ddsrt_hh_new (1, tl_meta_hash_wrap, tl_meta_equal_wrap);
+  ddsrt_avl_init (&ddsi_tl_meta_minimal_treedef, &gv->tl_admin_minimal);
+  ddsrt_avl_init (&ddsi_tl_meta_treedef, &gv->tl_admin);
 #endif
   ddsrt_mutex_init (&gv->new_topic_lock);
   ddsrt_cond_init (&gv->new_topic_cond);
@@ -1653,7 +1643,8 @@ err_unicast_sockets:
   ddsrt_mutex_destroy (&gv->new_topic_lock);
   ddsrt_cond_destroy (&gv->new_topic_cond);
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  ddsrt_hh_free (gv->tl_admin);
+  ddsrt_avl_free (&ddsi_tl_meta_minimal_treedef, &gv->tl_admin_minimal, 0);
+  ddsrt_avl_free (&ddsi_tl_meta_treedef, &gv->tl_admin, 0);
   ddsrt_mutex_destroy (&gv->tl_admin_lock);
   ddsrt_cond_destroy (&gv->tl_resolved_cond);
 #endif
@@ -2031,11 +2022,12 @@ void rtps_fini (struct ddsi_domaingv *gv)
 #ifdef DDS_HAS_TYPE_DISCOVERY
 #ifndef NDEBUG
   {
-    struct ddsrt_hh_iter it;
-    assert (ddsrt_hh_iter_first (gv->tl_admin, &it) == NULL);
+    assert(ddsrt_avl_is_empty(&gv->tl_admin_minimal));
+    assert(ddsrt_avl_is_empty(&gv->tl_admin));
   }
 #endif
-  ddsrt_hh_free (gv->tl_admin);
+  ddsrt_avl_free (&ddsi_tl_meta_minimal_treedef, &gv->tl_admin_minimal, 0);
+  ddsrt_avl_free (&ddsi_tl_meta_treedef, &gv->tl_admin, 0);
   ddsrt_mutex_destroy (&gv->tl_admin_lock);
 #endif /* DDS_HAS_TYPE_DISCOVERY */
 #ifdef DDS_HAS_SECURITY

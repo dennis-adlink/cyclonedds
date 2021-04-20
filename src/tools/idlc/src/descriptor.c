@@ -1322,7 +1322,9 @@ static int print_descriptor(FILE *fp, struct descriptor *descriptor)
     return -1;
   if (!(type = IDLC_AUTO(typename(descriptor->topic))))
     return -1;
-  fmt = "const dds_topic_descriptor_t %1$s_desc =\n{\n"
+  fmt = "#define TID_SER (unsigned char []){ 0x12, 0x00, 0x00, 0x00, 0xf1, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e }\n"
+        "#define TID_SER_SZ 22\n"
+        "const dds_topic_descriptor_t %1$s_desc =\n{\n"
         "  sizeof (%1$s),\n" /* size of type */
         "  %2$s,\n  "; /* alignment */
   if (idl_fprintf(fp, fmt, type, descriptor->alignment->rendering) < 0)
@@ -1336,8 +1338,8 @@ static int print_descriptor(FILE *fp, struct descriptor *descriptor)
           "  %4$"PRIu32",\n" /* number of ops */
           "  %3$s_ops,\n" /* ops array */
           "  \"\",\n" /* OpenSplice metadata */
-          "  { (unsigned char[]) { 1, 2, 3}, 3, (unsigned char[]) { 1, 2, 3}, 3 },\n" /* minimal type identifier and type object */
-          "  { (unsigned char[]) { 4, 5, 6}, 3, (unsigned char[]) { 4, 5, 6}, 3 }\n" /* complete type identifier and type object */
+          "  { .id = { .data = TID_SER, .sz = TID_SER_SZ }, .obj = { .data = (unsigned char[]) { 1, 2, 3}, .sz = 3 }, .n_dep = 0, .dep = NULL },\n" /* minimal type identifier and type object */
+          "  { .id = { .data = TID_SER, .sz = TID_SER_SZ }, .obj = { .data = (unsigned char[]) { 1, 2, 3}, .sz = 3 }, .n_dep = 0, .dep = NULL }\n" /* complete type identifier and type object */
           "};\n";
   else
     fmt = "  %1$"PRIu32"u,\n" /* number of keys */
@@ -1346,8 +1348,8 @@ static int print_descriptor(FILE *fp, struct descriptor *descriptor)
           "  %4$"PRIu32",\n" /* number of ops */
           "  %3$s_ops,\n" /* ops array */
           "  \"\",\n" /* OpenSplice metadata */
-          "  { (unsigned char[]) { 1, 2, 3}, 3, (unsigned char[]) { 1, 2, 3}, 3 },\n" /* minimal type identifier and type object */
-          "  { (unsigned char[]) { 4, 5, 6}, 3, (unsigned char[]) { 4, 5, 6}, 3 }\n" /* complete type identifier and type object */
+          "  { .id = { .data = TID_SER, .sz = TID_SER_SZ }, .obj = { .data = (unsigned char[]) { 1, 2, 3}, .sz = 3 }, .n_dep = 0, .dep = NULL },\n" /* minimal type identifier and type object */
+          "  { .id = { .data = TID_SER, .sz = TID_SER_SZ }, .obj = { .data = (unsigned char[]) { 1, 2, 3}, .sz = 3 }, .n_dep = 0, .dep = NULL }\n" /* complete type identifier and type object */
           "};\n";
   if (idl_fprintf(fp, fmt, descriptor->keys, name, type, descriptor->opcodes) < 0)
     return -1;

@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "dds/ddsi/ddsi_type_identifier.h"
+#include "dds/ddsc/dds_opcodes.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -1157,6 +1158,19 @@ struct TypeObject {
     struct MinimalTypeObject minimal;
   } _u;
 };
+
+static const uint32_t TypeObject_ops [] =
+{
+  /* struct TypeObject */
+  DDS_OP_DLC,
+  DDS_OP_RTS,
+};
+
+void ddsi_typeobj_ser (const struct TypeObject *typeobj, unsigned char **buf, uint32_t *sz);
+void ddsi_typeobj_deser (unsigned char *buf, uint32_t sz, struct TypeObject **typeobj);
+bool ddsi_typeobj_is_minimal (const struct TypeObject *typeobj);
+bool ddsi_typeobj_is_complete (const struct TypeObject *typeobj);
+
 
 #if defined (__cplusplus)
 }

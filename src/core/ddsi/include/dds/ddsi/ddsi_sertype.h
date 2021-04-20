@@ -199,7 +199,8 @@ DDS_EXPORT inline struct TypeObject * ddsi_sertype_typeobj (const struct ddsi_se
 {
   if (!tp->ops->typeobj)
   {
-    *sersz = 0;
+    if (sersz)
+      *sersz = 0;
     return NULL;
   }
   return tp->ops->typeobj (tp, minimal, sersz);

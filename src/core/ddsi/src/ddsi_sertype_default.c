@@ -75,16 +75,16 @@ static struct TypeIdentifier * sertype_default_typeid (const struct ddsi_sertype
 static struct TypeObject * sertype_default_typeobj (const struct ddsi_sertype *tpcmn, bool minimal, uint32_t *sersz)
 {
   assert (tpcmn);
-  assert (sersz);
   const struct ddsi_sertype_default *tp = (struct ddsi_sertype_default *) tpcmn;
   const ddsi_sertype_default_cdr_data_t *ser = NULL;
   ser = minimal ? &tp->type.typeobj_minimal_ser : &tp->type.typeobj_ser;
-  *sersz = ser->sz;
+  if (sersz)
+    *sersz = ser->sz;
   if (ser->sz == 0 || ser->data == NULL)
     return NULL;
-  struct TypeObject *tid = ddsrt_calloc (1, sizeof (*tid));
-  // FIXME ddsi_typeobj_deser (ser->data, ser->sz, &tid);
-  return tid;
+  struct TypeObject *tobj = ddsrt_calloc (1, sizeof (*tobj));
+  ddsi_typeobj_deser (ser->data, ser->sz, &tobj);
+  return tobj;
 }
 
 static uint32_t sertype_default_hash (const struct ddsi_sertype *tpcmn)

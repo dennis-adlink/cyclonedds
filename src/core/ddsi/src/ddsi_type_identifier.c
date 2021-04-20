@@ -118,6 +118,8 @@ static int strong_connected_component_id_compare (struct StronglyConnectedCompon
 int ddsi_typeid_compare (const struct TypeIdentifier *a, const struct TypeIdentifier *b)
 {
   int r;
+  if (a == NULL && b == NULL)
+    return 0;
   if (a == NULL || b == NULL)
     return a > b ? 1 : -1;
   if (a->_d != b->_d)
@@ -190,7 +192,8 @@ int ddsi_typeid_compare (const struct TypeIdentifier *a, const struct TypeIdenti
     case EK_MINIMAL:
       return equivalence_hash_compare (&a->_u.equivalence_hash, &b->_u.equivalence_hash);
     default:
-      return false;
+      assert (false);
+      return 1;
   }
 }
 
@@ -199,7 +202,7 @@ void ddsi_typeid_ser (const struct TypeIdentifier *typeid, unsigned char **buf, 
   dds_ostream_t os = { .m_buffer = NULL, .m_index = 0, .m_size = 0, .m_xcdr_version = CDR_ENC_VERSION_2 };
   dds_stream_writeLE ((dds_ostreamLE_t *) &os, (const void *) typeid, TypeIdentifier_ops);
   *buf = os.m_buffer;
-  *sz = os.m_size;
+  *sz = os.m_index;
 }
 
 void ddsi_typeid_deser (unsigned char *buf, uint32_t sz, struct TypeIdentifier **typeid)

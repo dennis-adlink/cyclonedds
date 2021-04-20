@@ -19,6 +19,7 @@
 #include "dds__entity.h"
 #include "dds/ddsi/q_entity.h"
 #include "dds/ddsi/ddsi_entity_index.h"
+#include "dds/ddsi/ddsi_type_identifier.h"
 #include "dds/ddsrt/cdtors.h"
 #include "dds/ddsrt/misc.h"
 #include "dds/ddsrt/process.h"
@@ -316,4 +317,17 @@ CU_Test(ddsc_typelookup, api_resolve_invalid, .init = typelookup_init, .fini = t
   dds_delete_qos (qos);
   endpoint_info_free (writer_ep);
   dds_free (type_id);
+}
+
+CU_Test(ddsc_typelookup, type_id_ser)
+{
+  struct TypeIdentifier tid = { ._d = EK_MINIMAL, ._u.equivalence_hash = { .hash = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 } } };
+  unsigned char *buf;
+  uint32_t sz;
+
+  ddsi_typeid_ser (&tid, &buf, &sz);
+  printf ("unsigned char tid[%u] = { ", sz);
+  for (uint32_t n = 0; n < sz; n++)
+    printf ("0x%02x, ", buf[n]);
+  printf ("};\n");
 }

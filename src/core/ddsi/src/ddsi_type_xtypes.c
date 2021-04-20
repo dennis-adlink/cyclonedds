@@ -41,9 +41,133 @@ static void xt_lbounds_dup (struct LBoundSeq *dst, const struct LBoundSeq *src)
   dst->seq = ddsrt_memdup (&src->seq, dst->length * sizeof (*dst->seq));
 }
 
+static void add_minimal_typeobj (struct xt_type *xt, const struct TypeObject *to)
+{
+  const struct MinimalTypeObject *mto = &to->_u.minimal;
+  xt->_d = mto->_d;
+  switch (to->_d)
+  {
+    case TK_ALIAS:
+      xt->_u.alias.related_type = ddsi_xt_type_init (&mto->_u.alias_type.body.common.related_type, NULL);
+      break;
+    case TK_ANNOTATION:
+      abort (); /* FIXME: not implemented */
+      break;
+    case TK_STRUCTURE:
+      xt->_u.structure.flags = mto->_u.struct_type.struct_flags;
+      xt->_u.structure.base_type = ddsi_xt_type_init (&mto->_u.struct_type.header.base_type, NULL);
+      xt->_u.structure.members.length = mto->_u.struct_type.member_seq.length;
+      xt->_u.structure.members.seq = ddsrt_malloc (xt->_u.structure.members.length * sizeof (*xt->_u.structure.members.seq));
+      for (uint32_t n = 0; n < xt->_u.structure.members.length; n++)
+      {
+        xt->_u.structure.members.seq[n].type = ddsi_xt_type_init (&mto->_u.struct_type.member_seq.seq[n].common.member_type_id, NULL);
+        xt->_u.structure.members.seq[n].name_hash = mto->_u.struct_type.member_seq.seq[n].detail.name_hash;
+      }
+      break;
+    case TK_UNION:
+      xt->_u.union_type.flags = mto->_u.union_type.union_flags;
+      xt->_u.union_type.disc_type = ddsi_xt_type_init (&mto->_u.union_type.discriminator.common.type_id, NULL);
+      xt->_u.union_type.disc_flags = mto->_u.union_type.discriminator.common.member_flags;
+      xt->_u.union_type.members.length = mto->_u.union_type.member_seq.length;
+      xt->_u.union_type.members.seq = ddsrt_malloc (xt->_u.union_type.members.length * sizeof (*xt->_u.union_type.members.seq));
+      for (uint32_t n = 0; n < xt->_u.union_type.members.length; n++)
+      {
+        xt->_u.union_type.members.seq[n].id = mto->_u.union_type.member_seq.seq[n].common.member_id;
+        xt->_u.union_type.members.seq[n].flags = mto->_u.union_type.member_seq.seq[n].common.member_flags;
+        xt->_u.union_type.members.seq[n].type = ddsi_xt_type_init (&mto->_u.union_type.member_seq.seq[n].common.type_id, NULL);
+        xt->_u.union_type.members.seq[n].label_seq.length = mto->_u.union_type.member_seq.seq[n].common.label_seq.length;
+        xt->_u.union_type.members.seq[n].label_seq.seq = ddsrt_memdup (&mto->_u.union_type.member_seq.seq[n].common.label_seq.seq,
+          mto->_u.union_type.member_seq.seq[n].common.label_seq.length * sizeof (*mto->_u.union_type.member_seq.seq[n].common.label_seq.seq));
+        xt->_u.union_type.members.seq[n].name_hash = mto->_u.union_type.member_seq.seq[n].detail.name_hash;
+      }
+      break;
+    case TK_BITSET:
+      xt->_u.bitset.fields.length = mto->_u.bitset_type.field_seq.length;
+      xt->_u.bitset.fields.seq = ddsrt_malloc (xt->_u.bitset.fields.length * sizeof (*xt->_u.bitset.fields.seq));
+      for (uint32_t n = 0; n < xt->_u.bitset.fields.length; n++)
+      {
+        xt->_u.bitset.fields.seq[n].position = mto->_u.bitset_type.field_seq.seq[n].common.position;
+        xt->_u.bitset.fields.seq[n].bitcount = mto->_u.bitset_type.field_seq.seq[n].common.bitcount;
+        xt->_u.bitset.fields.seq[n].holder_type = mto->_u.bitset_type.field_seq.seq[n].common.holder_type;
+        xt->_u.bitset.fields.seq[n].name_hash = mto->_u.bitset_type.field_seq.seq[n].name_hash;
+      }
+      break;
+    case TK_SEQUENCE:
+      xt->_u.seq.c.element_type = ddsi_xt_type_init (&mto->_u.sequence_type.element.common.type, NULL);
+      xt->_u.seq.c.element_flags = mto->_u.sequence_type.element.common.element_flags;
+      xt->_u.seq.bound = mto->_u.sequence_type.header.common.bound;
+      break;
+    case TK_ARRAY:
+      xt->_u.array.c.element_type = ddsi_xt_type_init (&mto->_u.array_type.element.common.type, NULL);
+      xt->_u.array.c.element_flags = mto->_u.array_type.element.common.element_flags;
+      xt_lbounds_dup (&xt->_u.array.bounds, &mto->_u.array_type.header.common.bound_seq);
+      break;
+    case TK_MAP:
+      xt->_u.map.c.element_type = ddsi_xt_type_init (&mto->_u.map_type.element.common.type, NULL);
+      xt->_u.map.c.element_flags = mto->_u.array_type.element.common.element_flags;
+      xt->_u.map.key_type = ddsi_xt_type_init (&mto->_u.map_type.key.common.type, NULL);
+      xt->_u.map.bound = mto->_u.map_type.header.common.bound;
+      break;
+    case TK_ENUM:
+      xt->_u.enum_type.flags = mto->_u.enumerated_type.enum_flags;
+      xt->_u.enum_type.bit_bound = mto->_u.enumerated_type.header.common.bit_bound;
+      xt->_u.enum_type.literals.length = mto->_u.enumerated_type.literal_seq.length;
+      xt->_u.enum_type.literals.seq = ddsrt_malloc (xt->_u.enum_type.literals.length * sizeof (*xt->_u.enum_type.literals.seq));
+      for (uint32_t n = 0; n < xt->_u.enum_type.literals.length; n++)
+      {
+        xt->_u.enum_type.literals.seq[n].value = mto->_u.enumerated_type.literal_seq.seq[n].common.value;
+        xt->_u.enum_type.literals.seq[n].flags = mto->_u.enumerated_type.literal_seq.seq[n].common.flags;
+        xt->_u.enum_type.literals.seq[n].name_hash = mto->_u.enumerated_type.literal_seq.seq[n].detail.name_hash;
+      }
+      break;
+    case TK_BITMASK:
+      xt->_u.bitmask.flags = mto->_u.bitmask_type.bitmask_flags;
+      xt->_u.bitmask.bit_bound = mto->_u.bitmask_type.header.common.bit_bound;
+      xt->_u.bitmask.bitflags.length = mto->_u.bitmask_type.flag_seq.length;
+      xt->_u.bitmask.bitflags.seq = ddsrt_malloc (xt->_u.bitmask.bitflags.length * sizeof (*xt->_u.bitmask.bitflags.seq));
+      for (uint32_t n = 0; n < xt->_u.bitmask.bitflags.length; n++)
+      {
+        xt->_u.bitmask.bitflags.seq[n].position = mto->_u.bitmask_type.flag_seq.seq[n].common.position;
+        xt->_u.bitmask.bitflags.seq[n].name_hash = mto->_u.bitmask_type.flag_seq.seq[n].detail.name_hash;
+      }
+      break;
+    default:
+      abort (); /* not supported */
+  }
+}
+
+static void add_complete_typeobj (struct xt_type *xt, const struct TypeObject *to)
+{
+  // FIXME
+  (void) xt;
+  (void) to;
+}
+
 struct xt_type *ddsi_xt_type_init (const struct TypeIdentifier *ti, const struct TypeObject *to)
 {
+  assert (ti);
   struct xt_type *xt = ddsrt_calloc (1, sizeof (*xt));
+
+  if (ddsi_typeid_is_minimal (ti))
+  {
+    xt->has_minimal_id = 1;
+    xt->minimal_hash = ti->_u.equivalence_hash;
+    if (to)
+    {
+      assert (ddsi_typeobj_is_minimal (to));
+      xt->has_minimal_obj = 1;
+    }
+  }
+  else
+  {
+    xt->has_complete_id = 1;
+    xt->complete_hash = ti->_u.equivalence_hash;
+    if (to)
+    {
+      assert (ddsi_typeobj_is_complete (to));
+      xt->has_complete_obj = 1;
+    }
+  }
 
   /* Primitive types */
   if (ti->_d <= TK_CHAR16)
@@ -112,102 +236,12 @@ struct xt_type *ddsi_xt_type_init (const struct TypeIdentifier *ti, const struct
       xt->_u.map.key_type = ddsi_xt_type_init (ti->_u.map_ldefn.key_identifier, NULL);
       break;
     case EK_MINIMAL:
-    {
-      const struct MinimalTypeObject *mto = &to->_u.minimal;
-      xt->_d = mto->_d;
-      switch (to->_d)
-      {
-        case TK_ALIAS:
-          xt->_u.alias.related_type = ddsi_xt_type_init (&mto->_u.alias_type.body.common.related_type, NULL);
-          break;
-        case TK_ANNOTATION:
-          abort (); /* FIXME: not implemented */
-          break;
-        case TK_STRUCTURE:
-          xt->_u.structure.flags = mto->_u.struct_type.struct_flags;
-          xt->_u.structure.base_type = ddsi_xt_type_init (&mto->_u.struct_type.header.base_type, NULL);
-          xt->_u.structure.members.length = mto->_u.struct_type.member_seq.length;
-          xt->_u.structure.members.seq = ddsrt_malloc (xt->_u.structure.members.length * sizeof (*xt->_u.structure.members.seq));
-          for (uint32_t n = 0; n < xt->_u.structure.members.length; n++)
-          {
-            xt->_u.structure.members.seq[n].type = ddsi_xt_type_init (&mto->_u.struct_type.member_seq.seq[n].common.member_type_id, NULL);
-            xt->_u.structure.members.seq[n].name_hash = mto->_u.struct_type.member_seq.seq[n].detail.name_hash;
-          }
-          break;
-        case TK_UNION:
-          xt->_u.union_type.flags = mto->_u.union_type.union_flags;
-          xt->_u.union_type.disc_type = ddsi_xt_type_init (&mto->_u.union_type.discriminator.common.type_id, NULL);
-          xt->_u.union_type.disc_flags = mto->_u.union_type.discriminator.common.member_flags;
-          xt->_u.union_type.members.length = mto->_u.union_type.member_seq.length;
-          xt->_u.union_type.members.seq = ddsrt_malloc (xt->_u.union_type.members.length * sizeof (*xt->_u.union_type.members.seq));
-          for (uint32_t n = 0; n < xt->_u.union_type.members.length; n++)
-          {
-            xt->_u.union_type.members.seq[n].id = mto->_u.union_type.member_seq.seq[n].common.member_id;
-            xt->_u.union_type.members.seq[n].flags = mto->_u.union_type.member_seq.seq[n].common.member_flags;
-            xt->_u.union_type.members.seq[n].type = ddsi_xt_type_init (&mto->_u.union_type.member_seq.seq[n].common.type_id, NULL);
-            xt->_u.union_type.members.seq[n].label_seq.length = mto->_u.union_type.member_seq.seq[n].common.label_seq.length;
-            xt->_u.union_type.members.seq[n].label_seq.seq = ddsrt_memdup (&mto->_u.union_type.member_seq.seq[n].common.label_seq.seq,
-              mto->_u.union_type.member_seq.seq[n].common.label_seq.length * sizeof (*mto->_u.union_type.member_seq.seq[n].common.label_seq.seq));
-            xt->_u.union_type.members.seq[n].name_hash = mto->_u.union_type.member_seq.seq[n].detail.name_hash;
-          }
-          break;
-        case TK_BITSET:
-          xt->_u.bitset.fields.length = mto->_u.bitset_type.field_seq.length;
-          xt->_u.bitset.fields.seq = ddsrt_malloc (xt->_u.bitset.fields.length * sizeof (*xt->_u.bitset.fields.seq));
-          for (uint32_t n = 0; n < xt->_u.bitset.fields.length; n++)
-          {
-            xt->_u.bitset.fields.seq[n].position = mto->_u.bitset_type.field_seq.seq[n].common.position;
-            xt->_u.bitset.fields.seq[n].bitcount = mto->_u.bitset_type.field_seq.seq[n].common.bitcount;
-            xt->_u.bitset.fields.seq[n].holder_type = mto->_u.bitset_type.field_seq.seq[n].common.holder_type;
-            xt->_u.bitset.fields.seq[n].name_hash = mto->_u.bitset_type.field_seq.seq[n].name_hash;
-          }
-          break;
-        case TK_SEQUENCE:
-          xt->_u.seq.c.element_type = ddsi_xt_type_init (&mto->_u.sequence_type.element.common.type, NULL);
-          xt->_u.seq.c.element_flags = mto->_u.sequence_type.element.common.element_flags;
-          xt->_u.seq.bound = mto->_u.sequence_type.header.common.bound;
-          break;
-        case TK_ARRAY:
-          xt->_u.array.c.element_type = ddsi_xt_type_init (&mto->_u.array_type.element.common.type, NULL);
-          xt->_u.array.c.element_flags = mto->_u.array_type.element.common.element_flags;
-          xt_lbounds_dup (&xt->_u.array.bounds, &mto->_u.array_type.header.common.bound_seq);
-          break;
-        case TK_MAP:
-          xt->_u.map.c.element_type = ddsi_xt_type_init (&mto->_u.map_type.element.common.type, NULL);
-          xt->_u.map.c.element_flags = mto->_u.array_type.element.common.element_flags;
-          xt->_u.map.key_type = ddsi_xt_type_init (&mto->_u.map_type.key.common.type, NULL);
-          xt->_u.map.bound = mto->_u.map_type.header.common.bound;
-          break;
-        case TK_ENUM:
-          xt->_u.enum_type.flags = mto->_u.enumerated_type.enum_flags;
-          xt->_u.enum_type.bit_bound = mto->_u.enumerated_type.header.common.bit_bound;
-          xt->_u.enum_type.literals.length = mto->_u.enumerated_type.literal_seq.length;
-          xt->_u.enum_type.literals.seq = ddsrt_malloc (xt->_u.enum_type.literals.length * sizeof (*xt->_u.enum_type.literals.seq));
-          for (uint32_t n = 0; n < xt->_u.enum_type.literals.length; n++)
-          {
-            xt->_u.enum_type.literals.seq[n].value = mto->_u.enumerated_type.literal_seq.seq[n].common.value;
-            xt->_u.enum_type.literals.seq[n].flags = mto->_u.enumerated_type.literal_seq.seq[n].common.flags;
-            xt->_u.enum_type.literals.seq[n].name_hash = mto->_u.enumerated_type.literal_seq.seq[n].detail.name_hash;
-          }
-          break;
-        case TK_BITMASK:
-          xt->_u.bitmask.flags = mto->_u.bitmask_type.bitmask_flags;
-          xt->_u.bitmask.bit_bound = mto->_u.bitmask_type.header.common.bit_bound;
-          xt->_u.bitmask.bitflags.length = mto->_u.bitmask_type.flag_seq.length;
-          xt->_u.bitmask.bitflags.seq = ddsrt_malloc (xt->_u.bitmask.bitflags.length * sizeof (*xt->_u.bitmask.bitflags.seq));
-          for (uint32_t n = 0; n < xt->_u.bitmask.bitflags.length; n++)
-          {
-            xt->_u.bitmask.bitflags.seq[n].position = mto->_u.bitmask_type.flag_seq.seq[n].common.position;
-            xt->_u.bitmask.bitflags.seq[n].name_hash = mto->_u.bitmask_type.flag_seq.seq[n].detail.name_hash;
-          }
-          break;
-        default:
-          abort (); /* not supported */
-      }
+      if (to != NULL)
+        add_minimal_typeobj (xt, to);
       break;
-    }
     case EK_COMPLETE:
-      abort (); /* FIXME */
+      if (to != NULL)
+        add_complete_typeobj (xt, to);
       break;
     case TI_STRONGLY_CONNECTED_COMPONENT:
       xt->_d = TI_STRONGLY_CONNECTED_COMPONENT;
@@ -220,58 +254,87 @@ struct xt_type *ddsi_xt_type_init (const struct TypeIdentifier *ti, const struct
   return xt;
 }
 
-void ddsi_xt_type_fini (struct xt_type *t)
+void ddsi_xt_type_add (struct xt_type *xt, const struct TypeIdentifier *ti, const struct TypeObject *to)
 {
-  switch (t->_d)
+  assert (xt);
+  if (ti != NULL)
+  {
+    if (ddsi_typeid_is_minimal (ti) && !xt->has_minimal_id)
+    {
+      xt->has_minimal_id = 1;
+      xt->minimal_hash = ti->_u.equivalence_hash;
+    }
+    else if (!xt->has_complete_id)
+    {
+      xt->has_complete_id = 1;
+      xt->complete_hash = ti->_u.equivalence_hash;
+    }
+  }
+  if (to != NULL)
+  {
+    if (ddsi_typeobj_is_minimal (to) && !xt->has_minimal_obj)
+    {
+      xt->has_minimal_obj = 1;
+      add_minimal_typeobj (xt, to);
+    }
+    else if (!xt->has_complete_obj)
+    {
+      xt->has_complete_obj = 1;
+      add_complete_typeobj (xt, to);
+    }
+  }
+}
+
+void ddsi_xt_type_fini (struct xt_type *xt)
+{
+  switch (xt->_d)
   {
     case TK_ALIAS:
-      ddsi_xt_type_fini (t->_u.alias.related_type);
+      ddsi_xt_type_fini (xt->_u.alias.related_type);
       break;
     case TK_ANNOTATION:
       abort (); /* FIXME: not implemented */
       break;
     case TK_STRUCTURE:
-      ddsi_xt_type_fini (t->_u.structure.base_type);
-      for (uint32_t n = 0; n < t->_u.structure.members.length; n++)
-        ddsi_xt_type_fini (t->_u.structure.members.seq[n].type);
-      ddsrt_free (t->_u.structure.members.seq);
+      ddsi_xt_type_fini (xt->_u.structure.base_type);
+      for (uint32_t n = 0; n < xt->_u.structure.members.length; n++)
+        ddsi_xt_type_fini (xt->_u.structure.members.seq[n].type);
+      ddsrt_free (xt->_u.structure.members.seq);
       break;
     case TK_UNION:
-      ddsi_xt_type_fini (t->_u.union_type.disc_type);
-      for (uint32_t n = 0; n < t->_u.union_type.members.length; n++)
+      ddsi_xt_type_fini (xt->_u.union_type.disc_type);
+      for (uint32_t n = 0; n < xt->_u.union_type.members.length; n++)
       {
-        ddsi_xt_type_fini (t->_u.union_type.members.seq[n].type);
-        ddsrt_free (t->_u.union_type.members.seq[n].label_seq.seq);
+        ddsi_xt_type_fini (xt->_u.union_type.members.seq[n].type);
+        ddsrt_free (xt->_u.union_type.members.seq[n].label_seq.seq);
       }
-      ddsrt_free (t->_u.union_type.members.seq);
+      ddsrt_free (xt->_u.union_type.members.seq);
       break;
     case TK_BITSET:
-      ddsrt_free (t->_u.bitset.fields.seq);
+      ddsrt_free (xt->_u.bitset.fields.seq);
       break;
     case TK_SEQUENCE:
-      ddsi_xt_type_fini (t->_u.seq.c.element_type);
+      ddsi_xt_type_fini (xt->_u.seq.c.element_type);
       break;
     case TK_ARRAY:
-      ddsi_xt_type_fini (t->_u.array.c.element_type);
-      ddsrt_free (t->_u.array.bounds.seq);
+      ddsi_xt_type_fini (xt->_u.array.c.element_type);
+      ddsrt_free (xt->_u.array.bounds.seq);
       break;
     case TK_MAP:
-      ddsi_xt_type_fini (t->_u.map.c.element_type);
-      ddsi_xt_type_fini (t->_u.map.key_type);
+      ddsi_xt_type_fini (xt->_u.map.c.element_type);
+      ddsi_xt_type_fini (xt->_u.map.key_type);
       break;
     case TK_ENUM:
-      ddsrt_free (t->_u.enum_type.literals.seq);
+      ddsrt_free (xt->_u.enum_type.literals.seq);
       break;
     case TK_BITMASK:
-      ddsrt_free (t->_u.bitmask.bitflags.seq);
+      ddsrt_free (xt->_u.bitmask.bitflags.seq);
       break;
     default:
       abort (); /* not supported */
       break;
   }
-
-
-  ddsrt_free (t);
+  ddsrt_free (xt);
 }
 
 static struct xt_type *xt_clone (const struct xt_type *xt)

@@ -219,6 +219,31 @@ static struct tl_meta * tlm_ref_impl (struct ddsi_domaingv *gv, const struct Typ
     GVTRACE (" resolved");
     resolved = true;
   }
+  if (tlm->xt == NULL)
+  {
+    struct TypeObject *tobj = ddsi_sertype_typeobj (tlm->sertype, ddsi_typeid_is_minimal (tid), NULL);
+    tlm->xt = ddsi_xt_type_init (tid, tobj); // tobj can be null, in that case only the type identifier will be added to xt
+    if (tobj != NULL)
+      ddsrt_free (tobj);
+  }
+  else
+  {
+    if (ddsi_typeid_is_complete (tid) && !tlm->xt->has_complete_obj)
+    {
+      struct TypeObject *tobj = ddsi_sertype_typeobj (tlm->sertype, false, NULL);
+      ddsi_xt_type_add (tlm->xt, tid, tobj);
+      if (tobj)
+        ddsrt_free (tobj);
+    }
+  }
+  if (tid_min != NULL && tid_min != tid && !tlm->xt->has_minimal_id)
+  {
+    struct TypeObject *tobj_min = ddsi_sertype_typeobj (tlm->sertype, true, NULL);
+    ddsi_xt_type_add (tlm->xt, tid_min, tobj_min);
+    if (tobj_min)
+      ddsrt_free (tobj_min);
+  }
+
   tlm->refc++;
   GVTRACE (" state %d refc %u\n", tlm->state, tlm->refc);
 

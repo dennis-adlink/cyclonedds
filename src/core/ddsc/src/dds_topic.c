@@ -476,6 +476,10 @@ dds_entity_t dds_create_topic_impl (
   ddsi_sertype_unref (*sertype);
   *sertype = sertype_registered;
 
+#ifdef DDS_HAS_TYPE_DISCOVERY
+  sertype_registered->tlm = ddsi_tl_meta_local_ref (gv, sertype_registered);
+#endif
+
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   /* create or reference ktopic-sertype meta-data entry */
   struct ktopic_type_guid templ, *m;
@@ -512,7 +516,6 @@ dds_entity_t dds_create_topic_impl (
 
   ddsrt_mutex_unlock (&pp->m_entity.m_mutex);
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  sertype_registered->tlm = ddsi_tl_meta_local_ref (gv, sertype_registered);
   ddsi_tl_meta_register_with_proxy_endpoints (gv, sertype_registered);
 #endif
 
@@ -615,24 +618,24 @@ dds_entity_t dds_create_topic (dds_entity_t participant, const dds_topic_descrip
   st->type.ops.ops = ddsrt_memdup (desc->m_ops, st->type.ops.nops * sizeof (*st->type.ops.ops));
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  if (desc->minimal_type.tid_ser_sz > 0)
+  if (desc->minimal_type.id.sz > 0)
   {
-    memcpy (&st->type.typeid_minimal_ser.data, desc->minimal_type.tid_ser, desc->minimal_type.tid_ser_sz);
-    st->type.typeid_minimal_ser.sz = desc->minimal_type.tid_ser_sz;
-    if (desc->minimal_type.tobj_ser_sz > 0)
+    st->type.typeid_minimal_ser.data = ddsrt_memdup (desc->minimal_type.id.data, desc->minimal_type.id.sz);
+    st->type.typeid_minimal_ser.sz = desc->minimal_type.id.sz;
+    if (desc->minimal_type.obj.sz > 0)
     {
-      memcpy (&st->type.typeid_minimal_ser.data, desc->minimal_type.tid_ser, desc->minimal_type.tid_ser_sz);
-      st->type.typeid_minimal_ser.sz = desc->minimal_type.tid_ser_sz;
+      st->type.typeobj_minimal_ser.data = ddsrt_memdup (desc->minimal_type.obj.data, desc->minimal_type.obj.sz);
+      st->type.typeobj_minimal_ser.sz = desc->minimal_type.obj.sz;
     }
   }
-  if (desc->complete_type.tid_ser_sz > 0)
+  if (desc->complete_type.id.sz > 0)
   {
-    memcpy (&st->type.typeid_ser.data, desc->complete_type.tid_ser, desc->complete_type.tid_ser_sz);
-    st->type.typeid_ser.sz = desc->complete_type.tid_ser_sz;
-    if (desc->complete_type.tobj_ser_sz > 0)
+    st->type.typeid_ser.data = ddsrt_memdup (desc->complete_type.id.data, desc->complete_type.id.sz);
+    st->type.typeid_ser.sz = desc->complete_type.id.sz;
+    if (desc->complete_type.obj.sz > 0)
     {
-      memcpy (&st->type.typeid_ser.data, desc->complete_type.tid_ser, desc->complete_type.tid_ser_sz);
-      st->type.typeid_ser.sz = desc->complete_type.tid_ser_sz;
+      st->type.typeobj_ser.data = ddsrt_memdup (desc->complete_type.obj.data, desc->complete_type.obj.sz);
+      st->type.typeobj_ser.sz = desc->complete_type.obj.sz;
     }
   }
 #endif

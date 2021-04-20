@@ -4832,6 +4832,7 @@ dds_return_t ddsi_new_topic
   assert (tp_qos->aliased == 0);
 
   /* Set topic name, type name and type id in qos */
+  assert (type->tlm != NULL);
   struct TypeIdentifier * tid = &type->tlm->type_id;
   assert (!ddsi_typeid_is_none (tid));
   tp_qos->present |= QP_TYPE_INFORMATION;

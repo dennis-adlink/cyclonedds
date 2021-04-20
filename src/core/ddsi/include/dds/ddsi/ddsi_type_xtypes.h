@@ -192,6 +192,8 @@ struct xt_bitmask {
 struct xt_type
 {
   bool is_plain_collection;
+  struct EquivalenceHash minimal_hash;
+  struct EquivalenceHash complete_hash;
   struct StronglyConnectedComponentId sc_component_id;
   unsigned has_minimal_id : 1;
   unsigned has_minimal_obj : 1;
@@ -244,7 +246,8 @@ struct xt_type
 };
 
 struct xt_type *ddsi_xt_type_init (const struct TypeIdentifier *ti, const struct TypeObject *to);
-void ddsi_xt_type_fini (struct xt_type *t);
+void ddsi_xt_type_add (struct xt_type *xt, const struct TypeIdentifier *ti, const struct TypeObject *to);
+void ddsi_xt_type_fini (struct xt_type *xt);
 bool ddsi_xt_is_assignable_from (const struct ddsi_domaingv *gv, const struct xt_type *t1, const struct xt_type *t2);
 bool ddsi_xt_has_complete_typeid (const struct xt_type *xt);
 

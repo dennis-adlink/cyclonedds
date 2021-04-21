@@ -38,7 +38,7 @@
   (IDL_BASE_TYPE | IDL_TEMPL_TYPE | IDL_CONSTR_TYPE | IDL_TYPEDEF)
 
 #define IDL_CONSTR_TYPE \
-  (IDL_STRUCT | IDL_UNION | IDL_ENUM)
+  (IDL_STRUCT | IDL_UNION | IDL_ENUM | IDL_BITMASK)
 
 #define IDL_TEMPL_TYPE \
   (IDL_SEQUENCE | IDL_STRING | IDL_WSTRING | IDL_FIXED_PT)
@@ -61,6 +61,7 @@
 /* if no explicit default is specified and range is not covered */
 #define IDL_IMPLICIT_DEFAULT_CASE_LABEL (IDL_DEFAULT_CASE_LABEL | 2u)
 #define IDL_ENUMERATOR (1llu<<26)
+#define IDL_BIT_VALUE (1llu<<20)
 #define IDL_DECLARATOR (1llu<<25)
 /* annotations */
 #define IDL_ANNOTATION (1llu<<24)
@@ -78,6 +79,7 @@ enum idl_type {
   IDL_STRUCT = (1u<<17),
   IDL_UNION = (1u<<16),
   IDL_ENUM = (1u<<15),
+  IDL_BITMASK = (1u<<19),
   /* template types */
   IDL_SEQUENCE = (1llu<<14),
   IDL_STRING = (1llu<<13),
@@ -400,6 +402,22 @@ struct idl_enum {
   idl_extensibility_t extensibility;
 };
 
+typedef struct idl_bit_value idl_bit_value_t;
+struct idl_bit_value {
+  idl_node_t node;
+  struct idl_name *name;
+  uint16_t position;
+};
+
+typedef struct idl_bitmask idl_bitmask_t;
+struct idl_bitmask {
+  idl_node_t node;
+  struct idl_name *name;
+  idl_bit_value_t *bit_values;
+  idl_extensibility_t extensibility;
+};
+
+
 typedef struct idl_typedef idl_typedef_t;
 struct idl_typedef {
   idl_node_t node;
@@ -469,6 +487,8 @@ IDL_EXPORT bool idl_is_default_case(const void *node);
 IDL_EXPORT bool idl_is_case_label(const void *node);
 IDL_EXPORT bool idl_is_enum(const void *node);
 IDL_EXPORT bool idl_is_enumerator(const void *node);
+IDL_EXPORT bool idl_is_bitmask(const void *node);
+IDL_EXPORT bool idl_is_bit_value(const void *node);
 IDL_EXPORT bool idl_is_alias(const void *node);
 IDL_EXPORT bool idl_is_typedef(const void *node);
 IDL_EXPORT bool idl_is_declarator(const void *node);

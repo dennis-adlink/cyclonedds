@@ -222,6 +222,8 @@ annotate_extensibility(
     ((idl_union_t *)node)->extensibility = extensibility;
   } else if (idl_is_enum(node)) {
     ((idl_enum_t *)node)->extensibility = extensibility;
+  } else if (idl_is_bitmask(node)) {
+    ((idl_bitmask_t *)node)->extensibility = extensibility;
   } else {
     idl_error(pstate, idl_location(annotation_appl),
       "@%s can only be applied to constructed types", annotation);

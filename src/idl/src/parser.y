@@ -133,9 +133,11 @@ void idl_yypstate_delete_stack(idl_yypstate *yyps);
   idl_definition_t *definition;
   idl_module_t *module_dcl;
   idl_struct_t *struct_dcl;
+  idl_forward_decl_t *struct_forward_dcl;
   idl_member_t *member;
   idl_declarator_t *declarator;
   idl_union_t *union_dcl;
+  idl_forward_decl_t *union_forward_dcl;
   idl_case_t *_case;
   idl_case_label_t *case_label;
   idl_enum_t *enum_dcl;
@@ -189,9 +191,9 @@ void idl_yypstate_delete_stack(idl_yypstate *yyps);
 %type <sequence> sequence_type
 %type <string> string_type
 %type <module_dcl> module_dcl module_header
-%type <struct_dcl> struct_def struct_header
+%type <struct_dcl> struct_def struct_header struct_forward_dcl
 %type <member> members member struct_body
-%type <union_dcl> union_def union_header
+%type <union_dcl> union_def union_header union_forward_dcl
 %type <_case> switch_body case element_spec
 %type <case_label> case_labels case_label
 %type <enum_dcl> enum_def
@@ -690,6 +692,13 @@ constr_type_dcl:
 
 struct_dcl:
     struct_def { $$ = $1; }
+  |
+    struct_forward_dcl { $$ = $1; }
+  ;
+
+struct_forward_dcl:
+    "struct" identifier
+      { TRY(idl_forward_decl_struct(pstate, &@1, $2, &$$)); }
   ;
 
 struct_def:
@@ -747,6 +756,8 @@ member:
 
 union_dcl:
     union_def { $$ = $1; }
+  |
+    union_forward_dcl { $$ = $1; }
   ;
 
 union_def:
@@ -754,6 +765,11 @@ union_def:
       { TRY(idl_finalize_union(pstate, LOC(@1.first, @4.last), $1, $3));
         $$ = $1;
       }
+  ;
+
+union_forward_dcl:
+    "union" identifier
+      { TRY(idl_forward_decl_union(pstate, &@1, $2, &$$)); }
   ;
 
 union_header:

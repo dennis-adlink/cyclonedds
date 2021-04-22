@@ -138,8 +138,12 @@ const idl_name_t *idl_name(const void *node)
     return ((const idl_module_t *)node)->name;
   if (idl_mask(node) & IDL_STRUCT)
     return ((const idl_struct_t *)node)->name;
+  if (idl_mask(node) & IDL_STRUCT_FWD_DECL)
+    return ((const idl_forward_decl_t *)node)->name;
   if (idl_mask(node) & IDL_UNION)
     return ((const idl_union_t *)node)->name;
+  if (idl_mask(node) & IDL_UNION_FWD_DECL)
+    return ((const idl_forward_decl_t *)node)->name;
   if (idl_mask(node) & IDL_ENUM)
     return ((const idl_enum_t *)node)->name;
   if (idl_mask(node) & IDL_ENUMERATOR)
@@ -790,7 +794,7 @@ bool idl_is_sequence(const void *ptr)
   type_spec = node->type_spec;
   if (idl_mask(type_spec) & IDL_DECLARATOR)
     type_spec = ((const idl_node_t *)type_spec)->parent;
-  mask = IDL_STRUCT | IDL_UNION | IDL_ENUM | IDL_BITMASK | IDL_TYPEDEF |
+  mask = IDL_STRUCT | IDL_STRUCT_FWD_DECL | IDL_UNION | IDL_UNION_FWD_DECL | IDL_ENUM | IDL_BITMASK | IDL_TYPEDEF |
          IDL_SEQUENCE | IDL_STRING | IDL_BASE_TYPE;
   (void)mask;
   assert(idl_mask(type_spec) & mask);
@@ -907,7 +911,7 @@ bool idl_is_struct(const void *ptr)
 {
   const idl_struct_t *node = ptr;
 
-  if (!(idl_mask(node) & IDL_STRUCT) || (idl_mask(node) & IDL_FORWARD))
+  if (!(idl_mask(node) & IDL_STRUCT))
     return false;
   /* a struct must have a name */
   assert(node->name && node->name->identifier);
@@ -1040,6 +1044,58 @@ err_scope:
   free(node);
 err_node:
   return ret;
+}
+
+static void delete_struct_forward_decl(void *ptr)
+{
+  idl_case_label_t *node = ptr;
+  free(node);
+}
+
+static const char *describe_struct_forward_decl(const void *ptr)
+{
+  (void)ptr;
+  assert(idl_mask(ptr) == IDL_STRUCT_FWD_DECL);
+  return "struct forward declaration";
+}
+
+idl_retcode_t
+idl_forward_decl_struct(
+  idl_pstate_t *pstate,
+  const idl_location_t *location,
+  idl_name_t *name,
+  void *nodep)
+{
+  idl_retcode_t ret;
+  idl_forward_decl_t *node;
+  idl_declaration_t *declaration;
+  static const size_t size = sizeof(*node);
+  static const idl_mask_t mask = IDL_STRUCT_FWD_DECL;
+  static const struct methods methods = {
+    delete_struct_forward_decl, 0, describe_struct_forward_decl };
+  static const enum idl_declaration_kind kind = IDL_SPECIFIER_FORWARD_DECLARATION;
+
+  if ((ret = create_node(pstate, size, mask, location, &methods, &node)))
+    goto err_node;
+  node->name = name;
+  if ((ret = idl_declare(pstate, kind, name, node, NULL, &declaration)))
+    goto err_declare;
+  *((idl_forward_decl_t **)nodep) = node;
+  return ret;
+err_declare:
+err_node:
+  return ret;
+}
+
+bool idl_is_forward(const void *ptr)
+{
+  const idl_forward_decl_t *node = ptr;
+
+  if (!(idl_mask(node) & IDL_STRUCT_FWD_DECL) && !(idl_mask(node) & IDL_UNION_FWD_DECL))
+    return false;
+  /* a forward declaration must have a name */
+  assert(node->name && node->name->identifier);
+  return true;
 }
 
 bool idl_is_inherit_spec(const void *ptr)
@@ -1259,7 +1315,7 @@ bool idl_is_union(const void *ptr)
 {
   const idl_union_t *node = ptr;
 
-  if (!(idl_mask(node) & IDL_UNION) || (idl_mask(node) & IDL_FORWARD))
+  if (!(idl_mask(node) & IDL_UNION))
     return false;
   /* a union must have no parent or a module parent */
   assert(!node->node.parent || (idl_mask(node->node.parent) & IDL_MODULE));
@@ -1627,6 +1683,47 @@ err_declare:
   idl_delete_scope(scope);
 err_scope:
   free(node);
+err_node:
+  return ret;
+}
+
+static void delete_union_forward_decl(void *ptr)
+{
+  idl_case_label_t *node = ptr;
+  free(node);
+}
+
+static const char *describe_union_forward_decl(const void *ptr)
+{
+  (void)ptr;
+  assert(idl_mask(ptr) == IDL_UNION_FWD_DECL);
+  return "struct forward declaration";
+}
+
+idl_retcode_t
+idl_forward_decl_union(
+  idl_pstate_t *pstate,
+  const idl_location_t *location,
+  idl_name_t *name,
+  void *nodep)
+{
+  idl_retcode_t ret;
+  idl_forward_decl_t *node;
+  idl_declaration_t *declaration;
+  static const size_t size = sizeof(*node);
+  static const idl_mask_t mask = IDL_UNION_FWD_DECL;
+  static const struct methods methods = {
+    delete_union_forward_decl, 0, describe_union_forward_decl };
+  static const enum idl_declaration_kind kind = IDL_SPECIFIER_FORWARD_DECLARATION;
+
+  if ((ret = create_node(pstate, size, mask, location, &methods, &node)))
+    goto err_node;
+  if ((ret = idl_declare(pstate, kind, name, node, NULL, &declaration)))
+    goto err_declare;
+  node->name = name;
+  *((idl_forward_decl_t **)nodep) = node;
+  return ret;
+err_declare:
 err_node:
   return ret;
 }

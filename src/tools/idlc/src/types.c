@@ -204,7 +204,7 @@ emit_struct(
   } else {
     const idl_member_t *members = ((const idl_struct_t *)node)->members;
     /* ensure typedefs for unnamed sequences exist beforehand */
-    if ((ret = generate_implicit_sequences(pstate, revisit, path, members, user_data)))
+    if (members && (ret = generate_implicit_sequences(pstate, revisit, path, members, user_data)))
       return ret;
     fmt = "typedef struct %1$s\n"
           "{\n";

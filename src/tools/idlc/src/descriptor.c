@@ -973,6 +973,8 @@ emit_declarator(
       return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
     else if (idl_is_struct(type_spec))
       return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
+    else if (idl_is_forward(type_spec))
+      return IDL_RETCODE_OK;
 
     opcode = DDS_OP_ADR | typecode(type_spec, TYPE);
     if ((order = idl_is_topic_key(descriptor->topic, (pstate->flags & IDL_FLAG_KEYLIST) != 0, path)))

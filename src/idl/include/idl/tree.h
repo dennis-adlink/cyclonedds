@@ -38,7 +38,7 @@
   (IDL_BASE_TYPE | IDL_TEMPL_TYPE | IDL_CONSTR_TYPE | IDL_TYPEDEF)
 
 #define IDL_CONSTR_TYPE \
-  (IDL_STRUCT | IDL_UNION | IDL_ENUM | IDL_BITMASK)
+  (IDL_STRUCT | IDL_UNION | IDL_ENUM | IDL_BITMASK | IDL_STRUCT_FWD_DECL | IDL_UNION_FWD_DECL)
 
 #define IDL_TEMPL_TYPE \
   (IDL_SEQUENCE | IDL_STRING | IDL_WSTRING | IDL_FIXED_PT)
@@ -77,7 +77,9 @@ enum idl_type {
   IDL_TYPEDEF = (1llu<<18),
   /* constructed types */
   IDL_STRUCT = (1u<<17),
+  IDL_STRUCT_FWD_DECL = (1u<<20),
   IDL_UNION = (1u<<16),
+  IDL_UNION_FWD_DECL = (1u<<21),
   IDL_ENUM = (1u<<15),
   IDL_BITMASK = (1u<<19),
   /* template types */
@@ -343,6 +345,12 @@ struct idl_struct {
   idl_extensibility_t extensibility;
 };
 
+typedef struct idl_forward_decl idl_forward_decl_t;
+struct idl_forward_decl {
+  idl_node_t node;
+  struct idl_name *name;
+};
+
 typedef struct idl_case_label idl_case_label_t;
 struct idl_case_label {
   idl_node_t node;
@@ -497,6 +505,7 @@ IDL_EXPORT bool idl_is_annotation_member(const void *node);
 IDL_EXPORT bool idl_is_annotation_appl(const void *node);
 IDL_EXPORT bool idl_is_topic(const void *node, bool keylist);
 IDL_EXPORT bool idl_is_keyless(const void *node, bool keylist);
+IDL_EXPORT bool idl_is_forward(const void *node);
 /* 1-based, returns 0 if path does not refer to key, non-0 otherwise */
 IDL_EXPORT uint32_t idl_is_topic_key(const void *node, bool keylist, const idl_path_t *path);
 

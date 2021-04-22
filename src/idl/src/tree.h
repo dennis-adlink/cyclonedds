@@ -113,6 +113,13 @@ idl_create_struct(
   void *nodep);
 
 idl_retcode_t
+idl_forward_decl_struct(
+  idl_pstate_t *pstate,
+  const idl_location_t *location,
+  idl_name_t *name,
+  void *nodep);
+
+idl_retcode_t
 idl_create_key(
   idl_pstate_t *pstate,
   const idl_location_t *location,
@@ -130,14 +137,6 @@ idl_create_member(
   const idl_location_t *location,
   void *type_spec,
   idl_declarator_t *declarators,
-  void *nodep);
-
-idl_retcode_t
-idl_create_forward(
-  idl_pstate_t *pstate,
-  const idl_location_t *location,
-  idl_mask_t mask,
-  idl_name_t *name,
   void *nodep);
 
 idl_retcode_t
@@ -182,6 +181,13 @@ idl_create_union(
   const idl_location_t *location,
   idl_name_t *name,
   idl_switch_type_spec_t *switch_type_spec,
+  void *nodep);
+
+idl_retcode_t
+idl_forward_decl_union(
+  idl_pstate_t *pstate,
+  const idl_location_t *location,
+  idl_name_t *name,
   void *nodep);
 
 idl_retcode_t

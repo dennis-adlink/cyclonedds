@@ -38,7 +38,7 @@
   (IDL_BASE_TYPE | IDL_TEMPL_TYPE | IDL_CONSTR_TYPE | IDL_TYPEDEF)
 
 #define IDL_CONSTR_TYPE \
-  (IDL_STRUCT | IDL_UNION | IDL_ENUM | IDL_BITMASK | IDL_STRUCT_FWD_DECL | IDL_UNION_FWD_DECL)
+  (IDL_STRUCT | IDL_UNION | IDL_ENUM | IDL_BITMASK)
 
 #define IDL_TEMPL_TYPE \
   (IDL_SEQUENCE | IDL_STRING | IDL_WSTRING | IDL_FIXED_PT)
@@ -77,9 +77,7 @@ enum idl_type {
   IDL_TYPEDEF = (1llu<<18),
   /* constructed types */
   IDL_STRUCT = (1u<<17),
-  IDL_STRUCT_FWD_DECL = (1u<<20),
   IDL_UNION = (1u<<16),
-  IDL_UNION_FWD_DECL = (1u<<21),
   IDL_ENUM = (1u<<15),
   IDL_BITMASK = (1u<<19),
   /* template types */
@@ -349,6 +347,8 @@ typedef struct idl_forward_decl idl_forward_decl_t;
 struct idl_forward_decl {
   idl_node_t node;
   struct idl_name *name;
+  struct idl_scoped_name *scoped_name;
+  idl_mask_t type_mask;
 };
 
 typedef struct idl_case_label idl_case_label_t;
@@ -407,6 +407,7 @@ struct idl_enum {
   idl_node_t node;
   struct idl_name *name;
   idl_enumerator_t *enumerators;
+  uint16_t bit_bound;
   idl_extensibility_t extensibility;
 };
 
@@ -422,9 +423,9 @@ struct idl_bitmask {
   idl_node_t node;
   struct idl_name *name;
   idl_bit_value_t *bit_values;
+  uint16_t bit_bound;
   idl_extensibility_t extensibility;
 };
-
 
 typedef struct idl_typedef idl_typedef_t;
 struct idl_typedef {
@@ -506,6 +507,7 @@ IDL_EXPORT bool idl_is_annotation_appl(const void *node);
 IDL_EXPORT bool idl_is_topic(const void *node, bool keylist);
 IDL_EXPORT bool idl_is_keyless(const void *node, bool keylist);
 IDL_EXPORT bool idl_is_forward(const void *node);
+IDL_EXPORT idl_mask_t idl_forward_mask(const void *node);
 /* 1-based, returns 0 if path does not refer to key, non-0 otherwise */
 IDL_EXPORT uint32_t idl_is_topic_key(const void *node, bool keylist, const idl_path_t *path);
 
@@ -520,6 +522,7 @@ IDL_EXPORT const char *idl_identifier(const void *node);
 IDL_EXPORT const idl_name_t *idl_name(const void *node);
 IDL_EXPORT uint32_t idl_array_size(const void *node);
 IDL_EXPORT uint32_t idl_bound(const void *node);
+IDL_EXPORT uint16_t idl_bit_bound(const void *node);
 
 /* navigation */
 IDL_EXPORT void *idl_ancestor(const void *node, size_t levels);

@@ -224,6 +224,7 @@ emit_union(
   const void *node,
   void *user_data)
 {
+  idl_retcode_t ret = IDL_RETCODE_NO_MEMORY;
   struct generator *gen = user_data;
   char *name, *type;
   const char *fmt;
@@ -240,14 +241,24 @@ emit_union(
     return IDL_RETCODE_NO_MEMORY;
 
   if (revisit) {
-    fmt = "  } _u;\n"
-          "} %1$s;\n"
-          "\n"
-          "#define %1$s__alloc() \\\n"
-          "((%1$s*) dds_alloc (sizeof (%1$s)));\n"
+    fmt = "} %1$s;\n"
           "\n";
     if (idl_fprintf(gen->header.handle, fmt, name) < 0)
       return IDL_RETCODE_NO_MEMORY;
+    if (idl_is_topic(node, (pstate->flags & IDL_FLAG_KEYLIST) != 0)) {
+      fmt = "extern const dds_topic_descriptor_t %1$s_desc;\n"
+            "\n"
+            "#define %1$s__alloc() \\\n"
+            "((%1$s*) dds_alloc (sizeof (%1$s)));\n"
+            "\n"
+            "#define %1$s_free(d,o) \\\n"
+            "dds_sample_free ((d), &%1$s_desc, (o))\n"
+            "\n";
+      if (idl_fprintf(gen->header.handle, fmt, name) < 0)
+        return IDL_RETCODE_NO_MEMORY;
+      if ((ret = generate_descriptor(pstate, gen, node)))
+        return ret;
+    }
   } else {
     fmt = "typedef struct %1$s\n"
           "{\n"

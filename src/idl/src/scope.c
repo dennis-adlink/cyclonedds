@@ -337,7 +337,7 @@ idl_find(
   const idl_name_t *name,
   uint32_t flags)
 {
-  const idl_declaration_t *entry;
+  const idl_declaration_t *entry, *fwd = NULL;
   int (*cmp)(const idl_name_t *, const idl_name_t *);
 
   if (!scope)
@@ -353,7 +353,12 @@ idl_find(
     if (is_annotation(scope, entry) && !(flags & IDL_FIND_ANNOTATION))
       continue;
     if (cmp(name, entry->name) == 0)
-      return entry;
+    {
+      if (entry->kind & IDL_SPECIFIER_FORWARD_DECLARATION)
+        fwd = entry;
+      else
+        return entry;
+    }
   }
 
   if (!(flags & IDL_FIND_IGNORE_IMPORTS)) {
@@ -363,6 +368,9 @@ idl_find(
         return entry;
     }
   }
+
+  if (!entry && fwd)
+    return fwd;
 
   return NULL;
 }

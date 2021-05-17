@@ -245,6 +245,10 @@ stash_instruction(
     size_t size = ctype->instructions.count - index;
     struct instruction *table = ctype->instructions.table;
     memmove(&table[index+1], &table[index], size * sizeof(*table));
+    /* update element_offset base */
+    for (uint32_t i = index; i < ctype->instructions.count; i++)
+      if (table[i].type == ELEM_OFFSET)
+        table[i].data.inst_offset.addr_offs++;
   }
 
   ctype->instructions.table[index] = *inst;
@@ -259,7 +263,7 @@ stash_opcode(
   struct descriptor *descriptor, struct constructed_type *ctype, uint32_t index, uint32_t code, uint32_t order)
 {
   uint32_t typecode = 0;
-  struct instruction inst = { OPCODE, { .opcode = { .code=code, .order=order } } };
+  struct instruction inst = { OPCODE, { .opcode = { .code = code, .order = order } } };
   const struct alignment *alignment = NULL;
 
   descriptor->n_opcodes++;
@@ -753,6 +757,7 @@ add_ctype_fwd(struct constructed_type *ctype, const void *node, struct construct
   fwd1->node = node;
   fwd1->next = ctype->fwd_decls;
   ctype->fwd_decls = fwd1;
+
   if (fwd)
     *fwd = fwd1;
   return IDL_RETCODE_OK;
@@ -889,9 +894,9 @@ emit_union(
   struct descriptor *descriptor = user_data;
   struct stack_type *stype = descriptor->type_stack;
   struct constructed_type *ctype;
+  bool no_iterate = path->length == 1; /* don't iterate over top-level nodes other than current struct or union */
 
   (void)pstate;
-  (void)path;
   if (revisit) {
     uint32_t cnt;
     ctype = stype->ctype;
@@ -943,7 +948,7 @@ emit_union(
         stype->labels++;
     }
 
-    return IDL_VISIT_REVISIT;
+    return IDL_VISIT_REVISIT | (no_iterate ? IDL_VISIT_DONT_ITERATE : 0u);
   }
 
   return IDL_RETCODE_OK;
@@ -965,7 +970,6 @@ emit_forward(
   (void)path;
   if (find_ctype_byfwd(descriptor, node))
     return IDL_RETCODE_OK | IDL_VISIT_DONT_RECURSE;
-  printf("add forward %s\n", idl_identifier(node));
   if ((ctype = find_ctype_byname(descriptor, pstate->scope, idl_name(node)))) {
     if (!(ret = add_ctype_fwd(ctype, node, NULL)))
       return ret;
@@ -987,9 +991,9 @@ emit_struct(
   idl_retcode_t ret;
   struct descriptor *descriptor = user_data;
   struct constructed_type *ctype;
+  bool no_iterate = path->length == 1; /* don't iterate over top-level nodes other than current struct or union */
 
   (void)pstate;
-  (void)path;
   if (revisit) {
     ctype = find_ctype(descriptor, node);
     assert(ctype);
@@ -1021,7 +1025,7 @@ emit_struct(
     }
     if ((ret = push_type(descriptor, node, ctype, NULL)))
       return ret;
-    return IDL_VISIT_REVISIT;
+    return IDL_VISIT_REVISIT | (no_iterate ? IDL_VISIT_DONT_ITERATE : 0u);
   }
   return IDL_RETCODE_OK;
 }
@@ -1048,16 +1052,22 @@ emit_sequence(
   if (revisit) {
     uint32_t off, cnt;
     off = stype->offset;
-    cnt = ctype->instructions.count;
+    cnt = ctype->instructions.op_count;
     /* generate data field [elem-size] */
     if ((ret = stash_size(ctype, off + 2, node)))
       return ret;
     /* generate data field [next-insn, elem-insn] */
-    if ((ret = stash_couple(ctype, off + 3, (uint16_t)((cnt - off) + 3u), 4u)))
-      return ret;
-    /* generate return from subroutine */
-    if ((ret = stash_opcode(descriptor, ctype, nop, DDS_OP_RTS, 0u)))
-      return ret;
+    if (idl_is_forward(type_spec) || idl_is_struct(type_spec) || idl_is_union(type_spec)) {
+      uint16_t addr_offs = (uint16_t)cnt - 2; /* minus 2 for the opcode and offset ops that are already stashed for this sequence */
+      if ((ret = stash_element_offset(ctype, off + 3, type_spec, 4u, addr_offs)))
+        return ret;
+    } else {
+      if ((ret = stash_couple(ctype, off + 3, (uint16_t)((cnt - off) + 3u), 4u)))
+        return ret;
+      /* generate return from subroutine */
+      if ((ret = stash_opcode(descriptor, ctype, nop, DDS_OP_RTS, 0u)))
+        return ret;
+    }
     pop_type(descriptor);
   } else {
     uint32_t off;
@@ -1065,8 +1075,7 @@ emit_sequence(
     struct field *field = NULL;
 
     opcode |= typecode(type_spec, SUBTYPE, false);
-
-    off = ctype->instructions.count;
+    off = ctype->instructions.op_count;
     if ((ret = stash_opcode(descriptor, ctype, nop, opcode, 0u)))
       return ret;
     if (idl_is_struct(stype->node))
@@ -1077,7 +1086,7 @@ emit_sequence(
     /* short-circuit on simple types */
     if (idl_is_string(type_spec) || idl_is_base_type(type_spec)) {
       if (idl_is_bounded(type_spec)) {
-        if ((ret = stash_single(ctype, nop, idl_bound(type_spec)+1)))
+        if ((ret = stash_single(ctype, nop, idl_bound(type_spec) + 1)))
           return ret;
       }
       return IDL_RETCODE_OK;
@@ -1130,16 +1139,25 @@ emit_array(
     uint32_t off, cnt;
 
     off = stype->offset;
-    cnt = ctype->instructions.count;
+    cnt = ctype->instructions.op_count;
     /* generate data field [next-insn, elem-insn] */
-    if ((ret = stash_couple(ctype, off + 3, (uint16_t)((cnt - off) + 3u), 5u)))
-      return ret;
-    /* generate data field [elem-size] */
-    if ((ret = stash_size(ctype, off + 4, node)))
-      return ret;
-    /* generate return from subroutine */
-    if ((ret = stash_opcode(descriptor, ctype, nop, DDS_OP_RTS, 0u)))
-      return ret;
+    if (idl_is_forward(type_spec) || idl_is_struct(type_spec) || idl_is_union(type_spec)) {
+      uint16_t addr_offs = (uint16_t)cnt - 3; /* minus 2 for the opcode and offset ops that are already stashed for this array */
+      if ((ret = stash_element_offset(ctype, off + 3, type_spec, 4u, addr_offs)))
+        return ret;
+      /* generate data field [elem-size] */
+      if ((ret = stash_size(ctype, off + 4, node)))
+        return ret;
+    } else {
+      if ((ret = stash_couple(ctype, off + 3, (uint16_t)((cnt - off) + 3u), 5u)))
+        return ret;
+      /* generate data field [elem-size] */
+      if ((ret = stash_size(ctype, off + 4, node)))
+        return ret;
+      /* generate return from subroutine */
+      if ((ret = stash_opcode(descriptor, ctype, nop, DDS_OP_RTS, 0u)))
+        return ret;
+    }
 
     pop_type(descriptor);
     stype = descriptor->type_stack;
@@ -1161,7 +1179,7 @@ emit_array(
     if ((order = idl_is_topic_key(descriptor->topic, (pstate->flags & IDL_FLAG_KEYLIST) != 0, path)))
       opcode |= DDS_OP_FLAG_KEY;
 
-    off = ctype->instructions.count;
+    off = ctype->instructions.op_count;
     /* generate data field opcode */
     if ((ret = stash_opcode(descriptor, ctype, nop, opcode, order)))
       return ret;
@@ -1227,6 +1245,10 @@ emit_declarator(
     if (!idl_is_alias(node) && (ret = push_field(descriptor, node, &field)))
       return ret;
 
+    if (idl_is_sequence(type_spec))
+      return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
+
+    /* inline the type spec for seq/struct/union declarators in a union */
     if (idl_is_union(ctype->node)) {
       if (idl_is_sequence(type_spec))
         return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
@@ -1256,7 +1278,7 @@ emit_declarator(
         return ret;
     }
 
-    if (idl_is_sequence(type_spec))
+    if (idl_is_forward(type_spec))
       return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
     else if (idl_is_union(type_spec))
       return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
@@ -1437,9 +1459,9 @@ static int print_opcodes(FILE *fp, const struct descriptor *descriptor)
             brk = op + 3;
           else if (optype == DDS_OP_TYPE_BST || optype == DDS_OP_TYPE_EXT)
             brk = op + 3;
-          else if (optype == DDS_OP_TYPE_ARR) {
-            subtype = inst->data.opcode.code & (0xffu << 16);
-            brk = op + 3;
+          else if (optype == DDS_OP_TYPE_ARR || optype == DDS_OP_TYPE_SEQ) {
+            subtype = inst->data.opcode.code & (0xffu << 8);
+            brk = op + (optype == DDS_OP_TYPE_SEQ ? 2 : 3);
             if (subtype > DDS_OP_SUBTYPE_8BY && subtype != DDS_OP_SUBTYPE_BST)
               brk += 2;
           } else if (optype == DDS_OP_TYPE_UNI)

@@ -70,7 +70,6 @@ enum idl_visit_recurse {
   IDL_VISIT_DONT_RECURSE = (1<<1) /**< Do not recurse into subtree(s) */
 };
 
-#if 0
 /* FIXME: does not quite make sense in the current implementation. applies to
         it now applies to the next level. instead, it should apply to the
         current level. in which case IDL_VISIT_ITERATE instructs the
@@ -82,7 +81,6 @@ enum idl_visit_iterate {
   IDL_VISIT_ITERATE = (1<<2), /**< Iterate over subtree(s) */
   IDL_VISIT_DONT_ITERATE = (1<<3) /**< Do not iterate over subtree(s) */
 };
-#endif
 
 typedef enum idl_visit_revisit idl_visit_revisit_t;
 enum idl_visit_revisit {
@@ -105,9 +103,7 @@ typedef struct idl_visitor idl_visitor_t;
 struct idl_visitor {
   idl_mask_t visit;
   idl_visit_recurse_t recurse;
-#if 0
   idl_visit_iterate_t iterate;
-#endif
   idl_visit_revisit_t revisit;
   idl_visitor_callback_t accept[IDL_ACCEPT + 1];
   const char **sources;

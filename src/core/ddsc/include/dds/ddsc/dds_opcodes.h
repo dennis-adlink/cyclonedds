@@ -114,10 +114,8 @@ enum dds_stream_opcode {
   DDS_OP_DLC = 0x04 << 24,
 
   /* XCDR2 parameter list CDR (inserts DHEADER before type and EMHEADER before each member)
-     [PLC, 0, 0] [count]
-          followed by [count] JEQ instructions
-       where
-         [count] = number of members
+     [PLC, 0, 0]
+          followed by a list of JEQ instructions
   */
   DDS_OP_PLC = 0x05 << 24,
 

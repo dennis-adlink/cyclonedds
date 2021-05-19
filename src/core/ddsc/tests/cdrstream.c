@@ -501,7 +501,7 @@ static const dds_key_descriptor_t TestIdl_MsgKeysNested_keys[3] =
 {
   { "msg_field1.submsg_field2", 23 },
   { "msg_field1.submsg_field3", 26 },
-  { "msg_field1.submsg_field3", 29 }
+  { "msg_field1.submsg_field4.submsg2_field2", 29 }
 };
 
 const dds_topic_descriptor_t TestIdl_MsgKeysNested_desc = { sizeof (TestIdl_MsgKeysNested), sizeof (char *), DDS_TOPIC_FIXED_KEY | DDS_TOPIC_NO_OPTIMIZE, 3u, "TestIdl::MsgKeysNested", TestIdl_MsgKeysNested_keys, 8, TestIdl_MsgKeysNested_ops, "" };

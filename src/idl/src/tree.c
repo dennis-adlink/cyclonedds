@@ -3119,7 +3119,7 @@ static uint32_t is_key_by_path(const void *node, const idl_path_t *path)
     IDL_CONSTR_TYPE | IDL_MEMBER | IDL_SWITCH_TYPE_SPEC | IDL_CASE |
     IDL_SEQUENCE | IDL_DECLARATOR;
 
-  for (size_t i=0; (key || i == 0) && i < path->length; i++) {
+  for (size_t i = 1; (key || i == 1) && i < path->length; i++) {
     assert(path->nodes[i]);
 
     /* struct members can be explicitly annotated */
@@ -3136,6 +3136,8 @@ static uint32_t is_key_by_path(const void *node, const idl_path_t *path)
          fields and node is not on the first level */
       else if (all_keys || no_specific_key(idl_parent(instance)))
         key = all_keys = (i != 0);
+      else
+        key = 0;
 
     /* union cases cannot be explicitly annotated */
     } else if (idl_is_case(path->nodes[i])) {
@@ -3201,7 +3203,7 @@ uint32_t idl_is_topic_key(const void *node, bool keylist, const idl_path_t *path
 {
   if (!idl_is_topic(node, keylist))
     return 0;
-  if (!path->length || node != path->nodes[0]->parent)
+  if (!path->length || node != path->nodes[0])
     return 0;
 
   return keylist ? is_key_by_keylist(node, path) : is_key_by_path(node, path);

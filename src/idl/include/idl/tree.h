@@ -57,7 +57,7 @@
 #define IDL_CASE (1llu<<28)
 #define IDL_CASE_LABEL (1llu<<27)
 #define IDL_ENUMERATOR (1llu<<26)
-#define IDL_BIT_VALUE (1llu<<20)
+#define IDL_BIT_VALUE (1llu<<39)
 #define IDL_DECLARATOR (1llu<<25)
 /* annotations */
 #define IDL_ANNOTATION (1llu<<24)
@@ -75,7 +75,7 @@ enum idl_type {
   IDL_STRUCT = (1u<<17),
   IDL_UNION = (1u<<16),
   IDL_ENUM = (1u<<15),
-  IDL_BITMASK = (1u<<19),
+  IDL_BITMASK = (1u<<38),
   /* template types */
   IDL_SEQUENCE = (1llu<<14),
   IDL_STRING = (1llu<<13),

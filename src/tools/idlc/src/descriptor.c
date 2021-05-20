@@ -106,8 +106,8 @@ struct instructions {
 struct constructed_type {
   struct constructed_type *next;
   const void *node;
-  idl_scope_t *scope;
-  char *identifier;
+  const idl_name_t *name;
+  const idl_scope_t *scope;
   struct constructed_type_fwd *fwd_decls;
   uint32_t offset;        /**< offset for the instructions of this type in the topic descriptor instruction array */
   uint32_t pl_offset;     /**< current offset in parameter list for mutable types */
@@ -720,7 +720,7 @@ static struct constructed_type *
 find_ctype_byname(const struct descriptor *descriptor, const idl_scope_t *scope, const idl_name_t *name)
 {
   struct constructed_type *ctype = descriptor->constructed_types;
-  while (ctype && (ctype->scope != scope || strcmp(ctype->identifier, name->identifier)))
+  while (ctype && (strcmp(name->identifier, ctype->name->identifier) || ctype->scope != scope))
     ctype = ctype->next;
   return ctype;
 }
@@ -744,9 +744,8 @@ find_ctype_byfwd(const struct descriptor *descriptor, const void *node)
 }
 
 static idl_retcode_t
-add_ctype(struct descriptor *descriptor, idl_scope_t *scope, const void *node, bool is_fwd_decl, struct constructed_type **ctype)
+add_ctype(struct descriptor *descriptor, const idl_scope_t *scope, const void *node, bool is_fwd_decl, struct constructed_type **ctype)
 {
-  const char *identifier = idl_identifier(node);
   struct constructed_type *ctype1;
   struct constructed_type_fwd *fwd = NULL;
 
@@ -759,10 +758,8 @@ add_ctype(struct descriptor *descriptor, idl_scope_t *scope, const void *node, b
     ctype1->fwd_decls = fwd;
   } else
     ctype1->node = node;
+  ctype1->name = idl_name(node);
   ctype1->scope = scope;
-  if (!(ctype1->identifier = malloc(strlen(identifier) + 1)))
-    goto err_ident;
-  strcpy (ctype1->identifier, identifier);
 
   struct constructed_type **tmp = &descriptor->constructed_types;
   while (*tmp)
@@ -772,8 +769,6 @@ add_ctype(struct descriptor *descriptor, idl_scope_t *scope, const void *node, b
     *ctype = ctype1;
   return IDL_RETCODE_OK;
 
-err_ident:
-  free(fwd);
 err_fwd:
   free(ctype1);
 err_ctype:
@@ -926,8 +921,8 @@ emit_union(
   struct descriptor *descriptor = user_data;
   struct stack_type *stype = descriptor->type_stack;
   struct constructed_type *ctype;
-  (void)path;
   (void)pstate;
+  (void)path;
   if (revisit) {
     uint32_t cnt;
     ctype = stype->ctype;
@@ -946,7 +941,7 @@ emit_union(
     if (find_ctype(descriptor, node))
       return IDL_RETCODE_OK | IDL_VISIT_DONT_RECURSE;
 
-    if ((ctype = find_ctype_byname(descriptor, pstate->scope, idl_name(node))))
+    if ((ctype = find_ctype_byname(descriptor, idl_scope(node), idl_name(node))))
     {
       if (!ctype->node)
         ctype->node = node;
@@ -955,7 +950,7 @@ emit_union(
         existing = true;
       }
     } else {
-      if ((ret = add_ctype(descriptor, pstate->scope, node, false, &ctype)))
+      if ((ret = add_ctype(descriptor, idl_scope(node), node, false, &ctype)))
         return ret;
     }
 
@@ -1004,15 +999,16 @@ emit_forward(
   struct descriptor *descriptor = user_data;
   idl_retcode_t ret;
 
+  (void)pstate;
   (void)revisit;
   (void)path;
   if (find_ctype_byfwd(descriptor, node))
     return IDL_RETCODE_OK | IDL_VISIT_DONT_RECURSE;
-  if ((ctype = find_ctype_byname(descriptor, pstate->scope, idl_name(node)))) {
+  if ((ctype = find_ctype_byname(descriptor, idl_scope(node), idl_name(node)))) {
     if (!(ret = add_ctype_fwd(ctype, node, NULL)))
       return ret;
   } else {
-    if (!(ret = add_ctype(descriptor, pstate->scope, node, true, NULL)))
+    if (!(ret = add_ctype(descriptor, idl_scope(node), node, true, NULL)))
       return ret;
   }
   return IDL_RETCODE_OK;
@@ -1029,8 +1025,8 @@ emit_struct(
   idl_retcode_t ret;
   struct descriptor *descriptor = user_data;
   struct constructed_type *ctype;
-  (void)path;
   (void)pstate;
+  (void)path;
   if (revisit) {
     ctype = find_ctype(descriptor, node);
     assert(ctype);
@@ -1045,7 +1041,7 @@ emit_struct(
     if (find_ctype(descriptor, node))
       return IDL_RETCODE_OK | IDL_VISIT_DONT_RECURSE;
 
-    if ((ctype = find_ctype_byname(descriptor, pstate->scope, idl_name(node))))
+    if ((ctype = find_ctype_byname(descriptor, idl_scope(node), idl_name(node))))
     {
       if (!ctype->node)
         ctype->node = node;
@@ -1054,7 +1050,7 @@ emit_struct(
         existing = true;
       }
     } else {
-      if ((ret = add_ctype(descriptor, pstate->scope, node, false, &ctype)))
+      if ((ret = add_ctype(descriptor, idl_scope(node), node, false, &ctype)))
         return ret;
     }
 

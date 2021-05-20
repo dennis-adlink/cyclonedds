@@ -3135,7 +3135,7 @@ static uint32_t is_key_by_path(const void *node, const idl_path_t *path)
          annotated, an intermediate aggregate type has no explicitly annotated
          fields and node is not on the first level */
       else if (all_keys || no_specific_key(idl_parent(instance)))
-        key = all_keys = (i != 0);
+        key = all_keys = (i != 1);
       else
         key = 0;
 
@@ -3150,7 +3150,7 @@ static uint32_t is_key_by_path(const void *node, const idl_path_t *path)
          intermediate aggregate type has no explicitly annotated fields or if
          the switch type specifier is not annotated */
       if (all_keys || no_specific_key(idl_parent(instance)))
-        key = all_keys = (i != 0);
+        key = all_keys = (i != 1);
 
     /* switch type specifiers can be explicitly annotated */
     } else if (idl_is_switch_type_spec(path->nodes[i])) {
@@ -3163,7 +3163,7 @@ static uint32_t is_key_by_path(const void *node, const idl_path_t *path)
       if (instance->key == IDL_TRUE)
         key = (i == path->length - 1);
       else
-        key = (i == path->length - 1) ? (i != 0) : 0;
+        key = (i == path->length - 1) ? (i != 1) : 0;
     } else if (!(idl_mask(node) & mask)) {
       key = 0;
     }

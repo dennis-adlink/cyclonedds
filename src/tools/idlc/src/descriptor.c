@@ -502,11 +502,11 @@ stash_size(
       if (!(inst.data.size.type = idl_strdup("char *")))
         goto err_type;
     } else if (idl_is_array(type_spec)) {
-      char *typestr;
+      char *typestr = NULL;
       size_t len, pos;
       const idl_const_expr_t *const_expr;
 
-      if (!(typestr = typename(type_spec)))
+      if (IDL_PRINT(&typestr, print_type, type_spec) < 0)
         goto err_type;
 
       len = pos = strlen(typestr);
@@ -1521,6 +1521,7 @@ static int print_opcodes(FILE *fp, const struct descriptor *descriptor, uint32_t
   const struct instruction *inst;
   enum dds_stream_opcode opcode;
   enum dds_stream_typecode_primary optype;
+  enum dds_stream_typecode_subtype subtype;
   char *type = NULL;
   const char *seps[] = { ", ", ",\n  " };
   const char *sep = "  ";
@@ -1528,7 +1529,7 @@ static int print_opcodes(FILE *fp, const struct descriptor *descriptor, uint32_t
 
   if (IDL_PRINTA(&type, print_type, descriptor->topic) < 0)
     return -1;
-  if (idl_fprintf(fp, "static const uint32_t %s_ops [] =\n{\n", typestr) < 0)
+  if (idl_fprintf(fp, "static const uint32_t %s_ops [] =\n{\n", type) < 0)
     return -1;
 
   for (struct constructed_type *ctype = descriptor->constructed_types; ctype; ctype = ctype->next) {

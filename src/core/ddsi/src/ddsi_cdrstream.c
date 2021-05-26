@@ -337,7 +337,8 @@ static const uint32_t *dds_stream_countops_seq (const uint32_t * __restrict ops,
       uint32_t const * const jsr_ops = ops + DDS_OP_ADR_JSR (ops[3]);
       if (ops + 4 > *ops_end)
         *ops_end = ops + 4;
-      dds_stream_countops1 (jsr_ops, ops_end);
+      if (DDS_OP_ADR_JSR (ops[3]) > 0)
+        dds_stream_countops1 (jsr_ops, ops_end);
       ops += (jmp ? jmp : 4); /* FIXME: why would jmp be 0? */
       break;
     }
@@ -367,7 +368,8 @@ static const uint32_t *dds_stream_countops_arr (const uint32_t * __restrict ops,
       const uint32_t *jsr_ops = ops + DDS_OP_ADR_JSR (ops[3]);
       if (ops + 5 > *ops_end)
         *ops_end = ops + 5;
-      dds_stream_countops1 (jsr_ops, ops_end);
+      if (DDS_OP_ADR_JSR (ops[3]) > 0)
+        dds_stream_countops1 (jsr_ops, ops_end);
       ops += (jmp ? jmp : 5);
       break;
     }
@@ -457,7 +459,8 @@ static void dds_stream_countops1 (const uint32_t * __restrict ops, const uint32_
           case DDS_OP_VAL_EXT: {
             const uint32_t *jsr_ops = ops + DDS_OP_ADR_JSR (ops[2]);
             const uint32_t jmp = DDS_OP_ADR_JMP (ops[2]);
-            dds_stream_countops1 (jsr_ops, ops_end);
+            if (DDS_OP_ADR_JSR (ops[2]) > 0)
+              dds_stream_countops1 (jsr_ops, ops_end);
             ops += jmp ? jmp : 3;
             break;
           }

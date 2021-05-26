@@ -274,6 +274,31 @@ emit_union(
 }
 
 static idl_retcode_t
+emit_forward(
+  const idl_pstate_t *pstate,
+  bool revisit,
+  const idl_path_t *path,
+  const void *node,
+  void *user_data)
+{
+  char *name;
+  const char *fmt;
+  struct generator *gen = user_data;
+
+  (void)pstate;
+  (void)revisit;
+  (void)path;
+  assert(idl_is_forward(node));
+  if (IDL_PRINTA(&name, print_type, node) < 0)
+    return IDL_RETCODE_NO_MEMORY;
+
+  fmt = "typedef struct %1$s %1$s;\n";
+  if (idl_fprintf(gen->header.handle, fmt, name) < 0)
+    return IDL_RETCODE_NO_MEMORY;
+  return IDL_RETCODE_OK;
+}
+
+static idl_retcode_t
 emit_sequence_typedef(
   const idl_pstate_t *pstate,
   bool revisit,
@@ -534,13 +559,14 @@ idl_retcode_t generate_types(const idl_pstate_t *pstate, struct generator *gener
   idl_visitor_t visitor;
 
   memset(&visitor, 0, sizeof(visitor));
-  visitor.visit = IDL_CONST | IDL_TYPEDEF | IDL_STRUCT | IDL_UNION | IDL_ENUM | IDL_DECLARATOR;
+  visitor.visit = IDL_CONST | IDL_TYPEDEF | IDL_STRUCT | IDL_UNION | IDL_ENUM | IDL_DECLARATOR | IDL_FORWARD;
   visitor.accept[IDL_ACCEPT_CONST] = &emit_const;
   visitor.accept[IDL_ACCEPT_TYPEDEF] = &emit_typedef;
   visitor.accept[IDL_ACCEPT_STRUCT] = &emit_struct;
   visitor.accept[IDL_ACCEPT_UNION] = &emit_union;
   visitor.accept[IDL_ACCEPT_ENUM] = &emit_enum;
   visitor.accept[IDL_ACCEPT_DECLARATOR] = &emit_field;
+  visitor.accept[IDL_ACCEPT_FORWARD] = &emit_forward;
   visitor.sources = (const char *[]){ pstate->sources->path->name, NULL };
   if ((ret = idl_visit(pstate, pstate->root, &visitor, generator)))
     return ret;

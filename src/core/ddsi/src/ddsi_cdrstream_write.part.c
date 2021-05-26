@@ -222,7 +222,14 @@ const uint32_t *dds_stream_writeBO (DDS_OSTREAM_T * __restrict os, const char * 
           case DDS_OP_VAL_EXT: {
             const uint32_t *jsr_ops = ops + DDS_OP_ADR_JSR (ops[2]);
             const uint32_t jmp = DDS_OP_ADR_JMP (ops[2]);
-            (void) dds_stream_writeBO (os, addr, jsr_ops);
+            uint32_t flags = DDS_OP_FLAGS (insn);
+            if (flags & DDS_OP_FLAG_EXT)
+            {
+              char *ext_addr = *(char **) addr;
+              (void) dds_stream_writeBO (os, ext_addr, jsr_ops);
+            }
+            else
+              (void) dds_stream_writeBO (os, addr, jsr_ops);
             ops += jmp ? jmp : 3;
             break;
           }

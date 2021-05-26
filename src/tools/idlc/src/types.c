@@ -125,7 +125,7 @@ emit_field(
 {
   struct generator *gen = user_data;
   char *type, dims[32] = "";
-  const char *fmt, *indent, *name, *star = "";
+  const char *fmt, *indent, *name, *star = "", *ext = "";
   const void *root;
   idl_literal_t *literal;
   idl_type_spec_t *type_spec;
@@ -135,7 +135,8 @@ emit_field(
   (void)path;
   root = idl_parent(node);
   indent = idl_is_case(root) ? "    " : "  ";
-
+  if (idl_is_member(root) && ((idl_member_t *)root)->external == IDL_TRUE)
+    ext = "* ";
   name = idl_identifier(node);
   type_spec = idl_type_spec(node);
   if (IDL_PRINTA(&type, print_type, type_spec) < 0)
@@ -148,8 +149,8 @@ emit_field(
     star = "* ";
   }
 
-  fmt = "%s%s %s%s%s";
-  if (idl_fprintf(gen->header.handle, fmt, indent, type, star, name, dims) < 0)
+  fmt = "%s%s %s%s%s%s";
+  if (idl_fprintf(gen->header.handle, fmt, indent, type, ext, star, name, dims) < 0)
     return IDL_RETCODE_NO_MEMORY;
   fmt = "[%" PRIu32 "]";
   literal = ((const idl_declarator_t *)node)->const_expr;

@@ -196,7 +196,7 @@ enum dds_stream_typecode_subtype {
 #define DDS_OP_FLAG_FP  0x02 /* floating-point: applicable to {4,8}BY and arrays, sequences of them */
 #define DDS_OP_FLAG_SGN 0x04 /* signed: applicable to {1,2,4,8}BY and arrays, sequences of them */
 #define DDS_OP_FLAG_MU  0x08 /* must-understand flag, used with JEQ in parameter list CDR */
-
+#define DDS_OP_FLAG_EXT 0x10 /* external: field is stored as a pointer */
 
 /* Topic descriptor flag values */
 

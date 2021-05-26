@@ -77,8 +77,8 @@ struct instruction {
         uint32_t opcode;
         uint16_t high;
       } inst;
-      uint16_t addr_offs;
-      uint16_t elem_offs;
+      uint32_t addr_offs;
+      uint32_t elem_offs;
     } inst_offset;
     struct {
       char *key_name;
@@ -849,8 +849,8 @@ emit_case(
         if ((ret = stash_opcode(descriptor, &ctype->instructions, off++, opcode, 0u)))
           return ret;
       } else {
-        uint16_t addr_offs = (uint16_t)ctype->instructions.count;
-        stash_jeq_offset(&ctype->instructions, off++, type_spec, opcode, addr_offs);
+        uint32_t addr_offs = ctype->instructions.count;
+        stash_jeq_offset(&ctype->instructions, off++, type_spec, opcode, (uint16_t)addr_offs);
       }
       /* generate union case discriminator */
       if ((ret = stash_constant(&ctype->instructions, off++, label->const_expr)))
@@ -1101,8 +1101,8 @@ emit_sequence(
       return ret;
     /* generate data field [next-insn, elem-insn] */
     if (idl_is_forward(type_spec) || idl_is_struct(type_spec) || idl_is_union(type_spec)) {
-      uint16_t addr_offs = (uint16_t)cnt - 2; /* minus 2 for the opcode and offset ops that are already stashed for this sequence */
-      if ((ret = stash_element_offset(&ctype->instructions, off + 3, type_spec, 4u, addr_offs)))
+      uint32_t addr_offs = cnt - 2u; /* minus 2 for the opcode and offset ops that are already stashed for this sequence */
+      if ((ret = stash_element_offset(&ctype->instructions, off + 3, type_spec, 4u, (uint16_t)addr_offs)))
         return ret;
     } else {
       if ((ret = stash_couple(&ctype->instructions, off + 3, (uint16_t)((cnt - off) + 3u), 4u)))
@@ -1185,8 +1185,8 @@ emit_array(
     cnt = ctype->instructions.count;
     /* generate data field [next-insn, elem-insn] */
     if (idl_is_forward(type_spec) || idl_is_struct(type_spec) || idl_is_union(type_spec)) {
-      uint16_t addr_offs = (uint16_t)cnt - 3; /* minus 2 for the opcode and offset ops that are already stashed for this array */
-      if ((ret = stash_element_offset(&ctype->instructions, off + 3, type_spec, 5u, addr_offs)))
+      uint32_t addr_offs = cnt - 3; /* minus 2 for the opcode and offset ops that are already stashed for this array */
+      if ((ret = stash_element_offset(&ctype->instructions, off + 3, type_spec, 5u, (uint16_t)addr_offs)))
         return ret;
       /* generate data field [elem-size] */
       if ((ret = stash_size(&ctype->instructions, off + 4, node)))
@@ -1301,7 +1301,7 @@ emit_declarator(
         return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
     }
 
-    uint16_t addr_offs = (uint16_t)ctype->instructions.count;
+    uint32_t addr_offs = ctype->instructions.count;
     opcode = DDS_OP_ADR | typecode(type_spec, TYPE, true);
     if ((order = idl_is_topic_key(descriptor->topic, (pstate->flags & IDL_FLAG_KEYLIST) != 0, path)))
       opcode |= DDS_OP_FLAG_KEY;
@@ -1317,7 +1317,7 @@ emit_declarator(
       if ((ret = stash_single(&ctype->instructions, nop, idl_bound(type_spec)+1)))
         return ret;
     } else if (idl_is_forward(type_spec) || idl_is_struct(type_spec) || idl_is_union(type_spec)) {
-      if ((ret = stash_element_offset(&ctype->instructions, nop, type_spec, 3, addr_offs)))
+      if ((ret = stash_element_offset(&ctype->instructions, nop, type_spec, 3, (uint16_t)addr_offs)))
         return ret;
     }
 
@@ -1358,19 +1358,20 @@ emit_member(
       return ret;
   } else {
     idl_member_t *member = (idl_member_t *)node;
-    uint16_t addr_offs = (uint16_t)ctype->instructions.count
-        - ((uint16_t)ctype->pl_offset - 1 /* PLC op */)
+    uint32_t addr_offs = ctype->instructions.count
+        - (ctype->pl_offset - 1 /* PLC op */)
         + 2 /* skip this JEQ and member id */
         + 1 /* skip RTS */;
-    if ((ret = stash_member_offset(&ctype->instructions, ctype->pl_offset++, addr_offs)))
+    if ((ret = stash_member_offset(&ctype->instructions, ctype->pl_offset++, (uint16_t)addr_offs)))
       return ret;
     stash_single(&ctype->instructions, ctype->pl_offset++, member->id.value);
 
     /* update offset for previous members for this ctype */
     struct instruction *table = ctype->instructions.table;
     for (uint32_t i = 1; i < ctype->pl_offset - 2; i++)
-      if (table[i].type == MEMBER_OFFSET)
+      if (table[i].type == MEMBER_OFFSET) {
         table[i].data.inst_offset.addr_offs += 2;
+      }
   }
   return IDL_VISIT_REVISIT;
 }
@@ -1588,7 +1589,7 @@ static int print_opcodes(FILE *fp, const struct descriptor *descriptor, uint32_t
           break;
         case ELEM_OFFSET:
         {
-          const struct instruction inst_couple = { COUPLE, { .couple = { .high = inst->data.inst_offset.inst.high, .low = inst->data.inst_offset.elem_offs } } };
+          const struct instruction inst_couple = { COUPLE, { .couple = { .high = inst->data.inst_offset.inst.high & 0xffffu, .low = inst->data.inst_offset.elem_offs & 0xffffu } } };
           if (fputs(sep, fp) < 0 || print_couple(fp, &inst_couple) < 0 || idl_fprintf(fp, " /* %s */", idl_identifier(inst->data.inst_offset.node)) < 0)
             return -1;
           break;
@@ -1603,7 +1604,7 @@ static int print_opcodes(FILE *fp, const struct descriptor *descriptor, uint32_t
         }
         case MEMBER_OFFSET:
         {
-          const struct instruction inst_op = { OPCODE, { .opcode = { .code = DDS_OP_JEQ | inst->data.inst_offset.addr_offs, .order = 0 } } };
+          const struct instruction inst_op = { OPCODE, { .opcode = { .code = (DDS_OP_JEQ & ~0xffffu) | (inst->data.inst_offset.addr_offs & 0xffffu), .order = 0 } } };
           if (fputs(sep, fp) < 0 || print_opcode(fp, &inst_op) < 0)
             return -1;
           brk = op + 2;
@@ -1625,7 +1626,7 @@ static int print_opcodes(FILE *fp, const struct descriptor *descriptor, uint32_t
     switch (inst->type) {
       case KEY_OFFSET:
       {
-        const struct instruction inst_op = { OPCODE, { .opcode = { .code = DDS_OP_KOF | inst->data.key_offset.len, .order = 0 } } };
+        const struct instruction inst_op = { OPCODE, { .opcode = { .code = (DDS_OP_KOF & ~0xffffu) | (inst->data.key_offset.len & 0xffffu), .order = 0 } } };
         if (fputs(sep, fp) < 0 || idl_fprintf(fp, "\n  /* key: %s (size: %u, order: %u) */\n  ", inst->data.key_offset.key_name, inst->data.key_offset.key_size, inst->data.key_offset.order) < 0 || print_opcode(fp, &inst_op) < 0)
           return -1;
         brk = op + 1 + inst->data.key_offset.len;
@@ -1759,7 +1760,7 @@ static int add_key_offset(struct descriptor *descriptor, struct constructed_type
     } else {
       if (stash_key_offset(&descriptor->key_offsets, nop, name1, offs->n, (uint16_t)key->size, (uint16_t)key->order) < 0)
         goto err_stash;
-      for (uint16_t n = 0; n < offs->n; n++)
+      for (uint32_t n = 0; n < offs->n; n++)
         if (stash_single(&descriptor->key_offsets, nop, offs->val[n]))
           goto err_stash;
     }
@@ -1935,7 +1936,7 @@ resolve_offsets(struct descriptor *descriptor)
         for (struct constructed_type *ctype1 = descriptor->constructed_types; ctype1; ctype1 = ctype1->next) {
           if (ctype1->node == inst->data.inst_offset.node || ctype_has_fwd(ctype1, inst->data.inst_offset.node))
           {
-            inst->data.inst_offset.elem_offs = (uint16_t)(ctype1->offset - (ctype->offset + inst->data.inst_offset.addr_offs));
+            inst->data.inst_offset.elem_offs = ctype1->offset - (ctype->offset + inst->data.inst_offset.addr_offs);
             ctype1->refc++;
             found = true;
             break;

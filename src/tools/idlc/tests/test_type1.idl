@@ -1,0 +1,87 @@
+
+#if defined(__IDLC__)
+
+struct test_struct;
+
+struct test_struct {
+    long field1;
+    sequence<test_struct> seq2;
+};
+
+#else
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "dds/ddsrt/heap.h"
+#include "dds/ddsi/ddsi_serdata.h"
+#include "dds/ddsi/ddsi_cdrstream.h"
+#include "dds/ddsc/dds_opcodes.h"
+#include "test_type1.h"
+
+static void init(test_struct *a)
+{
+    a->field1 = 123;
+    a->seq2._length = 0;
+}
+
+static int cmp(test_struct *a, test_struct *b)
+{
+    if (a->field1 > b->field1)
+        return 1;
+    else
+        return -1 * (a->field1 < b->field1);
+}
+
+int main(int argc, char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    printf("Running test test_type1\n");
+
+    // init data
+    test_struct msg_wr;
+    init(&msg_wr);
+
+    // create sertype
+    struct ddsi_sertype_default sertype;
+    memset (&sertype, 0, sizeof (sertype));
+    sertype.type = (struct ddsi_sertype_default_desc) {
+      .size = test_struct_desc.m_size,
+      .align = test_struct_desc.m_align,
+      .flagset = test_struct_desc.m_flagset,
+      .keys.nkeys = 0,
+      .keys.keys = NULL,
+      .ops.nops = dds_stream_countops (test_struct_desc.m_ops, test_struct_desc.m_nkeys, test_struct_desc.m_keys),
+      .ops.ops = (uint32_t *) test_struct_desc.m_ops
+    };
+
+    // write data
+    dds_ostream_t os;
+    os.m_buffer = NULL;
+    os.m_index = 0;
+    os.m_size = 0;
+    os.m_xcdr_version = CDR_ENC_VERSION_2;
+    dds_stream_write_sample (&os, &msg_wr, &sertype);
+    printf("cdr write complete\n");
+
+    // read data
+    dds_istream_t is;
+    is.m_buffer = os.m_buffer;
+    is.m_index = 0;
+    is.m_size = os.m_size;
+    is.m_xcdr_version = CDR_ENC_VERSION_2;
+
+    void *msg_rd = ddsrt_calloc (1, test_struct_desc.m_size);
+    dds_stream_read_sample (&is, msg_rd, &sertype);
+    printf("cdr read complete\n");
+
+    /* Check for expected result */
+    int res = cmp(&msg_wr, msg_rd);
+    printf("compare result: %d\n", res);
+
+    return res;
+}
+
+#endif

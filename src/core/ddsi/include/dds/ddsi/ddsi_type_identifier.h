@@ -406,19 +406,19 @@ typedef struct TypeIdentifierTypeObjectPairSeq {
   /* struct TypeIdentifier */ \
   DDS_OP_DLC, \
   DDS_OP_ADR | DDS_OP_TYPE_UNI | DDS_OP_SUBTYPE_ENU, offsetof (struct TypeIdentifier, _d), 13u, (44u << 16) + 5u, 0xffu, \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 40u + 0u, TI_STRING8_SMALL, offsetof (struct TypeIdentifier, _u.string_sdefn), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 37u + 0u, TI_STRING16_SMALL, offsetof (struct TypeIdentifier, _u.string_sdefn), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 34u + 3u, TI_STRING8_LARGE, offsetof (struct TypeIdentifier, _u.string_ldefn), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 31u + 3u, TI_STRING16_LARGE, offsetof (struct TypeIdentifier, _u.string_ldefn), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 28u + 6u, TI_PLAIN_SEQUENCE_SMALL, offsetof (struct TypeIdentifier, _u.seq_sdefn), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 25u + 17u, TI_PLAIN_SEQUENCE_LARGE, offsetof (struct TypeIdentifier, _u.seq_ldefn), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 22u + 28u, TI_PLAIN_ARRAY_SMALL, offsetof (struct TypeIdentifier, _u.array_sdefn), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 19u + 39u, TI_PLAIN_ARRAY_LARGE, offsetof (struct TypeIdentifier, _u.array_ldefn), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 16u + 50u, TI_PLAIN_MAP_SMALL, offsetof (struct TypeIdentifier, _u.map_sdefn), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 13u + 68u, TI_PLAIN_MAP_LARGE, offsetof (struct TypeIdentifier, _u.map_ldefn), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 10u + 86u, TI_STRONGLY_CONNECTED_COMPONENT, offsetof (struct TypeIdentifier, _u.sc_component_id), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 7u + 87u, EK_COMPLETE, offsetof (struct TypeIdentifier, _u.equivalence_hash), \
-    DDS_OP_JEQ | DDS_OP_TYPE_STU | 4u + 87u, EK_MINIMAL, offsetof (struct TypeIdentifier, _u.equivalence_hash), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (40u + 0u), TI_STRING8_SMALL, offsetof (struct TypeIdentifier, _u.string_sdefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (37u + 0u), TI_STRING16_SMALL, offsetof (struct TypeIdentifier, _u.string_sdefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (34u + 3u), TI_STRING8_LARGE, offsetof (struct TypeIdentifier, _u.string_ldefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (31u + 3u), TI_STRING16_LARGE, offsetof (struct TypeIdentifier, _u.string_ldefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (28u + 6u), TI_PLAIN_SEQUENCE_SMALL, offsetof (struct TypeIdentifier, _u.seq_sdefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (25u + 17u), TI_PLAIN_SEQUENCE_LARGE, offsetof (struct TypeIdentifier, _u.seq_ldefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (22u + 28u), TI_PLAIN_ARRAY_SMALL, offsetof (struct TypeIdentifier, _u.array_sdefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (19u + 39u), TI_PLAIN_ARRAY_LARGE, offsetof (struct TypeIdentifier, _u.array_ldefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (16u + 50u), TI_PLAIN_MAP_SMALL, offsetof (struct TypeIdentifier, _u.map_sdefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (13u + 68u), TI_PLAIN_MAP_LARGE, offsetof (struct TypeIdentifier, _u.map_ldefn), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (10u + 86u), TI_STRONGLY_CONNECTED_COMPONENT, offsetof (struct TypeIdentifier, _u.sc_component_id), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (7u + 87u), EK_COMPLETE, offsetof (struct TypeIdentifier, _u.equivalence_hash), \
+    DDS_OP_JEQ | DDS_OP_TYPE_STU | (4u + 87u), EK_MINIMAL, offsetof (struct TypeIdentifier, _u.equivalence_hash), \
   DDS_OP_RTS, \
   /* struct StringSTypeDefn */ \
   DDS_OP_ADR | DDS_OP_TYPE_1BY, offsetof (struct StringSTypeDefn, bound), \

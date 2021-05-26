@@ -97,7 +97,7 @@ size_t dds_stream_print_sample (dds_istream_t * __restrict is, const struct ddsi
 #define DDS_OP_TYPE(o)    ((enum dds_stream_typecode) (((o) & DDS_OP_TYPE_MASK) >> 16))
 #define DDS_OP_SUBTYPE(o) ((enum dds_stream_typecode) (((o) & DDS_OP_SUBTYPE_MASK) >> 8))
 #define DDS_OP_FLAGS(o)   ((o) & DDS_OP_FLAGS_MASK)
-#define DDS_OP_ADR_JSR(o) ((o) & DDS_OP_JMP_MASK)
+#define DDS_OP_ADR_JSR(o) ((int16_t) ((o) & DDS_OP_JMP_MASK))
 #define DDS_OP_LENGTH(o)  ((uint16_t) ((o) & DDS_OP_JMP_MASK))
 #define DDS_OP_JUMP(o)    ((int16_t) ((o) & DDS_OP_JMP_MASK))
 #define DDS_OP_ADR_JMP(o) ((o) >> 16)

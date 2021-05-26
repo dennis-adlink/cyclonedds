@@ -302,6 +302,7 @@ struct idl_member {
   /* metadata */
   idl_boolean_t key;
   idl_id_t id;
+  idl_boolean_t external;
 };
 
 /* types can inherit from and extend other types (interfaces, values and

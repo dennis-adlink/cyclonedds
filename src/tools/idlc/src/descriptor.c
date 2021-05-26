@@ -1305,6 +1305,9 @@ emit_declarator(
     opcode = DDS_OP_ADR | typecode(type_spec, TYPE, true);
     if ((order = idl_is_topic_key(descriptor->topic, (pstate->flags & IDL_FLAG_KEYLIST) != 0, path)))
       opcode |= DDS_OP_FLAG_KEY;
+    idl_node_t *parent = idl_parent(node);
+    if (idl_is_member(parent) && ((idl_member_t *)parent)->external)
+      opcode |= DDS_OP_FLAG_EXT;
 
     /* generate data field opcode */
     if ((ret = stash_opcode(descriptor, &ctype->instructions, nop, opcode, order)))
@@ -1464,6 +1467,8 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
         vec[len++] = " | DDS_OP_FLAG_SGN";
       if (inst->data.opcode.code & DDS_OP_FLAG_KEY)
         vec[len++] = " | DDS_OP_FLAG_KEY";
+      if (inst->data.opcode.code & DDS_OP_FLAG_EXT)
+        vec[len++] = " | DDS_OP_FLAG_EXT";
       break;
   }
 

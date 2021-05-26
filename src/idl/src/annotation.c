@@ -444,6 +444,34 @@ annotate_bit_bound(
   return IDL_RETCODE_OK;
 }
 
+static idl_retcode_t
+annotate_external(
+  idl_pstate_t *pstate,
+  idl_annotation_appl_t *annotation_appl,
+  idl_node_t *node)
+{
+  idl_boolean_t external = IDL_TRUE;
+
+  if (annotation_appl->parameters) {
+#if !defined(NDEBUG)
+    static const idl_mask_t mask = IDL_LITERAL|IDL_BOOL;
+#endif
+    idl_literal_t *literal = annotation_appl->parameters->const_expr;
+    assert((idl_mask(literal) & mask) == mask);
+    external = literal->value.bln ? IDL_TRUE : IDL_FALSE;
+  }
+
+  if (idl_mask(node) & IDL_MEMBER) {
+    ((idl_member_t *)node)->external = external;
+  } else {
+    idl_error(pstate, idl_location(annotation_appl),
+      "@external can only be applied to members of constructed types");
+    return IDL_RETCODE_SEMANTIC_ERROR;
+  }
+
+  return IDL_RETCODE_OK;
+}
+
 static const idl_builtin_annotation_t annotations[] = {
   /* general purpose */
   { .syntax = "@annotation id { unsigned long value; };",
@@ -557,6 +585,12 @@ static const idl_builtin_annotation_t annotations[] = {
       "<p>This annotation allows setting a size (expressed in bits) to "
       "an element or a group of elements</p>",
     .callback = annotate_bit_bound },
+  { .syntax = "@annotation external { boolean value default TRUE; };",
+    .summary =
+      "<p>A member declared as external within an aggregated type indicates "
+      "that it is desirable for the implementation to store the member in "
+      "storage external to the enclosing aggregated type object.</p>",
+    .callback = annotate_external },
   { .syntax = NULL, .summary = NULL, .callback = 0 }
 };
 

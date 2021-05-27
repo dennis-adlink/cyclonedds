@@ -15,7 +15,7 @@ static void dds_stream_write_key_implBO (DDS_OSTREAM_T * __restrict os, const ui
 {
   assert (DDS_OP (*insnp) == DDS_OP_ADR);
   assert (insn_key_ok_p (*insnp));
-  const void *addr = src + insnp[1];
+  const void *addr = (char *) src + insnp[1];
   switch (DDS_OP_TYPE (*insnp))
   {
     case DDS_OP_VAL_1BY: dds_os_put1BO (os, *((uint8_t *) addr)); break;

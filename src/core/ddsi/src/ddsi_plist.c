@@ -643,9 +643,9 @@ static dds_return_t unalias_type_information (void * __restrict dst, size_t * __
 
 static dds_return_t fini_type_information (void * __restrict dst, size_t * __restrict dstoff, struct flagset *flagset, uint64_t flag)
 {
-  struct TypeInformation * const * x = deser_generic_src (dst, dstoff, alignof (struct TypeInformation *));
+  struct TypeInformation const * const * x = deser_generic_src (dst, dstoff, alignof (struct TypeInformation *));
   if ((*flagset->present & flag) && !(*flagset->aliased & flag))
-    ddsrt_free (*x);
+    ddsrt_free ((void *) *x);
   return 0;
 }
 

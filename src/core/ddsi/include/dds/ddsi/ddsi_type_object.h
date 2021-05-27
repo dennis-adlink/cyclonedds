@@ -42,6 +42,7 @@ typedef char QualifiedTypeName[TYPE_NAME_MAX_LENGTH];
 //     // Empty. Available for future extension
 // };
 struct ExtendedAnnotationParameterValue {
+  long dummy;
 };
 
 // /* Literal value of an annotation member: either the default value in its
@@ -250,6 +251,7 @@ struct AppliedBuiltinTypeAnnotations {
 //     // Empty. Available for future extension
 // };
 struct MinimalTypeDetail {
+  long dummy;
 };
 
 // @extensibility(FINAL) @nested
@@ -505,6 +507,7 @@ struct CompleteAnnotationHeader {
 //     // Empty. Available for future extension
 // };
 struct MinimalAnnotationHeader {
+  long dummy;
 };
 
 // @extensibility(FINAL) @nested
@@ -576,6 +579,7 @@ struct CompleteAliasHeader {
 //     // Empty. Available for future extension
 // };
 struct MinimalAliasHeader {
+  long dummy;
 };
 
 // @extensibility(FINAL) @nested
@@ -1011,6 +1015,7 @@ struct CompleteBitsetHeader {
 //     // Empty. Available for future extension
 // };
 struct MinimalBitsetHeader {
+  long dummy;
 };
 
 // @extensibility(APPENDABLE) @nested
@@ -1047,6 +1052,7 @@ struct MinimalBitsetType  {
 //     // Empty. Available for future extension
 // };
 struct CompleteExtendedType {
+  long dummy;
 };
 
 // @extensibility(FINAL)     @nested
@@ -1098,6 +1104,7 @@ struct CompleteTypeObject {
 //     // Empty. Available for future extension
 // };
 struct MinimalExtendedType {
+  long dummy;
 };
 
 // @extensibility(FINAL)     @nested

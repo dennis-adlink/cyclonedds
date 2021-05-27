@@ -312,6 +312,7 @@ struct StronglyConnectedComponentId {
 //     // Empty. Available for future extension
 // };
 struct ExtendedTypeDefn {
+  long dummy;
 };
 
 // @extensibility(FINAL) @nested

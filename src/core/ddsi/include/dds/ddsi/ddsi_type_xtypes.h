@@ -33,12 +33,14 @@ struct xt_applied_type_annotations {
   // FIXME
   // struct AppliedBuiltinTypeAnnotations ann_builtin;
   // struct AppliedAnnotationSeq ann_custom;
+  long dummy;
 };
 
 struct xt_applied_member_annotations {
   // FIXME
   // struct AppliedBuiltinMemberAnnotations ann_builtin;
   // struct AppliedAnnotationSeq ann_custom;
+  long dummy;
 };
 
 struct xt_type_detail {

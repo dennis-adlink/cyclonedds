@@ -868,7 +868,7 @@ static void dds_stream_write_pl_member (bool must_understand, uint32_t mid, dds_
   else
     dds_os_put8 (os, 0xffffffff);
   uint32_t data_offs = os->m_index;
-  ops = dds_stream_write (os, data, ops);
+  (void) dds_stream_write (os, data, ops);
 
   uint32_t em_hdr = 0;
   if (must_understand)
@@ -892,7 +892,7 @@ static void dds_stream_write_pl_memberLE (bool must_understand, uint32_t mid, dd
   else
     dds_os_put8LE (os, 0xffffffff);
   uint32_t data_offs = os->x.m_index;
-  ops = dds_stream_writeLE (os, data, ops);
+  (void) dds_stream_writeLE (os, data, ops);
 
   uint32_t em_hdr = 0;
   if (must_understand)
@@ -916,7 +916,7 @@ static void dds_stream_write_pl_memberBE (bool must_understand, uint32_t mid, dd
   else
     dds_os_put8BE (os, 0xffffffff);
   uint32_t data_offs = os->x.m_index;
-  ops = dds_stream_writeBE (os, data, ops);
+  (void) dds_stream_writeBE (os, data, ops);
 
   uint32_t em_hdr = 0;
   if (must_understand)

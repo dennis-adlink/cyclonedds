@@ -350,7 +350,7 @@ bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const struct TypeIde
   ddsrt_mutex_lock (&gv->tl_admin_lock);
   struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, type_id, type_name);
   GVTRACE ("tl-req ");
-  if (tlm->state != TL_META_NEW)
+  if (!tlm || tlm->state != TL_META_NEW)
   {
     // type lookup is pending or the type is already resolved, so we'll return true
     // to indicate that the type request is done (or not required)
@@ -457,6 +457,7 @@ void ddsi_tl_handle_request (struct ddsi_domaingv *gv, struct ddsi_serdata *samp
 
 static void tlm_register_with_proxy_endpoints_locked (struct ddsi_domaingv *gv, struct tl_meta *tlm)
 {
+  assert (tlm);
   thread_state_awake (lookup_thread_state (), gv);
 
   struct tlm_proxy_guid_list_iter proxy_guid_it;

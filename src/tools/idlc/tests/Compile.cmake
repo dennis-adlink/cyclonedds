@@ -25,26 +25,28 @@ else()
   set(_separator ":")
 endif()
 
-# Use C_INCLUDE_PATH environment variable to forward directories with GCC
-# Use INCLUDE environment variable to forward directories with MSVC
-foreach(_path $ENV{C_INCLUDE_PATH} $ENV{INCLUDE} ${CMAKE_CURRENT_BINARY_DIR})
-  if(_c_include_path)
-    set(_c_include_path "${_c_include_path}${_separator}${_path}")
+foreach(_path $ENV{TEST_INCLUDE_PATHS})
+  if(_include_paths)
+    set(_include_paths "${_include_paths}${_separator}${_path}")
   else()
-    set(_c_include_path "${_path}")
+    set(_include_paths "${_path}")
   endif()
 endforeach()
 
 # set compiler specific values
 if(_c_compiler MATCHES "cl\\.exe$")
-  set(ENV{INCLUDE} "${_c_include_path}")
-  set(ENV{PATH} "$ENV{PATH};$ENV{CDDS_BIN}")
+  set(ENV{INCLUDE} "${_include_paths}")
+  set(ENV{PATH} "$ENV{PATH};$ENV{CDDS_BIN_PATH}")
   set(_output_flag "/Fe")
-  set(_lib_path "/link /LIBPATH:$ENV{LIBRARY_PATH}")
+  set(_lib_path "/link /LIBPATH:\"$ENV{CDDS_LIB_PATH}\"")
+  foreach(_path $ENV{TEST_LIB_PATHS})
+    set(_lib_path "${_lib_path} /LIBPATH:\"${_path}\"")
+  endforeach()
   set(_lib "ddsc.lib")
 else()
-  set(ENV{C_INCLUDE_PATH} "${_c_include_path}")
-  set(ENV{LD_LIBRARY_PATH} "$ENV{LD_LIBRARY_PATH}:$ENV{LIBRARY_PATH}")
+  set(ENV{C_INCLUDE_PATH} "${_include_paths}")
+  set(ENV{LD_LIBRARY_PATH} "$ENV{LD_LIBRARY_PATH}:$ENV{CDDS_LIB_PATH}")
+  set(ENV{LIBRARY_PATH} "$ENV{LIBRARY_PATH}:$ENV{CDDS_LIB_PATH}")
   set(_output_flag "-o")
   set(_lib_path "")
   set(_lib "-lddsc")
@@ -84,11 +86,9 @@ foreach(_source ${_sources})
     message(FATAL_ERROR "Cannot transpile ${_source} to source code")
   endif()
 
-  message("path: $ENV{PATH}")
-
   # compile and link c files
   execute_process(
-    COMMAND "${_c_compiler}" ${_output_flag}${_base} "${_main}" "${_c}" "${_lib}" "${_lib_path}"
+    COMMAND "${_c_compiler}" ${_output_flag}${_base} ${_main} ${_c} ${_lib} ${_lib_path}
     COMMAND_ECHO STDOUT
     RESULT_VARIABLE _result)
   if(NOT _result EQUAL "0")

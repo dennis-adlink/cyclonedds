@@ -1,11 +1,11 @@
 
 #if defined(__IDLC__)
 
-struct test_struct;
+//struct test_struct;
 
 struct test_struct {
     long field1;
-    sequence<test_struct> seq2;
+//    sequence<test_struct> seq2;
 };
 
 #else
@@ -22,7 +22,7 @@ struct test_struct {
 static void init(test_struct *a)
 {
     a->field1 = 123;
-    a->seq2._length = 0;
+    //a->seq2._length = 0;
 }
 
 static int cmp(test_struct *a, test_struct *b)
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
     is.m_size = os.m_size;
     is.m_xcdr_version = CDR_ENC_VERSION_2;
 
-    void *msg_rd = ddsrt_calloc (1, test_struct_desc.m_size);
+    void *msg_rd = calloc (1, test_struct_desc.m_size);
     dds_stream_read_sample (&is, msg_rd, &sertype);
     printf("cdr read complete\n");
 

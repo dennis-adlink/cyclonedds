@@ -461,6 +461,49 @@ emit_enum(
   return IDL_VISIT_DONT_RECURSE;
 }
 
+static idl_retcode_t
+emit_bitmask(
+  const idl_pstate_t *pstate,
+  bool revisit,
+  const idl_path_t *path,
+  const void *node,
+  void *user_data)
+{
+  struct generator *gen = user_data;
+  char *name = NULL, *type = NULL;
+  const char *fmt, *base_type_str;
+  const idl_bitmask_t *bitmask = (const idl_bitmask_t *)node;
+  const idl_bit_value_t *bit_value;
+
+  (void)pstate;
+  (void)revisit;
+  (void)path;
+  if (IDL_PRINTA(&type, print_type, node) < 0)
+    return IDL_RETCODE_NO_MEMORY;
+  assert(bitmask->bit_bound > 0 && bitmask->bit_bound <= 64);
+  if (bitmask->bit_bound <= 8)
+    base_type_str = "uint8_t";
+  else if (bitmask->bit_bound <= 16)
+    base_type_str = "uint16_t";
+  else if (bitmask->bit_bound <= 32)
+    base_type_str = "uint32_t";
+  else if (bitmask->bit_bound <= 64)
+    base_type_str = "uint64_t";
+  if (idl_fprintf(gen->header.handle, "typedef %s %s;\n", base_type_str, type) < 0)
+    return IDL_RETCODE_NO_MEMORY;
+
+  bit_value = bitmask->bit_values;
+  for (; bit_value; bit_value = idl_next(bit_value)) {
+    if (IDL_PRINTA(&name, print_type, bit_value) < 0)
+      return IDL_RETCODE_NO_MEMORY;
+    fmt = "#define %s (1 << %u)\n";
+    if (idl_fprintf(gen->header.handle, fmt, name, bit_value->position) < 0)
+      return IDL_RETCODE_NO_MEMORY;
+  }
+
+  return IDL_VISIT_DONT_RECURSE;
+}
+
 static int
 print_literal(
   const idl_pstate_t *pstate,
@@ -560,12 +603,13 @@ idl_retcode_t generate_types(const idl_pstate_t *pstate, struct generator *gener
   idl_visitor_t visitor;
 
   memset(&visitor, 0, sizeof(visitor));
-  visitor.visit = IDL_CONST | IDL_TYPEDEF | IDL_STRUCT | IDL_UNION | IDL_ENUM | IDL_DECLARATOR | IDL_FORWARD;
+  visitor.visit = IDL_CONST | IDL_TYPEDEF | IDL_STRUCT | IDL_UNION | IDL_ENUM | IDL_BITMASK | IDL_DECLARATOR | IDL_FORWARD;
   visitor.accept[IDL_ACCEPT_CONST] = &emit_const;
   visitor.accept[IDL_ACCEPT_TYPEDEF] = &emit_typedef;
   visitor.accept[IDL_ACCEPT_STRUCT] = &emit_struct;
   visitor.accept[IDL_ACCEPT_UNION] = &emit_union;
   visitor.accept[IDL_ACCEPT_ENUM] = &emit_enum;
+  visitor.accept[IDL_ACCEPT_BITMASK] = &emit_bitmask;
   visitor.accept[IDL_ACCEPT_DECLARATOR] = &emit_field;
   visitor.accept[IDL_ACCEPT_FORWARD] = &emit_forward;
   visitor.sources = (const char *[]){ pstate->sources->path->name, NULL };

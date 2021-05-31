@@ -242,7 +242,8 @@ emit_union(
     return IDL_RETCODE_NO_MEMORY;
 
   if (revisit) {
-    fmt = "} %1$s;\n"
+    fmt = "  } _u;\n"
+          "} %1$s;\n"
           "\n";
     if (idl_fprintf(gen->header.handle, fmt, name) < 0)
       return IDL_RETCODE_NO_MEMORY;

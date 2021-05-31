@@ -3076,7 +3076,7 @@ bool idl_is_topic(const void *node, bool keylist)
     if (idl_is_struct(node))
       return !((const idl_struct_t *)node)->nested.value;
     else if (idl_is_union(node))
-      return !((const idl_struct_t *)node)->nested.value;
+      return !((const idl_union_t *)node)->nested.value;
     return false;
   }
   return false;

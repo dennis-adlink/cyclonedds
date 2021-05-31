@@ -56,6 +56,8 @@ static idl_accept_t idl_accept(const void *node)
     return IDL_ACCEPT_UNION;
   if (mask & IDL_ENUM)
     return IDL_ACCEPT_ENUM;
+  if (mask & IDL_BITMASK)
+    return IDL_ACCEPT_BITMASK;
   return IDL_ACCEPT;
 }
 

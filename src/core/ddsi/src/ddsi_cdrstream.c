@@ -964,6 +964,9 @@ static const uint32_t *dds_stream_write_pl (dds_ostream_t * __restrict os, const
 
 static const uint32_t *dds_stream_write_plLE (dds_ostreamLE_t * __restrict os, const char * __restrict data, const uint32_t * __restrict ops)
 {
+  /* skip PLC op */
+  ops++;
+
   /* alloc space for dheader */
   dds_os_put4LE (os, 0xffffffff);
   uint32_t data_offs = os->x.m_index;
@@ -993,6 +996,9 @@ static const uint32_t *dds_stream_write_plLE (dds_ostreamLE_t * __restrict os, c
 
 static const uint32_t *dds_stream_write_plBE (dds_ostreamBE_t * __restrict os, const char * __restrict data, const uint32_t * __restrict ops)
 {
+  /* skip PLC op */
+  ops++;
+
   /* alloc space for dheader */
   dds_os_put4BE (os, 0xffffffff);
   uint32_t data_offs = os->x.m_index;

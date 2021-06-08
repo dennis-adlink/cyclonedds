@@ -50,6 +50,7 @@ static struct {
   int preprocess;
   int keylist;
   int case_sensitive;
+  int type_info;
   int help;
   int version;
   /* (emulated) command line options for mcpp */
@@ -261,6 +262,8 @@ static idl_retcode_t idlc_parse(void)
 
   if(config.case_sensitive)
     flags |= IDL_FLAG_CASE_SENSITIVE;
+  if(config.type_info)
+    flags |= IDL_FLAG_TYPE_INFO;
 
   if(config.compile) {
     idl_source_t *source;
@@ -466,6 +469,9 @@ static const idlc_option_t *compopts[] = {
   &(idlc_option_t){
     IDLC_FLAG, { .flag = &config.version }, 'v', "", "",
     "Display version information." },
+  &(idlc_option_t){
+    IDLC_FLAG, { .flag = &config.type_info }, 't', "", "",
+    "Include type information in the topic descriptor" },
   NULL
 };
 

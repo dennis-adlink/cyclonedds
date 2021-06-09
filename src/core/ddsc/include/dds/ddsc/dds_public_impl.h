@@ -53,18 +53,10 @@ dds_key_descriptor_t;
   API is a pointer to the "topic_descriptor_t" struct type.
 */
 
-struct dds_type_meta_ser_data
+struct dds_type_meta_ser
 {
   unsigned char * data;
   uint32_t sz;
-};
-
-struct dds_type_meta_ser
-{
-  struct dds_type_meta_ser_data id;   /* serialized type identifier */
-  struct dds_type_meta_ser_data obj;  /* serialized type object */
-  uint32_t n_dep;                      /* number of dependencies */
-  struct dds_type_meta_ser *dep;       /* dependencies */
 };
 
 typedef struct dds_topic_descriptor
@@ -78,8 +70,8 @@ typedef struct dds_topic_descriptor
   const uint32_t m_nops;               /* Number of ops in m_ops */
   const uint32_t * m_ops;              /* Marshalling meta data */
   const char * m_meta;                 /* XML topic description meta data */
-  struct dds_type_meta_ser minimal_type;    /* Minimal serialized type identifier and object */
-  struct dds_type_meta_ser complete_type;   /* Complete serialized type identifier and object */
+  struct dds_type_meta_ser type_information;  /* XCDR2 serialized TypeInformation */
+  struct dds_type_meta_ser type_mapping;      /* XCDR2 serialized TypeMapping: maps type-id to type object and minimal to complete type id */
 }
 dds_topic_descriptor_t;
 

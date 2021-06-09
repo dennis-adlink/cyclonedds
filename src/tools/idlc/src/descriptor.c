@@ -23,6 +23,7 @@
 
 #include "generator.h"
 #include "descriptor.h"
+#include "descriptor_type_meta.h"
 #include "dds/ddsc/dds_opcodes.h"
 
 #define TYPE (16)
@@ -826,10 +827,12 @@ emit_case(
       opcode |= typecode(type_spec, TYPE, false);
       if (idl_is_struct(type_spec) || idl_is_union(type_spec))
         case_type = EXTERNAL;
-      else if (idl_is_array(type_spec) || !(idl_is_base_type(type_spec) || idl_is_string(type_spec)))
+      else if (idl_is_array(type_spec) || (idl_is_string(type_spec) && idl_is_bounded(type_spec)))
         case_type = INLINE;
-      else
+      else {
+        assert (idl_is_base_type(type_spec) || (idl_is_string(type_spec) && !idl_is_bounded(type_spec)));
         case_type = SIMPLE;
+      }
     }
 
     if ((ret = push_field(descriptor, _case, NULL)))
@@ -849,9 +852,9 @@ emit_case(
         if ((ret = stash_opcode(descriptor, &ctype->instructions, off++, opcode, 0u)))
           return ret;
       } else {
-        assert(ctype->instructions.count <= INT16_MAX);
-        int16_t addr_offs = (int16_t)ctype->instructions.count;
-        stash_jeq_offset(&ctype->instructions, off++, type_spec, opcode, addr_offs);
+        assert(off <= INT16_MAX);
+        stash_jeq_offset(&ctype->instructions, off, type_spec, opcode, (int16_t)off);
+        off++;
       }
       /* generate union case discriminator */
       if ((ret = stash_constant(&ctype->instructions, off++, label->const_expr)))
@@ -930,6 +933,8 @@ emit_union(
     if ((ret = stash_single(&ctype->instructions, stype->offset + 2, stype->labels)))
       return ret;
     if ((ret = stash_couple(&ctype->instructions, stype->offset + 3, (uint16_t)cnt, 4u)))
+      return ret;
+    if ((ret = stash_opcode(descriptor, &ctype->instructions, nop, DDS_OP_RTS, 0u)))
       return ret;
     pop_type(descriptor);
   } else {
@@ -1296,11 +1301,7 @@ emit_declarator(
 
     /* inline the type spec for seq/struct/union declarators in a union */
     if (idl_is_union(ctype->node)) {
-      if (idl_is_sequence(type_spec))
-        return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
-      else if (idl_is_union(type_spec))
-        return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
-      else if (idl_is_struct(type_spec))
+      if (idl_is_sequence(type_spec) || idl_is_union(type_spec) || idl_is_struct(type_spec))
         return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
     }
 
@@ -1328,11 +1329,7 @@ emit_declarator(
         return ret;
     }
 
-    if (idl_is_forward(type_spec))
-      return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
-    else if (idl_is_union(type_spec))
-      return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
-    else if (idl_is_struct(type_spec))
+    if (idl_is_forward(type_spec) || idl_is_union(type_spec) || idl_is_struct(type_spec))
       return IDL_VISIT_TYPE_SPEC | IDL_VISIT_REVISIT;
 
     return IDL_VISIT_REVISIT;
@@ -1367,9 +1364,9 @@ emit_member(
     idl_member_t *member = (idl_member_t *)node;
     assert(ctype->instructions.count <= INT16_MAX);
     int16_t addr_offs = (int16_t)(ctype->instructions.count
-        - (ctype->pl_offset - 1 /* PLC op */)
+        - ctype->pl_offset /* offset of first op after PLC */
         + 2 /* skip this JEQ and member id */
-        + 1 /* skip RTS */);
+        + 1 /* skip RTS (of the PLC list) */);
     if ((ret = stash_member_offset(&ctype->instructions, ctype->pl_offset++, addr_offs)))
       return ret;
     stash_single(&ctype->instructions, ctype->pl_offset++, member->id.value);
@@ -1400,83 +1397,87 @@ static int print_opcode(FILE *fp, const struct instruction *inst)
   switch (opcode) {
     case DDS_OP_DLC:
       vec[len++] = "DDS_OP_DLC";
-      break;
+      goto print;
     case DDS_OP_PLC:
       vec[len++] = "DDS_OP_PLC";
-      break;
+      goto print;
     case DDS_OP_RTS:
       vec[len++] = "DDS_OP_RTS";
-      break;
+      goto print;
     case DDS_OP_KOF:
       vec[len++] = "DDS_OP_KOF";
       /* lower 16 bits contains length */
       idl_snprintf(buf, sizeof(buf), " | %u", inst->data.opcode.code & 0xffff);
       vec[len++] = buf;
-      break;
+      goto print;
     case DDS_OP_JEQ:
       vec[len++] = "DDS_OP_JEQ";
-      /* lower 16 bits contain offset to next instruction */
-      idl_snprintf(buf, sizeof(buf), " | %u", inst->data.opcode.code & 0xffff);
-      vec[len++] = buf;
       break;
-
     default:
       assert(opcode == DDS_OP_ADR);
       vec[len++] = "DDS_OP_ADR";
-      type = inst->data.opcode.code & (0xffu << 16);
-      assert(type);
-      switch (type) {
-        case DDS_OP_TYPE_1BY: vec[len++] = " | DDS_OP_TYPE_1BY"; break;
-        case DDS_OP_TYPE_2BY: vec[len++] = " | DDS_OP_TYPE_2BY"; break;
-        case DDS_OP_TYPE_4BY: vec[len++] = " | DDS_OP_TYPE_4BY"; break;
-        case DDS_OP_TYPE_8BY: vec[len++] = " | DDS_OP_TYPE_8BY"; break;
-        case DDS_OP_TYPE_STR: vec[len++] = " | DDS_OP_TYPE_STR"; break;
-        case DDS_OP_TYPE_BST: vec[len++] = " | DDS_OP_TYPE_BST"; break;
-        case DDS_OP_TYPE_BSP: vec[len++] = " | DDS_OP_TYPE_BSP"; break;
-        case DDS_OP_TYPE_SEQ: vec[len++] = " | DDS_OP_TYPE_SEQ"; break;
-        case DDS_OP_TYPE_ARR: vec[len++] = " | DDS_OP_TYPE_ARR"; break;
-        case DDS_OP_TYPE_UNI: vec[len++] = " | DDS_OP_TYPE_UNI"; break;
-        case DDS_OP_TYPE_STU: vec[len++] = " | DDS_OP_TYPE_STU"; break;
-        case DDS_OP_TYPE_ENU: vec[len++] = " | DDS_OP_TYPE_ENU"; break;
-        case DDS_OP_TYPE_EXT: vec[len++] = " | DDS_OP_TYPE_EXT"; break;
-      }
-      subtype = inst->data.opcode.code & (0xffu << 8);
-      assert(( subtype &&  (type == DDS_OP_TYPE_SEQ ||
-                            type == DDS_OP_TYPE_ARR ||
-                            type == DDS_OP_TYPE_UNI ||
-                            type == DDS_OP_TYPE_STU))
-          || (!subtype && !(type == DDS_OP_TYPE_SEQ ||
-                            type == DDS_OP_TYPE_ARR ||
-                            type == DDS_OP_TYPE_UNI ||
-                            type == DDS_OP_TYPE_STU)));
-      switch (subtype) {
-        case DDS_OP_SUBTYPE_1BY: vec[len++] = " | DDS_OP_SUBTYPE_1BY"; break;
-        case DDS_OP_SUBTYPE_2BY: vec[len++] = " | DDS_OP_SUBTYPE_2BY"; break;
-        case DDS_OP_SUBTYPE_4BY: vec[len++] = " | DDS_OP_SUBTYPE_4BY"; break;
-        case DDS_OP_SUBTYPE_8BY: vec[len++] = " | DDS_OP_SUBTYPE_8BY"; break;
-        case DDS_OP_SUBTYPE_STR: vec[len++] = " | DDS_OP_SUBTYPE_STR"; break;
-        case DDS_OP_SUBTYPE_BST: vec[len++] = " | DDS_OP_SUBTYPE_BST"; break;
-        case DDS_OP_SUBTYPE_BSP: vec[len++] = " | DDS_OP_SUBTYPE_BSP"; break;
-        case DDS_OP_SUBTYPE_SEQ: vec[len++] = " | DDS_OP_SUBTYPE_SEQ"; break;
-        case DDS_OP_SUBTYPE_ARR: vec[len++] = " | DDS_OP_SUBTYPE_ARR"; break;
-        case DDS_OP_SUBTYPE_UNI: vec[len++] = " | DDS_OP_SUBTYPE_UNI"; break;
-        case DDS_OP_SUBTYPE_STU: vec[len++] = " | DDS_OP_SUBTYPE_STU"; break;
-        case DDS_OP_SUBTYPE_ENU: vec[len++] = " | DDS_OP_SUBTYPE_ENU"; break;
-      }
-
-      if (type == DDS_OP_TYPE_UNI && (inst->data.opcode.code & DDS_OP_FLAG_DEF))
-        vec[len++] = " | DDS_OP_FLAG_DEF";
-      else if (inst->data.opcode.code & DDS_OP_FLAG_FP)
-        vec[len++] = " | DDS_OP_FLAG_FP";
-      if (inst->data.opcode.code & DDS_OP_FLAG_SGN)
-        vec[len++] = " | DDS_OP_FLAG_SGN";
-      if (inst->data.opcode.code & DDS_OP_FLAG_KEY)
-        vec[len++] = " | DDS_OP_FLAG_KEY";
-      if (inst->data.opcode.code & DDS_OP_FLAG_EXT)
-        vec[len++] = " | DDS_OP_FLAG_EXT";
       break;
   }
 
+  type = inst->data.opcode.code & (0xffu << 16);
+  assert(opcode == DDS_OP_JEQ || type); /* JEQ can have null type in case it's used as PL-CDR member offset */
+  switch (type) {
+    case DDS_OP_TYPE_1BY: vec[len++] = " | DDS_OP_TYPE_1BY"; break;
+    case DDS_OP_TYPE_2BY: vec[len++] = " | DDS_OP_TYPE_2BY"; break;
+    case DDS_OP_TYPE_4BY: vec[len++] = " | DDS_OP_TYPE_4BY"; break;
+    case DDS_OP_TYPE_8BY: vec[len++] = " | DDS_OP_TYPE_8BY"; break;
+    case DDS_OP_TYPE_STR: vec[len++] = " | DDS_OP_TYPE_STR"; break;
+    case DDS_OP_TYPE_BST: vec[len++] = " | DDS_OP_TYPE_BST"; break;
+    case DDS_OP_TYPE_BSP: vec[len++] = " | DDS_OP_TYPE_BSP"; break;
+    case DDS_OP_TYPE_SEQ: vec[len++] = " | DDS_OP_TYPE_SEQ"; break;
+    case DDS_OP_TYPE_ARR: vec[len++] = " | DDS_OP_TYPE_ARR"; break;
+    case DDS_OP_TYPE_UNI: vec[len++] = " | DDS_OP_TYPE_UNI"; break;
+    case DDS_OP_TYPE_STU: vec[len++] = " | DDS_OP_TYPE_STU"; break;
+    case DDS_OP_TYPE_ENU: vec[len++] = " | DDS_OP_TYPE_ENU"; break;
+    case DDS_OP_TYPE_EXT: vec[len++] = " | DDS_OP_TYPE_EXT"; break;
+  }
+  if (opcode == DDS_OP_JEQ) {
+    /* lower 16 bits contain offset to next instruction */
+    idl_snprintf(buf, sizeof(buf), " | %u", inst->data.opcode.code & 0xffff);
+    vec[len++] = buf;
+  } else {
+    subtype = inst->data.opcode.code & (0xffu << 8);
+    assert(( subtype &&  (type == DDS_OP_TYPE_SEQ ||
+                          type == DDS_OP_TYPE_ARR ||
+                          type == DDS_OP_TYPE_UNI ||
+                          type == DDS_OP_TYPE_STU))
+        || (!subtype && !(type == DDS_OP_TYPE_SEQ ||
+                          type == DDS_OP_TYPE_ARR ||
+                          type == DDS_OP_TYPE_UNI ||
+                          type == DDS_OP_TYPE_STU)));
+    switch (subtype) {
+      case DDS_OP_SUBTYPE_1BY: vec[len++] = " | DDS_OP_SUBTYPE_1BY"; break;
+      case DDS_OP_SUBTYPE_2BY: vec[len++] = " | DDS_OP_SUBTYPE_2BY"; break;
+      case DDS_OP_SUBTYPE_4BY: vec[len++] = " | DDS_OP_SUBTYPE_4BY"; break;
+      case DDS_OP_SUBTYPE_8BY: vec[len++] = " | DDS_OP_SUBTYPE_8BY"; break;
+      case DDS_OP_SUBTYPE_STR: vec[len++] = " | DDS_OP_SUBTYPE_STR"; break;
+      case DDS_OP_SUBTYPE_BST: vec[len++] = " | DDS_OP_SUBTYPE_BST"; break;
+      case DDS_OP_SUBTYPE_BSP: vec[len++] = " | DDS_OP_SUBTYPE_BSP"; break;
+      case DDS_OP_SUBTYPE_SEQ: vec[len++] = " | DDS_OP_SUBTYPE_SEQ"; break;
+      case DDS_OP_SUBTYPE_ARR: vec[len++] = " | DDS_OP_SUBTYPE_ARR"; break;
+      case DDS_OP_SUBTYPE_UNI: vec[len++] = " | DDS_OP_SUBTYPE_UNI"; break;
+      case DDS_OP_SUBTYPE_STU: vec[len++] = " | DDS_OP_SUBTYPE_STU"; break;
+      case DDS_OP_SUBTYPE_ENU: vec[len++] = " | DDS_OP_SUBTYPE_ENU"; break;
+    }
+
+    if (type == DDS_OP_TYPE_UNI && (inst->data.opcode.code & DDS_OP_FLAG_DEF))
+      vec[len++] = " | DDS_OP_FLAG_DEF";
+    else if (inst->data.opcode.code & DDS_OP_FLAG_FP)
+      vec[len++] = " | DDS_OP_FLAG_FP";
+    if (inst->data.opcode.code & DDS_OP_FLAG_SGN)
+      vec[len++] = " | DDS_OP_FLAG_SGN";
+    if (inst->data.opcode.code & DDS_OP_FLAG_KEY)
+      vec[len++] = " | DDS_OP_FLAG_KEY";
+    if (inst->data.opcode.code & DDS_OP_FLAG_EXT)
+      vec[len++] = " | DDS_OP_FLAG_EXT";
+  }
+
+print:
   for (size_t cnt=0; cnt < len; cnt++) {
     if (fputs(vec[cnt], fp) < 0)
       return -1;
@@ -1880,7 +1881,7 @@ static int print_flags(FILE *fp, struct descriptor *descriptor)
   return fputs(",\n", fp) < 0 ? -1 : 0;
 }
 
-static int print_descriptor(FILE *fp, struct descriptor *descriptor)
+static int print_descriptor(FILE *fp, struct descriptor *descriptor, bool type_info)
 {
   char *name, *type;
   const char *fmt;
@@ -1889,37 +1890,45 @@ static int print_descriptor(FILE *fp, struct descriptor *descriptor)
     return -1;
   if (IDL_PRINTA(&type, print_type, descriptor->topic) < 0)
     return -1;
-  fmt = "#define TID_SER (unsigned char []){ 0x12, 0x00, 0x00, 0x00, 0xf1, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e }\n"
-        "#define TID_SER_SZ 22\n"
-        "const dds_topic_descriptor_t %1$s_desc =\n{\n"
+  fmt = "const dds_topic_descriptor_t %1$s_desc =\n{\n"
         "  sizeof (%1$s),\n" /* size of type */
         "  %2$s,\n  "; /* alignment */
   if (idl_fprintf(fp, fmt, type, descriptor->alignment->rendering) < 0)
     return -1;
   if (print_flags(fp, descriptor) < 0)
     return -1;
-  if (descriptor->n_keys)
-    fmt = "  %1$"PRIu32"u,\n" /* number of keys */
-          "  \"%2$s\",\n" /* fully qualified name in IDL */
-          "  %3$s_keys,\n" /* key array */
-          "  %4$"PRIu32",\n" /* number of ops */
-          "  %3$s_ops,\n" /* ops array */
-          "  \"\",\n" /* OpenSplice metadata */
-          "  { .id = { .data = TID_SER, .sz = TID_SER_SZ }, .obj = { .data = (unsigned char[]) { 1, 2, 3}, .sz = 3 }, .n_dep = 0, .dep = NULL },\n" /* minimal type identifier and type object */
-          "  { .id = { .data = TID_SER, .sz = TID_SER_SZ }, .obj = { .data = (unsigned char[]) { 1, 2, 3}, .sz = 3 }, .n_dep = 0, .dep = NULL }\n" /* complete type identifier and type object */
-          "};\n";
-  else
-    fmt = "  %1$"PRIu32"u,\n" /* number of keys */
-          "  \"%2$s\",\n" /* fully qualified name in IDL */
-          "  NULL,\n" /* key array */
-          "  %4$"PRIu32",\n" /* number of ops */
-          "  %3$s_ops,\n" /* ops array */
-          "  \"\",\n" /* OpenSplice metadata */
-          "  { .id = { .data = TID_SER, .sz = TID_SER_SZ }, .obj = { .data = (unsigned char[]) { 1, 2, 3}, .sz = 3 }, .n_dep = 0, .dep = NULL },\n" /* minimal type identifier and type object */
-          "  { .id = { .data = TID_SER, .sz = TID_SER_SZ }, .obj = { .data = (unsigned char[]) { 1, 2, 3}, .sz = 3 }, .n_dep = 0, .dep = NULL }\n" /* complete type identifier and type object */
-          "};\n";
-  if (idl_fprintf(fp, fmt, descriptor->n_keys, name, type, descriptor->n_opcodes) < 0)
+  fmt = "  %1$"PRIu32"u,\n" /* number of keys */
+        "  \"%2$s\",\n"; /* fully qualified name in IDL */
+  if (idl_fprintf(fp, fmt, descriptor->n_keys, name) < 0)
     return -1;
+
+  /* key array */
+  if (descriptor->n_keys)
+    fmt = "  %1$s_keys,\n";
+  else
+    fmt = "  NULL,\n";
+  if (idl_fprintf(fp, fmt, type) < 0)
+    return -1;
+
+  fmt = "  %1$"PRIu32",\n" /* number of ops */
+        "  %2$s_ops,\n" /* ops array */
+        "  \"\",\n"; /* OpenSplice metadata */
+  if (idl_fprintf(fp, fmt, descriptor->n_opcodes, type) < 0)
+    return -1;
+
+  if (type_info) {
+    fmt = "  { .data = TYPE_INFO_CDR_%1$s, .sz = TYPE_INFO_CDR_SZ_%1$s },\n" /* TypeInformation */
+          "  { .data = TYPE_MAP_CDR_%1$s, .sz = TYPE_MAP_CDR_%1$s },\n"; /* TypeMapping */
+  } else {
+    fmt = "  { .data = NULL, .sz = 0u },\n" /* TypeInformation */
+          "  { .data = NULL, .sz = 0u },\n"; /* TypeMapping */
+  }
+  if (idl_fprintf(fp, fmt, type) < 0)
+    return -1;
+
+  if (idl_fprintf(fp, "};\n") < 0)
+    return -1;
+
   return 0;
 }
 
@@ -1994,7 +2003,7 @@ generate_descriptor(
   const idl_node_t *node)
 {
   idl_retcode_t ret;
-  bool keylist;
+  bool keylist, type_info;
   struct descriptor descriptor;
   idl_visitor_t visitor;
   uint32_t inst_count;
@@ -2030,7 +2039,10 @@ generate_descriptor(
     { ret = IDL_RETCODE_NO_MEMORY; goto err_print; }
   if (print_keys(generator->source.handle, &descriptor, keylist, inst_count) < 0)
     { ret = IDL_RETCODE_NO_MEMORY; goto err_print; }
-  if (print_descriptor(generator->source.handle, &descriptor) < 0)
+  type_info = (pstate->flags & IDL_FLAG_TYPE_INFO) != 0;
+  if (type_info && print_type_meta_ser(generator->source.handle, pstate, node) < 0)
+    { ret = IDL_RETCODE_NO_MEMORY; goto err_print; }
+  if (print_descriptor(generator->source.handle, &descriptor, type_info) < 0)
     { ret = IDL_RETCODE_NO_MEMORY; goto err_print; }
 
 err_print:

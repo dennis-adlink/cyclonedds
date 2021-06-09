@@ -364,6 +364,8 @@ struct idl_case {
   idl_case_label_t *labels;
   idl_type_spec_t *type_spec;
   idl_declarator_t *declarator;
+  idl_id_t id;
+  idl_boolean_t external;
 };
 
 typedef struct idl_switch_type_spec idl_switch_type_spec_t;
@@ -389,6 +391,7 @@ struct idl_union {
   idl_case_label_t *default_case;
   uint64_t unused_labels; /**< number of unused labels */
   idl_nested_t nested; /**< if type is topic (sum total of annotations) */
+  idl_autoid_t autoid;
   idl_extensibility_t extensibility;
 };
 

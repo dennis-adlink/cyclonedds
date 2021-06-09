@@ -51,6 +51,15 @@ annotate_id(
     }
     member->id.annotation = IDL_ID;
     member->id.value = literal->value.uint32;
+  } else if (idl_mask(node) & IDL_CASE) {
+    idl_case_t *_case = (idl_case_t *)node;
+    if (_case->id.annotation != IDL_AUTOID) {
+      idl_error(pstate, idl_location(annotation_appl),
+        "@id conflicts with earlier annotation");
+      return IDL_RETCODE_SEMANTIC_ERROR;
+    }
+    _case->id.annotation = IDL_ID;
+    _case->id.value = literal->value.uint32;
   } else {
     idl_error(pstate, idl_location(annotation_appl),
       "@id cannot be applied to %s elements", idl_construct(node));
@@ -93,6 +102,17 @@ annotate_hashid(
       name = member->declarators->name->identifier;
     member->id.annotation = IDL_ID;
     member->id.value = idl_hashid(name);
+  } else if (idl_mask(node) & IDL_CASE) {
+    idl_case_t *_case = (idl_case_t *)node;
+    if (_case->id.annotation != IDL_AUTOID) {
+      idl_error(pstate, idl_location(annotation_appl),
+        "@hashid conflicts with earlier annotation");
+      return IDL_RETCODE_SEMANTIC_ERROR;
+    }
+    if (!name)
+      name = _case->declarator->name->identifier;
+    _case->id.annotation = IDL_ID;
+    _case->id.value = idl_hashid(name);
   } else {
     idl_error(pstate, idl_location(annotation_appl),
       "@hashid cannot be applied to '%s' elements", idl_construct(node));
@@ -124,6 +144,8 @@ annotate_autoid(
 
   if (idl_is_struct(node)) {
     ((idl_struct_t *)node)->autoid = autoid;
+  } else if (idl_is_union(node)) {
+    ((idl_union_t *)node)->autoid = autoid;
   } else {
     idl_error(pstate, idl_location(annotation_appl),
       "@autoid cannot be applied to '%s' elements", idl_construct(node));
@@ -463,6 +485,8 @@ annotate_external(
 
   if (idl_mask(node) & IDL_MEMBER) {
     ((idl_member_t *)node)->external = external;
+  } else if (idl_mask(node) & IDL_CASE) {
+    ((idl_case_t *)node)->external = external;
   } else {
     idl_error(pstate, idl_location(annotation_appl),
       "@external can only be applied to members of constructed types");

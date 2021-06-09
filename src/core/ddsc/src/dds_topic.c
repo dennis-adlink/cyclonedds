@@ -618,26 +618,27 @@ dds_entity_t dds_create_topic (dds_entity_t participant, const dds_topic_descrip
   st->type.ops.ops = ddsrt_memdup (desc->m_ops, st->type.ops.nops * sizeof (*st->type.ops.ops));
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  if (desc->minimal_type.id.sz > 0)
-  {
-    st->type.typeid_minimal_ser.data = ddsrt_memdup (desc->minimal_type.id.data, desc->minimal_type.id.sz);
-    st->type.typeid_minimal_ser.sz = desc->minimal_type.id.sz;
-    if (desc->minimal_type.obj.sz > 0)
-    {
-      st->type.typeobj_minimal_ser.data = ddsrt_memdup (desc->minimal_type.obj.data, desc->minimal_type.obj.sz);
-      st->type.typeobj_minimal_ser.sz = desc->minimal_type.obj.sz;
-    }
-  }
-  if (desc->complete_type.id.sz > 0)
-  {
-    st->type.typeid_ser.data = ddsrt_memdup (desc->complete_type.id.data, desc->complete_type.id.sz);
-    st->type.typeid_ser.sz = desc->complete_type.id.sz;
-    if (desc->complete_type.obj.sz > 0)
-    {
-      st->type.typeobj_ser.data = ddsrt_memdup (desc->complete_type.obj.data, desc->complete_type.obj.sz);
-      st->type.typeobj_ser.sz = desc->complete_type.obj.sz;
-    }
-  }
+  // FIXME: copy serialized type info into st?
+  // if (desc->type_information.sz > 0)
+  // {
+  //   st->type.typeid_minimal_ser.data = ddsrt_memdup (desc->minimal_type.id.data, desc->minimal_type.id.sz);
+  //   st->type.typeid_minimal_ser.sz = desc->minimal_type.id.sz;
+  //   if (desc->minimal_type.obj.sz > 0)
+  //   {
+  //     st->type.typeobj_minimal_ser.data = ddsrt_memdup (desc->minimal_type.obj.data, desc->minimal_type.obj.sz);
+  //     st->type.typeobj_minimal_ser.sz = desc->minimal_type.obj.sz;
+  //   }
+  // }
+  // if (desc->complete_type.id.sz > 0)
+  // {
+  //   st->type.typeid_ser.data = ddsrt_memdup (desc->complete_type.id.data, desc->complete_type.id.sz);
+  //   st->type.typeid_ser.sz = desc->complete_type.id.sz;
+  //   if (desc->complete_type.obj.sz > 0)
+  //   {
+  //     st->type.typeobj_ser.data = ddsrt_memdup (desc->complete_type.obj.data, desc->complete_type.obj.sz);
+  //     st->type.typeobj_ser.sz = desc->complete_type.obj.sz;
+  //   }
+  // }
 #endif
 
   /* Check if topic cannot be optimised (memcpy marshal) */

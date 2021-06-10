@@ -79,7 +79,7 @@ static struct ktopic_type_guid * topic_guid_map_refc_impl (const struct dds_ktop
 {
   if (sertype->tlm == NULL)
     return NULL;
-  struct TypeIdentifier *tid = &sertype->tlm->type_id;
+  ddsi_typeid_t *tid = &sertype->tlm->type_id;
   if (ddsi_typeid_is_none (tid))
     return NULL;
 
@@ -112,7 +112,7 @@ static void topic_guid_map_unref (struct ddsi_domaingv * const gv, const struct 
     thread_state_awake (lookup_thread_state (), gv);
     (void) delete_topic (gv, &m->guid);
     thread_state_asleep (lookup_thread_state ());
-    ddsrt_free ((struct TypeIdentifier *) m->type_id);
+    ddsrt_free ((ddsi_typeid_t *) m->type_id);
     ddsrt_free (m);
   }
 }
@@ -483,7 +483,7 @@ dds_entity_t dds_create_topic_impl (
 #ifdef DDS_HAS_TOPIC_DISCOVERY
   /* create or reference ktopic-sertype meta-data entry */
   struct ktopic_type_guid templ, *m;
-  struct TypeIdentifier *tid = ddsi_sertype_typeid (sertype_registered, false);
+  ddsi_typeid_t *tid = ddsi_sertype_typeid (sertype_registered, false);
   if (!ddsi_typeid_is_none (tid))
   {
     memset (&templ, 0, sizeof (templ));

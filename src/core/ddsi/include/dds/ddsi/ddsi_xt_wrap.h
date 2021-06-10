@@ -9,16 +9,15 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR BSD-3-Clause
  */
-#ifndef DDSI_TYPE_XTYPES_H
-#define DDSI_TYPE_XTYPES_H
+#ifndef DDSI_XT_WRAP_H
+#define DDSI_XT_WRAP_H
 
 #include "dds/features.h"
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
 
 #include <stdint.h>
-#include "dds/ddsi/ddsi_type_identifier.h"
-#include "dds/ddsi/ddsi_type_object.h"
+#include "dds/ddsi/ddsi_xt.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -44,42 +43,42 @@ struct xt_applied_member_annotations {
 };
 
 struct xt_type_detail {
-  QualifiedTypeName type_name;
+  DDS_XTypes_QualifiedTypeName type_name;
   struct xt_applied_type_annotations annotations;
 };
 
 struct xt_member_detail {
-  MemberName name;
+  DDS_XTypes_MemberName name;
   struct xt_applied_member_annotations annotations;
 };
 
 struct xt_string {
-  LBound_t bound;
+  DDS_XTypes_LBound bound;
 };
 
 struct xt_collection_common {
-  CollectionTypeFlag flags;
-  EquivalenceKind ek;
+  DDS_XTypes_CollectionTypeFlag flags;
+  DDS_XTypes_EquivalenceKind ek;
   struct xt_type_detail detail;
   struct xt_type *element_type;
-  CollectionElementFlag element_flags;
+  DDS_XTypes_CollectionElementFlag element_flags;
   struct xt_applied_member_annotations element_annotations;
 };
 
 struct xt_seq {
   struct xt_collection_common c;
-  LBound_t bound;
+  DDS_XTypes_LBound bound;
 };
 
 struct xt_array {
   struct xt_collection_common c;
-  struct LBoundSeq bounds;
+  struct DDS_XTypes_LBoundSeq bounds;
 };
 
 struct xt_map {
   struct xt_collection_common c;
-  LBound_t bound;
-  CollectionElementFlag key_flags;
+  DDS_XTypes_LBound bound;
+  DDS_XTypes_CollectionElementFlag key_flags;
   struct xt_type *key_type;
   struct xt_applied_member_annotations key_annotations;
 };
@@ -90,24 +89,24 @@ struct xt_alias {
 };
 
 struct xt_annotation_member {
-  MemberName name;
+  DDS_XTypes_MemberName name;
   struct xt_type *member_type;
-  struct AnnotationParameterValue default_value;
+  struct DDS_XTypes_AnnotationParameterValue default_value;
 };
 struct xt_annotation_parameter_seq {
   uint32_t length;
   struct xt_annotation_parameter *seq;
 };
 struct xt_annotation {
-  QualifiedTypeName annotation_name;
+  DDS_XTypes_QualifiedTypeName annotation_name;
   struct xt_annotation_parameter_seq *members;
 };
 
 struct xt_struct_member {
-  MemberId id;
-  StructMemberFlag flags;
+  DDS_XTypes_MemberId id;
+  DDS_XTypes_StructMemberFlag flags;
   struct xt_type *type;
-  struct NameHash name_hash;
+  DDS_XTypes_NameHash name_hash;
   struct xt_member_detail detail;
 };
 struct xt_struct_member_seq {
@@ -115,18 +114,18 @@ struct xt_struct_member_seq {
   struct xt_struct_member *seq;
 };
 struct xt_struct {
-  StructTypeFlag flags;
+  DDS_XTypes_StructTypeFlag flags;
   struct xt_type *base_type;
   struct xt_struct_member_seq members;
   struct xt_type_detail detail;
 };
 
 struct xt_union_member {
-  MemberId id;
-  UnionMemberFlag flags;
+  DDS_XTypes_MemberId id;
+  DDS_XTypes_UnionMemberFlag flags;
   struct xt_type *type;
-  struct UnionCaseLabelSeq label_seq;
-  struct NameHash name_hash;
+  struct DDS_XTypes_UnionCaseLabelSeq label_seq;
+  DDS_XTypes_NameHash name_hash;
   struct xt_member_detail detail;
 };
 struct xt_union_member_seq {
@@ -134,9 +133,9 @@ struct xt_union_member_seq {
   struct xt_union_member *seq;
 };
 struct xt_union {
-  UnionTypeFlag flags;
+  DDS_XTypes_UnionTypeFlag flags;
   struct xt_type *disc_type;
-  UnionDiscriminatorFlag disc_flags;
+  DDS_XTypes_UnionDiscriminatorFlag disc_flags;
   struct xt_applied_type_annotations disc_annotations;
   struct xt_union_member_seq members;
   struct xt_type_detail detail;
@@ -145,8 +144,8 @@ struct xt_union {
 struct xt_bitfield {
   uint16_t position;
   uint8_t bitcount;
-  TypeKind holder_type; // Must be primitive integer type
-  struct NameHash name_hash;
+  DDS_XTypes_TypeKind holder_type; // Must be primitive integer type
+  DDS_XTypes_NameHash name_hash;
   struct xt_member_detail detail;
 };
 struct xt_bitfield_seq {
@@ -160,8 +159,8 @@ struct xt_bitset {
 
 struct xt_enum_literal {
   int32_t value;
-  EnumeratedLiteralFlag flags;
-  struct NameHash name_hash;
+  DDS_XTypes_EnumeratedLiteralFlag flags;
+  DDS_XTypes_NameHash name_hash;
   struct xt_member_detail detail;
 };
 struct xt_enum_literal_seq {
@@ -169,15 +168,15 @@ struct xt_enum_literal_seq {
   struct xt_enum_literal *seq;
 };
 struct xt_enum {
-  EnumTypeFlag flags;
-  BitBound bit_bound;
+  DDS_XTypes_EnumTypeFlag flags;
+  DDS_XTypes_BitBound bit_bound;
   struct xt_enum_literal_seq literals;
   struct xt_type_detail detail;
 };
 
 struct xt_bitflag {
   uint16_t position;
-  struct NameHash name_hash;
+  DDS_XTypes_NameHash name_hash;
   struct xt_member_detail detail;
 };
 struct xt_bitflag_seq {
@@ -185,8 +184,8 @@ struct xt_bitflag_seq {
   struct xt_bitflag *seq;
 };
 struct xt_bitmask {
-  BitmaskTypeFlag flags;
-  BitBound bit_bound;
+  DDS_XTypes_BitmaskTypeFlag flags;
+  DDS_XTypes_BitBound bit_bound;
   struct xt_bitflag_seq bitflags;
   struct xt_type_detail detail;
 };
@@ -194,9 +193,9 @@ struct xt_bitmask {
 struct xt_type
 {
   bool is_plain_collection;
-  struct EquivalenceHash minimal_hash;
-  struct EquivalenceHash complete_hash;
-  struct StronglyConnectedComponentId sc_component_id;
+  DDS_XTypes_EquivalenceHash minimal_hash;
+  DDS_XTypes_EquivalenceHash complete_hash;
+  struct DDS_XTypes_StronglyConnectedComponentId sc_component_id;
   unsigned has_minimal_id : 1;
   unsigned has_minimal_obj : 1;
   unsigned has_complete_id : 1;
@@ -247,8 +246,8 @@ struct xt_type
   } _u;
 };
 
-struct xt_type *ddsi_xt_type_init (const struct TypeIdentifier *ti, const struct TypeObject *to);
-void ddsi_xt_type_add (struct xt_type *xt, const struct TypeIdentifier *ti, const struct TypeObject *to);
+struct xt_type *ddsi_xt_type_init (const ddsi_typeid_t *ti, const ddsi_typeobj_t *to);
+void ddsi_xt_type_add (struct xt_type *xt, const ddsi_typeid_t *ti, const ddsi_typeobj_t *to);
 void ddsi_xt_type_fini (struct xt_type *xt);
 bool ddsi_xt_is_assignable_from (const struct ddsi_domaingv *gv, const struct xt_type *t1, const struct xt_type *t2);
 bool ddsi_xt_has_complete_typeid (const struct xt_type *xt);
@@ -257,4 +256,4 @@ bool ddsi_xt_has_complete_typeid (const struct xt_type *xt);
 }
 #endif
 #endif /* DDS_HAS_TYPE_DISCOVERY */
-#endif /* DDSI_TYPE_XTYPES_H */
+#endif /* DDSI_XT_WRAP_H */

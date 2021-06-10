@@ -15,7 +15,7 @@
 #include "dds/ddsrt/atomics.h"
 #include "dds/ddsrt/avl.h"
 #include "dds/ddsi/ddsi_xqos.h"
-#include "dds/ddsi/ddsi_type_identifier.h"
+#include "dds/ddsi/ddsi_xt.h"
 #include "dds/ddsc/dds_public_alloc.h"
 
 #if defined (__cplusplus)
@@ -26,7 +26,7 @@ struct ddsi_serdata;
 struct ddsi_serdata_ops;
 struct ddsi_sertype_ops;
 struct ddsi_domaingv;
-struct TypeIdentifier;
+struct ddsi_typeid_t;
 
 #define DDSI_SERTYPE_REGISTERING 0x40000000u // set prior to setting gv
 #define DDSI_SERTYPE_REGISTERED  0x80000000u // set after setting gv
@@ -78,11 +78,11 @@ typedef bool (*ddsi_sertype_equal_t) (const struct ddsi_sertype *a, const struct
 typedef uint32_t (*ddsi_sertype_hash_t) (const struct ddsi_sertype *tp);
 
 /* Gets the type identifier of the requested kind (minimal or complete) for this sertype */
-typedef struct TypeIdentifier * (*ddsi_sertype_typeid_t) (const struct ddsi_sertype *tp, bool minimal);
+typedef ddsi_typeid_t * (*ddsi_sertype_typeid_t) (const struct ddsi_sertype *tp, bool minimal);
 
 /* Gets the type object of the requested kind (minimal or complete) for this sertype,
    and sets the serialized size of the type object in the sersz output parameter */
-typedef struct TypeObject * (*ddsi_sertype_typeobj_t) (const struct ddsi_sertype *tp, bool minimal, uint32_t *sersz);
+typedef ddsi_typeobj_t * (*ddsi_sertype_typeobj_t) (const struct ddsi_sertype *tp, bool minimal, uint32_t *sersz);
 
 /* Called when the refcount dropped to zero */
 typedef void (*ddsi_sertype_free_t) (struct ddsi_sertype *tp);
@@ -189,13 +189,13 @@ DDS_EXPORT inline void *ddsi_sertype_alloc_sample (const struct ddsi_sertype *tp
 DDS_EXPORT inline void ddsi_sertype_free_sample (const struct ddsi_sertype *tp, void *sample, dds_free_op_t op) {
   ddsi_sertype_free_samples (tp, &sample, 1, op);
 }
-DDS_EXPORT inline struct TypeIdentifier * ddsi_sertype_typeid (const struct ddsi_sertype *tp, bool minimal)
+DDS_EXPORT inline ddsi_typeid_t * ddsi_sertype_typeid (const struct ddsi_sertype *tp, bool minimal)
 {
   if (!tp->ops->typeid)
     return NULL;
   return tp->ops->typeid (tp, minimal);
 }
-DDS_EXPORT inline struct TypeObject * ddsi_sertype_typeobj (const struct ddsi_sertype *tp, bool minimal, uint32_t *sersz)
+DDS_EXPORT inline ddsi_typeobj_t * ddsi_sertype_typeobj (const struct ddsi_sertype *tp, bool minimal, uint32_t *sersz)
 {
   if (!tp->ops->typeobj)
   {

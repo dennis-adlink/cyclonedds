@@ -159,7 +159,7 @@ static dds_builtintopic_endpoint_t *make_builtintopic_endpoint (
       ddsi_typeid_copy (&ep->qos->type_information->complete.typeid_with_size.type_id, &tlm->type_id);
       if (tlm->sertype != NULL)
       {
-        struct TypeObject *tobj = ddsi_sertype_typeobj (tlm->sertype, false, &ep->qos->type_information->complete.typeid_with_size.typeobject_serialized_size);
+        ddsi_typeobj_t *tobj = ddsi_sertype_typeobj (tlm->sertype, false, &ep->qos->type_information->complete.typeid_with_size.typeobject_serialized_size);
         ddsrt_free (tobj);
       }
     }
@@ -168,7 +168,7 @@ static dds_builtintopic_endpoint_t *make_builtintopic_endpoint (
       ddsi_typeid_copy (&ep->qos->type_information->minimal.typeid_with_size.type_id, &tlm->type_id_minimal);
       if (tlm->sertype != NULL)
       {
-        struct TypeObject *tobj = ddsi_sertype_typeobj (tlm->sertype, true, &ep->qos->type_information->minimal.typeid_with_size.typeobject_serialized_size);
+        ddsi_typeobj_t *tobj = ddsi_sertype_typeobj (tlm->sertype, true, &ep->qos->type_information->minimal.typeid_with_size.typeobject_serialized_size);
         ddsrt_free (tobj);
       }
     }
@@ -288,7 +288,7 @@ dds_builtintopic_endpoint_t *dds_get_matched_publication_data (dds_entity_t read
 }
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
-dds_return_t dds_builtintopic_get_endpoint_typeid (dds_builtintopic_endpoint_t * builtintopic_endpoint, struct TypeIdentifier **type_identifier)
+dds_return_t dds_builtintopic_get_endpoint_typeid (dds_builtintopic_endpoint_t * builtintopic_endpoint, ddsi_typeid_t **type_identifier)
 {
   if (builtintopic_endpoint == NULL)
     return DDS_RETCODE_BAD_PARAMETER;

@@ -19,6 +19,8 @@
 #include "dds/ddsrt/md5.h"
 #include "dds/ddsi/ddsi_serdata.h"
 #include "dds/ddsi/ddsi_cdrstream.h"
+#include "dds/ddsi/ddsi_xt_typeinfo.h"
+#include "dds/ddsi/ddsi_xt_typemap.h"
 #include "dds/ddsc/dds_opcodes.h"
 
 #include "idl/print.h"
@@ -27,8 +29,6 @@
 #include "idl/string.h"
 #include "expression.h"
 #include "generator.h"
-#include "typeobject.h"
-#include "typemapping.h"
 #include "descriptor_type_meta.h"
 
 struct type_meta {

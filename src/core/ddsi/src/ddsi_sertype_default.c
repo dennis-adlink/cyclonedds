@@ -26,7 +26,7 @@
 #include "dds/ddsi/ddsi_sertype.h"
 #include "dds/ddsi/ddsi_serdata_default.h"
 #include "dds/ddsi/ddsi_type_lookup.h"
-#include "dds/ddsi/ddsi_type_xtypes.h"
+#include "dds/ddsi/ddsi_xt_wrap.h"
 
 
 static bool sertype_default_equal (const struct ddsi_sertype *acmn, const struct ddsi_sertype *bcmn)
@@ -59,7 +59,7 @@ static bool sertype_default_equal (const struct ddsi_sertype *acmn, const struct
   return true;
 }
 
-static struct TypeIdentifier * sertype_default_typeid (const struct ddsi_sertype *tpcmn, bool minimal)
+static ddsi_typeid_t * sertype_default_typeid (const struct ddsi_sertype *tpcmn, bool minimal)
 {
   assert (tpcmn);
   const struct ddsi_sertype_default *tp = (struct ddsi_sertype_default *) tpcmn;
@@ -67,12 +67,12 @@ static struct TypeIdentifier * sertype_default_typeid (const struct ddsi_sertype
   ser = minimal ? &tp->type.typeid_minimal_ser : &tp->type.typeid_ser;
   if (ser->sz == 0 || ser->data == NULL)
     return NULL;
-  struct TypeIdentifier *tid = ddsrt_calloc (1, sizeof (*tid));
+  ddsi_typeid_t *tid = ddsrt_calloc (1, sizeof (*tid));
   ddsi_typeid_deser (ser->data, ser->sz, &tid);
   return tid;
 }
 
-static struct TypeObject * sertype_default_typeobj (const struct ddsi_sertype *tpcmn, bool minimal, uint32_t *sersz)
+static ddsi_typeobj_t * sertype_default_typeobj (const struct ddsi_sertype *tpcmn, bool minimal, uint32_t *sersz)
 {
   assert (tpcmn);
   const struct ddsi_sertype_default *tp = (struct ddsi_sertype_default *) tpcmn;
@@ -82,7 +82,7 @@ static struct TypeObject * sertype_default_typeobj (const struct ddsi_sertype *t
     *sersz = ser->sz;
   if (ser->sz == 0 || ser->data == NULL)
     return NULL;
-  struct TypeObject *tobj = ddsrt_calloc (1, sizeof (*tobj));
+  ddsi_typeobj_t *tobj = ddsrt_calloc (1, sizeof (*tobj));
   ddsi_typeobj_deser (ser->data, ser->sz, &tobj);
   return tobj;
 }

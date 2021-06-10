@@ -142,10 +142,10 @@ static int gcreq_topic (struct topic *tp);
 static int gcreq_topic_definition (struct ddsi_topic_definition *tpd, ddsrt_wctime_t timestamp);
 static int gcreq_proxy_topic (struct proxy_participant *proxypp, struct proxy_topic *proxytp, ddsrt_wctime_t timestamp);
 
-static struct ddsi_topic_definition *lookup_topic_definition_locked (struct ddsi_domaingv *gv, struct dds_qos *qos, const struct TypeIdentifier *type_id, const struct ddsi_sertype *type, bool *new_tpd);
-static struct ddsi_topic_definition *lookup_topic_definition (struct ddsi_domaingv *gv, struct dds_qos *qos, const struct TypeIdentifier *type_id, const struct ddsi_sertype *type, bool *new_tpd);
-static struct ddsi_topic_definition * ref_topic_definition_locked (struct ddsi_domaingv *gv, const struct ddsi_sertype *type, const struct TypeIdentifier *type_id, struct dds_qos *qos, bool *is_new);
-static struct ddsi_topic_definition * ref_topic_definition (struct ddsi_domaingv *gv, const struct ddsi_sertype *type, const struct TypeIdentifier *type_id, struct dds_qos *qos, bool *is_new);
+static struct ddsi_topic_definition *lookup_topic_definition_locked (struct ddsi_domaingv *gv, struct dds_qos *qos, const ddsi_typeid_t *type_id, const struct ddsi_sertype *type, bool *new_tpd);
+static struct ddsi_topic_definition *lookup_topic_definition (struct ddsi_domaingv *gv, struct dds_qos *qos, const ddsi_typeid_t *type_id, const struct ddsi_sertype *type, bool *new_tpd);
+static struct ddsi_topic_definition * ref_topic_definition_locked (struct ddsi_domaingv *gv, const struct ddsi_sertype *type, const ddsi_typeid_t *type_id, struct dds_qos *qos, bool *is_new);
+static struct ddsi_topic_definition * ref_topic_definition (struct ddsi_domaingv *gv, const struct ddsi_sertype *type, const ddsi_typeid_t *type_id, struct dds_qos *qos, bool *is_new);
 static void unref_topic_definition_locked (struct ddsi_topic_definition *tpd, ddsrt_wctime_t timestamp);
 static void unref_topic_definition (struct ddsi_domaingv *gv, struct ddsi_topic_definition *tpd, ddsrt_wctime_t timestamp);
 static void delete_topic_definition_locked (struct ddsi_topic_definition *tpd, ddsrt_wctime_t timestamp);
@@ -2945,8 +2945,8 @@ static bool topickind_qos_match_p_lock (
     const dds_qos_t *wrqos,
     dds_qos_policy_id_t *reason
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    , const struct TypeIdentifier *rd_typeid
-    , const struct TypeIdentifier *wr_typeid
+    , const ddsi_typeid_t *rd_typeid
+    , const ddsi_typeid_t *wr_typeid
 #endif
 )
 {
@@ -4833,7 +4833,7 @@ dds_return_t ddsi_new_topic
 
   /* Set topic name, type name and type id in qos */
   assert (type->tlm != NULL);
-  struct TypeIdentifier * tid = &type->tlm->type_id;
+  ddsi_typeid_t * tid = &type->tlm->type_id;
   assert (!ddsi_typeid_is_none (tid));
   tp_qos->present |= QP_TYPE_INFORMATION;
   tp_qos->type_information = ddsi_tl_meta_to_typeinfo (type->tlm);
@@ -4924,7 +4924,7 @@ dds_return_t delete_topic (struct ddsi_domaingv *gv, const struct ddsi_guid *gui
   return 0;
 }
 
-static struct ddsi_topic_definition * ref_topic_definition_locked (struct ddsi_domaingv *gv, const struct ddsi_sertype *type, const struct TypeIdentifier *type_id, struct dds_qos *qos, bool *is_new)
+static struct ddsi_topic_definition * ref_topic_definition_locked (struct ddsi_domaingv *gv, const struct ddsi_sertype *type, const ddsi_typeid_t *type_id, struct dds_qos *qos, bool *is_new)
 {
   assert (is_new);
   struct ddsi_topic_definition *tpd = lookup_topic_definition_locked (gv, qos, type_id, type, is_new);
@@ -4932,7 +4932,7 @@ static struct ddsi_topic_definition * ref_topic_definition_locked (struct ddsi_d
   return tpd;
 }
 
-static struct ddsi_topic_definition * ref_topic_definition (struct ddsi_domaingv *gv, const struct ddsi_sertype *type, const struct TypeIdentifier *type_id, struct dds_qos *qos, bool *is_new)
+static struct ddsi_topic_definition * ref_topic_definition (struct ddsi_domaingv *gv, const struct ddsi_sertype *type, const ddsi_typeid_t *type_id, struct dds_qos *qos, bool *is_new)
 {
   ddsrt_mutex_lock (&gv->topic_defs_lock);
   struct ddsi_topic_definition *tpd = ref_topic_definition_locked (gv, type, type_id, qos, is_new);
@@ -5900,7 +5900,7 @@ static struct ddsi_topic_definition * new_topic_definition (struct ddsi_domaingv
   tpd->xqos = ddsi_xqos_dup (qos);
   tpd->refc = 0;
   tpd->gv = gv;
-  struct TypeIdentifier *tid;
+  ddsi_typeid_t *tid;
   if (type != NULL)
   {
     if (type->tlm == NULL)
@@ -5948,7 +5948,7 @@ static struct ddsi_topic_definition * new_topic_definition (struct ddsi_domaingv
   return tpd;
 }
 
-static struct ddsi_topic_definition *lookup_topic_definition_locked (struct ddsi_domaingv *gv, struct dds_qos *qos, const struct TypeIdentifier *type_id, const struct ddsi_sertype *type, bool *is_new)
+static struct ddsi_topic_definition *lookup_topic_definition_locked (struct ddsi_domaingv *gv, struct dds_qos *qos, const ddsi_typeid_t *type_id, const struct ddsi_sertype *type, bool *is_new)
 {
   bool new = false;
   struct ddsi_topic_definition templ;
@@ -5971,7 +5971,7 @@ static struct ddsi_topic_definition *lookup_topic_definition_locked (struct ddsi
   return tpd;
 }
 
-static struct ddsi_topic_definition *lookup_topic_definition (struct ddsi_domaingv *gv, struct dds_qos *qos, const struct TypeIdentifier *type_id, const struct ddsi_sertype *type, bool *is_new)
+static struct ddsi_topic_definition *lookup_topic_definition (struct ddsi_domaingv *gv, struct dds_qos *qos, const ddsi_typeid_t *type_id, const struct ddsi_sertype *type, bool *is_new)
 {
   ddsrt_mutex_lock (&gv->topic_defs_lock);
   struct ddsi_topic_definition *tpd = lookup_topic_definition_locked (gv, qos, type_id, type, is_new);
@@ -6057,7 +6057,7 @@ struct proxy_topic *lookup_proxy_topic (struct proxy_participant *proxypp, const
   return ptp;
 }
 
-void new_proxy_topic (struct proxy_participant *proxypp, seqno_t seq, const ddsi_guid_t *guid, const struct TypeIdentifier *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp)
+void new_proxy_topic (struct proxy_participant *proxypp, seqno_t seq, const ddsi_guid_t *guid, const ddsi_typeid_t *type_id, struct dds_qos *qos, ddsrt_wctime_t timestamp)
 {
   assert (proxypp != NULL);
   struct ddsi_domaingv *gv = proxypp->e.gv;
@@ -6193,7 +6193,7 @@ static int proxy_endpoint_common_init (struct entity_common *e, struct proxy_end
   c->tlm = NULL;
   if (plist->qos.present & QP_TYPE_INFORMATION)
   {
-    struct TypeIdentifier * tid = NULL;
+    ddsi_typeid_t * tid = NULL;
     if (!ddsi_typeid_is_none (&plist->qos.type_information->complete.typeid_with_size.type_id))
       tid = &plist->qos.type_information->complete.typeid_with_size.type_id;
     else if (!ddsi_typeid_is_none (&plist->qos.type_information->minimal.typeid_with_size.type_id))

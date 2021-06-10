@@ -41,7 +41,7 @@
 
 #include "dds/ddsi/ddsi_plist_generic.h"
 #include "dds/ddsi/ddsi_security_omg.h"
-#include "dds/ddsi/ddsi_type_information.h"
+#include "dds/ddsi/ddsi_xt.h"
 #include "dds/ddsi/ddsi_cdrstream.h"
 
 /* I am tempted to change LENGTH_UNLIMITED to 0 in the API (with -1
@@ -583,17 +583,17 @@ static dds_return_t deser_type_information (void * __restrict dst, struct flagse
   size_t dstoff = 0;
   uint32_t srcoff = 0;
   unsigned char *buf;
-  struct TypeInformation * const * x = deser_generic_dst (dst, &dstoff, alignof (struct TypeInformation *));
+  ddsi_typeinfo_t * const * x = deser_generic_dst (dst, &dstoff, alignof (ddsi_typeinfo_t *));
   if (dd->bswap)
   {
     buf = ddsrt_memdup (dd->buf, dd->bufsz);
-    dds_stream_normalize1 ((char *) buf, &srcoff, (uint32_t) dd->bufsz, dd->bswap, /* FIXME */ CDR_ENC_VERSION_2, TypeInformation_ops);
+    dds_stream_normalize1 ((char *) buf, &srcoff, (uint32_t) dd->bufsz, dd->bswap, /* FIXME */ CDR_ENC_VERSION_2, DDS_XTypes_TypeInformation_desc.m_ops);
   }
   else
     buf = (unsigned char *) dd->buf;
 
   dds_istream_t is = { .m_buffer = buf, .m_index = 0, .m_size = (uint32_t) dd->bufsz, .m_xcdr_version = CDR_ENC_VERSION_2 };
-  dds_stream_read (&is, (void *) *x, TypeInformation_ops);
+  dds_stream_read (&is, (void *) *x, DDS_XTypes_TypeInformation_desc.m_ops);
   *flagset->present |= flag;
   if (dd->bswap)
     ddsrt_free (buf);
@@ -602,15 +602,15 @@ static dds_return_t deser_type_information (void * __restrict dst, struct flagse
 
 static dds_return_t ser_type_information (struct nn_xmsg *xmsg, nn_parameterid_t pid, const void *src, size_t srcoff, enum ddsrt_byte_order_selector bo)
 {
-  struct TypeInformation const * const * x = deser_generic_src (src, &srcoff, alignof (struct TypeInformation *));
+  ddsi_typeinfo_t const * const * x = deser_generic_src (src, &srcoff, alignof (ddsi_typeinfo_t *));
 
   dds_ostream_t os = { .m_buffer = NULL, .m_index = 0, .m_size = 0, .m_xcdr_version = /* FIXME */ CDR_ENC_VERSION_2 };
   if (bo == DDSRT_BOSEL_LE)
-    dds_stream_writeLE ((dds_ostreamLE_t *) &os, (const void *) *x, TypeInformation_ops);
+    dds_stream_writeLE ((dds_ostreamLE_t *) &os, (const void *) *x, DDS_XTypes_TypeInformation_desc.m_ops);
   else if (bo == DDSRT_BOSEL_BE)
-    dds_stream_writeBE ((dds_ostreamBE_t *) &os, (const void *) *x, TypeInformation_ops);
+    dds_stream_writeBE ((dds_ostreamBE_t *) &os, (const void *) *x, DDS_XTypes_TypeInformation_desc.m_ops);
   else
-    dds_stream_write (&os, (const void *) *x, TypeInformation_ops);
+    dds_stream_write (&os, (const void *) *x, DDS_XTypes_TypeInformation_desc.m_ops);
   char * const p = nn_xmsg_addpar_bo (xmsg, pid, os.m_size, bo);
   memcpy (p, os.m_buffer, os.m_size);
   return 0;
@@ -618,22 +618,22 @@ static dds_return_t ser_type_information (struct nn_xmsg *xmsg, nn_parameterid_t
 
 static dds_return_t valid_type_information (const void *src, size_t srcoff)
 {
-  struct TypeInformation const * const * x = deser_generic_src (src, &srcoff, alignof (struct TypeInformation *));
+  ddsi_typeinfo_t const * const * x = deser_generic_src (src, &srcoff, alignof (ddsi_typeinfo_t *));
   /* FIXME: add more checks? */
-  return *x != NULL && (*x)->minimal.typeid_with_size.type_id._d != TK_NONE;
+  return *x != NULL && (*x)->minimal.typeid_with_size.type_id._d != DDS_XTypes_TK_NONE;
 }
 
 static bool equal_type_information (const void *srcx, const void *srcy, size_t srcoff)
 {
-  struct TypeInformation const * const * x = deser_generic_src (srcx, &srcoff, alignof (struct TypeInformation *));
-  struct TypeInformation const * const * y = deser_generic_src (srcy, &srcoff, alignof (struct TypeInformation *));
+  ddsi_typeinfo_t const * const * x = deser_generic_src (srcx, &srcoff, alignof (ddsi_typeinfo_t *));
+  ddsi_typeinfo_t const * const * y = deser_generic_src (srcy, &srcoff, alignof (ddsi_typeinfo_t *));
   return ddsi_type_information_equal (*x, *y);
 }
 
 static dds_return_t unalias_type_information (void * __restrict dst, size_t * __restrict dstoff)
 {
-  struct TypeInformation const * * x = deser_generic_dst (dst, dstoff, alignof (struct TypeInformation *));
-  struct TypeInformation * new_type_info = ddsrt_malloc (sizeof (*new_type_info));
+  ddsi_typeinfo_t const * * x = deser_generic_dst (dst, dstoff, alignof (ddsi_typeinfo_t *));
+  ddsi_typeinfo_t * new_type_info = ddsrt_malloc (sizeof (*new_type_info));
   memcpy (new_type_info, *x, sizeof (*new_type_info));
   *x = new_type_info;
   *dstoff += sizeof (*x);
@@ -642,7 +642,7 @@ static dds_return_t unalias_type_information (void * __restrict dst, size_t * __
 
 static dds_return_t fini_type_information (void * __restrict dst, size_t * __restrict dstoff, struct flagset *flagset, uint64_t flag)
 {
-  struct TypeInformation const * const * x = deser_generic_src (dst, dstoff, alignof (struct TypeInformation *));
+  ddsi_typeinfo_t const * const * x = deser_generic_src (dst, dstoff, alignof (ddsi_typeinfo_t *));
   if ((*flagset->present & flag) && !(*flagset->aliased & flag))
     ddsrt_free ((void *) *x);
   return 0;
@@ -650,7 +650,7 @@ static dds_return_t fini_type_information (void * __restrict dst, size_t * __res
 
 static bool print_type_information (char * __restrict *buf, size_t * __restrict bufsize, const void *src, size_t srcoff)
 {
-  struct TypeInformation const * const * x = deser_generic_src (src, &srcoff, alignof (struct TypeInformation *));
+  ddsi_typeinfo_t const * const * x = deser_generic_src (src, &srcoff, alignof (ddsi_typeinfo_t *));
   return prtf (buf, bufsize, PTYPEIDFMT "/" PTYPEIDFMT, PTYPEID((*x)->minimal.typeid_with_size.type_id), PTYPEID((*x)->complete.typeid_with_size.type_id));
 }
 

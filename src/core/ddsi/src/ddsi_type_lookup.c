@@ -24,7 +24,7 @@
 #include "dds/ddsi/ddsi_domaingv.h"
 #include "dds/ddsi/ddsi_tkmap.h"
 #include "dds/ddsi/ddsi_entity_index.h"
-#include "dds/ddsi/ddsi_type_identifier.h"
+#include "dds/ddsi/ddsi_xt.h"
 #include "dds/ddsi/q_gc.h"
 #include "dds/ddsi/q_entity.h"
 #include "dds/ddsi/q_protocol.h"
@@ -103,7 +103,7 @@ static void tlm_fini (struct tl_meta *tlm)
   ddsrt_free (tlm);
 }
 
-struct tl_meta * ddsi_tl_meta_lookup_locked (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, const char *type_name)
+struct tl_meta * ddsi_tl_meta_lookup_locked (struct ddsi_domaingv *gv, const ddsi_typeid_t *type_id, const char *type_name)
 {
   assert (type_id);
   struct tl_meta templ, *tlm = NULL;
@@ -125,7 +125,7 @@ struct tl_meta * ddsi_tl_meta_lookup_locked (struct ddsi_domaingv *gv, const str
   return tlm;
 }
 
-struct tl_meta * ddsi_tl_meta_lookup (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, const char *type_name)
+struct tl_meta * ddsi_tl_meta_lookup (struct ddsi_domaingv *gv, const ddsi_typeid_t *type_id, const char *type_name)
 {
   struct tl_meta *tlm;
   ddsrt_mutex_lock (&gv->tl_admin_lock);
@@ -134,12 +134,12 @@ struct tl_meta * ddsi_tl_meta_lookup (struct ddsi_domaingv *gv, const struct Typ
   return tlm;
 }
 
-static struct tl_meta * tlm_ref_impl (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, const char *type_name, const struct ddsi_sertype *type, const ddsi_guid_t *proxy_guid)
+static struct tl_meta * tlm_ref_impl (struct ddsi_domaingv *gv, const ddsi_typeid_t *type_id, const char *type_name, const struct ddsi_sertype *type, const ddsi_guid_t *proxy_guid)
 {
   bool resolved = false;
   assert (type_id || type);
   GVTRACE (" ref tl_meta");
-  const struct TypeIdentifier *tid = NULL, *tid_min = NULL;
+  const ddsi_typeid_t *tid = NULL, *tid_min = NULL;
   struct tl_meta *tlm = NULL;
   const char *tname;
 
@@ -221,7 +221,7 @@ static struct tl_meta * tlm_ref_impl (struct ddsi_domaingv *gv, const struct Typ
   }
   if (tlm->xt == NULL)
   {
-    struct TypeObject *tobj = ddsi_sertype_typeobj (tlm->sertype, ddsi_typeid_is_minimal (tid), NULL);
+    ddsi_typeobj_t *tobj = ddsi_sertype_typeobj (tlm->sertype, ddsi_typeid_is_minimal (tid), NULL);
     tlm->xt = ddsi_xt_type_init (tid, tobj); // tobj can be null, in that case only the type identifier will be added to xt
     if (tobj != NULL)
       ddsrt_free (tobj);
@@ -230,7 +230,7 @@ static struct tl_meta * tlm_ref_impl (struct ddsi_domaingv *gv, const struct Typ
   {
     if (ddsi_typeid_is_complete (tid) && !tlm->xt->has_complete_obj)
     {
-      struct TypeObject *tobj = ddsi_sertype_typeobj (tlm->sertype, false, NULL);
+      ddsi_typeobj_t *tobj = ddsi_sertype_typeobj (tlm->sertype, false, NULL);
       ddsi_xt_type_add (tlm->xt, tid, tobj);
       if (tobj)
         ddsrt_free (tobj);
@@ -238,7 +238,7 @@ static struct tl_meta * tlm_ref_impl (struct ddsi_domaingv *gv, const struct Typ
   }
   if (tid_min != NULL && tid_min != tid && !tlm->xt->has_minimal_id)
   {
-    struct TypeObject *tobj_min = ddsi_sertype_typeobj (tlm->sertype, true, NULL);
+    ddsi_typeobj_t *tobj_min = ddsi_sertype_typeobj (tlm->sertype, true, NULL);
     ddsi_xt_type_add (tlm->xt, tid_min, tobj_min);
     if (tobj_min)
       ddsrt_free (tobj_min);
@@ -260,7 +260,7 @@ struct tl_meta * ddsi_tl_meta_local_ref (struct ddsi_domaingv *gv, const struct 
   return tlm_ref_impl (gv, NULL, NULL, type, NULL);
 }
 
-struct tl_meta * ddsi_tl_meta_proxy_ref (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, const char *type_name, const ddsi_guid_t *proxy_guid)
+struct tl_meta * ddsi_tl_meta_proxy_ref (struct ddsi_domaingv *gv, const ddsi_typeid_t *type_id, const char *type_name, const ddsi_guid_t *proxy_guid)
 {
   assert (type_id != NULL);
   assert (type_name != NULL);
@@ -288,7 +288,7 @@ static void tlm_unref_impl (struct ddsi_domaingv *gv, const struct tl_meta *tlm,
 {
   assert (tlm || type);
   GVTRACE ("unref tl_meta");
-  struct TypeIdentifier *tid = NULL;
+  ddsi_typeid_t *tid = NULL;
   if (tlm == NULL)
   {
     GVTRACE (" sertype %p", type);
@@ -345,7 +345,7 @@ static struct writer *get_typelookup_writer (const struct ddsi_domaingv *gv, uin
   return wr;
 }
 
-bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const struct TypeIdentifier *type_id, const char *type_name)
+bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const ddsi_typeid_t *type_id, const char *type_name)
 {
   ddsrt_mutex_lock (&gv->tl_admin_lock);
   struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, type_id, type_name);
@@ -370,8 +370,8 @@ bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const struct TypeIde
   type_lookup_request_t request;
   memcpy (&request.writer_guid, &wr->e.guid, sizeof (wr->e.guid));
   request.sequence_number = ++tlm->request_seqno;
-  request.type_ids.n = 1;
-  request.type_ids.type_ids = &tlm->type_id;
+  request.type_ids._length = 1;
+  request.type_ids._buffer = &tlm->type_id;
 
   struct ddsi_serdata *serdata = ddsi_serdata_from_sample (gv->tl_svc_request_type, SDK_DATA, &request);
   serdata->timestamp = ddsrt_time_wallclock ();
@@ -389,7 +389,7 @@ bool ddsi_tl_request_type (struct ddsi_domaingv * const gv, const struct TypeIde
   return true;
 }
 
-static void write_typelookup_reply (struct writer *wr, seqno_t seqno, struct TypeIdentifierTypeObjectPairSeq *types)
+static void write_typelookup_reply (struct writer *wr, seqno_t seqno, struct DDS_XTypes_TypeIdentifierTypeObjectPairSeq *types)
 {
   struct ddsi_domaingv * const gv = wr->e.gv;
   type_lookup_reply_t reply;
@@ -397,8 +397,8 @@ static void write_typelookup_reply (struct writer *wr, seqno_t seqno, struct Typ
   GVTRACE (" tl-reply ");
   memcpy (&reply.writer_guid, &wr->e.guid, sizeof (wr->e.guid));
   reply.sequence_number = seqno;
-  reply.types.n = types->n;
-  reply.types.types = types->types;
+  reply.types._length = types->_length;
+  reply.types._buffer = types->_buffer;
   struct ddsi_serdata *serdata = ddsi_serdata_from_sample (gv->tl_svc_reply_type, SDK_DATA, &reply);
   serdata->timestamp = ddsrt_time_wallclock ();
 
@@ -413,13 +413,13 @@ void ddsi_tl_handle_request (struct ddsi_domaingv *gv, struct ddsi_serdata *samp
   assert (!(sample_common->statusinfo & (NN_STATUSINFO_DISPOSE | NN_STATUSINFO_UNREGISTER)));
   const struct ddsi_serdata_pserop *sample = (const struct ddsi_serdata_pserop *) sample_common;
   const type_lookup_request_t *req = sample->sample;
-  GVTRACE (" handle-tl-req wr "PGUIDFMT " seqnr %"PRIi64" ntypeids %"PRIu32, PGUID (req->writer_guid), req->sequence_number, req->type_ids.n);
+  GVTRACE (" handle-tl-req wr "PGUIDFMT " seqnr %"PRIi64" ntypeids %"PRIu32, PGUID (req->writer_guid), req->sequence_number, req->type_ids._length);
 
   ddsrt_mutex_lock (&gv->tl_admin_lock);
-  struct TypeIdentifierTypeObjectPairSeq types = { 0, NULL };
-  for (uint32_t n = 0; n < req->type_ids.n; n++)
+  struct DDS_XTypes_TypeIdentifierTypeObjectPairSeq types = { 0, 0, NULL, false };
+  for (uint32_t n = 0; n < req->type_ids._length; n++)
   {
-    struct TypeIdentifier *tid = &req->type_ids.type_ids[n];
+    ddsi_typeid_t *tid = &req->type_ids._buffer[n];
     GVTRACE (" type "PTYPEIDFMT, PTYPEID (*tid));
     struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, tid, NULL); /* any type name */
     if (tlm != NULL && tlm->state == TL_META_RESOLVED)
@@ -452,7 +452,7 @@ void ddsi_tl_handle_request (struct ddsi_domaingv *gv, struct ddsi_serdata *samp
   // FIXME
   // for (uint32_t n = 0; n < types.n; n++)
   //   ddsrt_free (types.types[n].type_object.value);
-  ddsrt_free (types.types);
+  ddsrt_free (types._buffer);
 }
 
 static void tlm_register_with_proxy_endpoints_locked (struct ddsi_domaingv *gv, struct tl_meta *tlm)
@@ -507,18 +507,18 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
   bool resolved = false;
 
   ddsrt_mutex_lock (&gv->tl_admin_lock);
-  GVTRACE ("handle-tl-reply wr "PGUIDFMT " seqnr %"PRIi64" ntypeids %"PRIu32" ", PGUID (reply->writer_guid), reply->sequence_number, reply->types.n);
-  while (n < reply->types.n)
+  GVTRACE ("handle-tl-reply wr "PGUIDFMT " seqnr %"PRIi64" ntypeids %"PRIu32" ", PGUID (reply->writer_guid), reply->sequence_number, reply->types._length);
+  while (n < reply->types._length)
   {
-    TypeIdentifierTypeObjectPair_t r = reply->types.types[n];
+    DDS_XTypes_TypeIdentifierTypeObjectPair r = reply->types._buffer[n];
     // FIXME: in case of minimal type id resolved, update all records with this id if more exist?
     // FIXME: in case tlm record exists with minimal type info, update if complete type info received
-    struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, r.type_identifier, NULL);
+    struct tl_meta *tlm = ddsi_tl_meta_lookup_locked (gv, &r.type_identifier, NULL);
     if (tlm != NULL && tlm->state == TL_META_REQUESTED && tlm_proxy_guid_list_count (&tlm->proxy_guids) > 0)
     {
       bool sertype_new = false;
-      GVTRACE (" type "PTYPEIDFMT, PTYPEID (*r.type_identifier));
       // FIXME
+      // GVTRACE (" type "PTYPEIDFMT, PTYPEID (*r.type_identifier));
       // st = ddsrt_malloc (sizeof (*st));
       // assume ddsi_sertype_ops_default at this point, as it should be serialized with the sertype_default serializer
       // if (!ddsi_sertype_deserialize (gv, &st->c, &ddsi_sertype_ops_default, r.type_object.length, r.type_object.value))
@@ -575,9 +575,9 @@ void ddsi_tl_handle_reply (struct ddsi_domaingv *gv, struct ddsi_serdata *sample
   }
 }
 
-struct TypeInformation *ddsi_tl_meta_to_typeinfo (const struct tl_meta *tlm)
+ddsi_typeinfo_t *ddsi_tl_meta_to_typeinfo (const struct tl_meta *tlm)
 {
-  struct TypeInformation *ti = ddsrt_calloc (1, sizeof (*ti));
+  ddsi_typeinfo_t *ti = ddsrt_calloc (1, sizeof (*ti));
   // FIXME: implement
   (void) tlm;
   return ti;

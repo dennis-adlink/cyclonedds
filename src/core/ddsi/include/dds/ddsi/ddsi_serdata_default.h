@@ -18,8 +18,8 @@
 #include "dds/ddsrt/avl.h"
 #include "dds/ddsi/ddsi_serdata.h"
 #include "dds/ddsi/ddsi_plist_generic.h"
-#include "dds/ddsi/ddsi_type_identifier.h"
-#include "dds/ddsi/ddsi_type_xtypes.h"
+#include "dds/ddsi/ddsi_xt.h"
+#include "dds/ddsi/ddsi_xt_wrap.h"
 #include "dds/ddsi/ddsi_type_lookup.h"
 
 #include "dds/dds.h"
@@ -28,7 +28,7 @@
 extern "C" {
 #endif
 
-struct TypeIdentifier;
+struct ddsi_typeid_t;
 
 struct CDRHeader {
   unsigned short identifier;

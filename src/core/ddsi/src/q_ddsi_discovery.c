@@ -1317,7 +1317,7 @@ static void handle_sedp_alive_endpoint (const struct receiver_state *rst, seqno_
              ((xqos->present & QP_PARTITION) && xqos->partition.n > 1) ? "+" : "",
              xqos->topic_name, xqos->type_name);
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  struct TypeIdentifier type_id;
+  ddsi_typeid_t type_id;
   if (xqos->present & QP_TYPE_INFORMATION)
   {
     ddsi_typeid_copy (&type_id, &xqos->type_information->minimal.typeid_with_size.type_id);
@@ -1463,7 +1463,7 @@ static void handle_sedp_alive_topic (const struct receiver_state *rst, seqno_t s
   ddsi_guid_t ppguid;
   dds_qos_t *xqos;
   int reliable;
-  struct TypeIdentifier type_id;
+  ddsi_typeid_t type_id;
 
   assert (datap);
   assert (datap->present & PP_CYCLONE_TOPIC_GUID);

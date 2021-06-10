@@ -18,7 +18,7 @@
 #include "dds/ddsi/q_protocol.h"
 #include "dds/ddsi/q_rtps.h"
 #include "dds/ddsi/q_log.h"
-#include "dds/ddsi/ddsi_type_information.h"
+#include "dds/ddsi/ddsi_xt.h"
 
 #if defined (__cplusplus)
 extern "C" {
@@ -294,7 +294,7 @@ struct dds_qos {
   /* xx */char *topic_name;
   /* xx */char *type_name;
 #ifdef DDS_HAS_TYPE_DISCOVERY
-  /* xx */struct TypeInformation *type_information;
+  /* xx */ddsi_typeinfo_t *type_information;
 #endif
   /*      PublisherQos, SubscriberQos: */
   /*xxx */dds_presentation_qospolicy_t presentation;

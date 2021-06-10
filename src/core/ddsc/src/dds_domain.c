@@ -28,7 +28,7 @@
 #include "dds/ddsi/q_config.h"
 #include "dds/ddsi/q_gc.h"
 #include "dds/ddsi/ddsi_domaingv.h"
-#include "dds/ddsi/ddsi_type_information.h"
+#include "dds/ddsi/ddsi_xt.h"
 
 static dds_return_t dds_domain_free (dds_entity *vdomain);
 
@@ -418,7 +418,7 @@ void dds_write_set_batch (bool enable)
 
 #ifdef DDS_HAS_TYPE_DISCOVERY
 
-dds_return_t dds_domain_resolve_type (dds_entity_t entity, const struct TypeIdentifier *type_id, const char *type_name, dds_duration_t timeout, struct ddsi_sertype **sertype)
+dds_return_t dds_domain_resolve_type (dds_entity_t entity, const ddsi_typeid_t *type_id, const char *type_name, dds_duration_t timeout, struct ddsi_sertype **sertype)
 {
   struct dds_entity *e;
   dds_return_t rc;

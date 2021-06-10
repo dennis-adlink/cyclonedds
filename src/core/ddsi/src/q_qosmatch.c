@@ -13,7 +13,7 @@
 #include <assert.h>
 
 #include "dds/ddsi/ddsi_xqos.h"
-#include "dds/ddsi/ddsi_type_identifier.h"
+#include "dds/ddsi/ddsi_xt.h"
 #include "dds/ddsi/ddsi_type_lookup.h"
 #include "dds/ddsi/ddsi_domaingv.h"
 #include "dds/ddsi/q_misc.h"
@@ -77,10 +77,10 @@ static bool check_assignability (struct tl_meta *rd_tlm, struct tl_meta *wr_tlm)
   return ddsi_sertype_assignable_from (rd_tlm->sertype, wr_tlm->sertype);
 }
 
-static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, char *type_name, struct tl_meta **tlm, bool *req_lookup)
+static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const ddsi_typeid_t *type_id, char *type_name, struct tl_meta **tlm, bool *req_lookup)
   ddsrt_nonnull((1, 2, 3));
 
-static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const struct TypeIdentifier *type_id, char *type_name, struct tl_meta **tlm, bool *req_lookup)
+static bool check_endpoint_typeid (struct ddsi_domaingv *gv, const ddsi_typeid_t *type_id, char *type_name, struct tl_meta **tlm, bool *req_lookup)
 {
   assert (tlm != NULL);
   assert (!ddsi_typeid_is_none (type_id));
@@ -147,8 +147,8 @@ bool qos_match_mask_p (
     uint64_t mask,
     dds_qos_policy_id_t *reason
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    , const struct TypeIdentifier *rd_typeid
-    , const struct TypeIdentifier *wr_typeid
+    , const ddsi_typeid_t *rd_typeid
+    , const ddsi_typeid_t *wr_typeid
     , bool *rd_typeid_req_lookup
     , bool *wr_typeid_req_lookup
 #endif
@@ -261,8 +261,8 @@ bool qos_match_p (
     const dds_qos_t *wr_qos,
     dds_qos_policy_id_t *reason
 #ifdef DDS_HAS_TYPE_DISCOVERY
-    , const struct TypeIdentifier *rd_typeid
-    , const struct TypeIdentifier *wr_typeid
+    , const ddsi_typeid_t *rd_typeid
+    , const ddsi_typeid_t *wr_typeid
     , bool *rd_typeid_req_lookup
     , bool *wr_typeid_req_lookup
 #endif

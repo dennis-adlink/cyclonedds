@@ -20,7 +20,7 @@ else()
 
   configure_file(src/config.h.in config.h)
 
-  add_executable(idlc src/idlc.c src/plugin.c src/options.c src/generator.c src/descriptor.c src/types.c src/typeobject.c src/typemapping.c src/descriptor_type_meta.c)
+  add_executable(idlc src/idlc.c src/plugin.c src/options.c src/generator.c src/descriptor.c src/types.c src/descriptor_type_meta.c)
   if(MSVC)
     # ignore warnings C6255 and 6263 about _alloca
     target_compile_options(idlc PRIVATE /wd6255 /wd6263)

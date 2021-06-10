@@ -392,13 +392,15 @@ emit_struct(
   void *user_data)
 {
   struct descriptor_type_meta * dtm = (struct descriptor_type_meta *) user_data;
+  idl_retcode_t ret;
 
   (void) pstate;
   (void) path;
-  if (emit_hashed_type (DDS_XTypes_TK_STRUCTURE, node, revisit, dtm) < 0)
-    return -1;
-  dtm->stack->to_minimal->_u.minimal._u.struct_type.struct_flags = get_struct_flags ((const idl_struct_t *) node);
-  return 0;
+  if ((ret = emit_hashed_type (DDS_XTypes_TK_STRUCTURE, node, revisit, dtm)) < 0)
+    return ret;
+  if (!revisit)
+    dtm->stack->to_minimal->_u.minimal._u.struct_type.struct_flags = get_struct_flags ((const idl_struct_t *) node);
+  return ret;
 }
 
 static idl_retcode_t
@@ -410,13 +412,15 @@ emit_union(
   void *user_data)
 {
   struct descriptor_type_meta * dtm = (struct descriptor_type_meta *) user_data;
+  idl_retcode_t ret;
 
   (void) pstate;
   (void) path;
-  if (emit_hashed_type (DDS_XTypes_TK_UNION, node, revisit, dtm) < 0)
-    return -1;
-  dtm->stack->to_minimal->_u.minimal._u.union_type.union_flags = get_union_flags ((const idl_union_t *) node);
-  return 0;
+  if ((ret = emit_hashed_type (DDS_XTypes_TK_UNION, node, revisit, dtm)) < 0)
+    return ret;
+  if (!revisit)
+    dtm->stack->to_minimal->_u.minimal._u.union_type.union_flags = get_union_flags ((const idl_union_t *) node);
+  return ret;
 }
 
 static idl_retcode_t
